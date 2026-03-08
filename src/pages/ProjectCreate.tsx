@@ -333,8 +333,17 @@ const ProjectCreate = () => {
 
           <div className="flex gap-4">
             <Button variant="outline" onClick={() => setAnalyzed(false)} className="font-heading">Back to Edit</Button>
-            <Button variant="hero" className="flex-1 font-heading gap-2" disabled={overBudget}>
-              <Zap className="h-4 w-4" /> Publish {missions.length} Missions
+            <Button variant="hero" className="flex-1 font-heading gap-2" disabled={overBudget || publishing} onClick={handlePublish}>
+              {publishing ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  Publishing...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4" /> Publish {missions.length} Missions
+                </>
+              )}
             </Button>
           </div>
         </div>
