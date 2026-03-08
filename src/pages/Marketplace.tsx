@@ -14,11 +14,13 @@ const skills = ['All', 'Design', 'Web Development', 'Marketing', 'Data', 'Resear
 interface MarketplaceMission {
   id: string;
   title: string;
+  title_es: string | null;
   skill: string;
   hours: number;
   reward: number;
   hourly_rate: number;
   description: string | null;
+  description_es: string | null;
   project_id: string;
   projectTitle: string;
 }
@@ -39,7 +41,7 @@ const Marketplace = () => {
     try {
       const { data: missionRows, error: missionsError } = await supabase
         .from('missions')
-        .select('id, title, skill, hours, reward, hourly_rate, description, project_id')
+        .select('id, title, title_es, skill, hours, reward, hourly_rate, description, description_es, project_id')
         .eq('status', 'approved')
         .order('created_at', { ascending: false });
 
@@ -60,11 +62,13 @@ const Marketplace = () => {
       const mappedMissions = (missionRows || []).map((m) => ({
         id: m.id,
         title: m.title,
+        title_es: (m as any).title_es || null,
         skill: m.skill,
         hours: Number(m.hours),
         reward: Number(m.reward),
         hourly_rate: Number(m.hourly_rate),
         description: m.description,
+        description_es: (m as any).description_es || null,
         project_id: m.project_id,
         projectTitle: projectMap.get(m.project_id)?.title || 'Proyecto',
       }));
@@ -95,7 +99,8 @@ const Marketplace = () => {
 
   const filtered = useMemo(() => {
     return missions.filter((m) => {
-      const matchSearch = m.title.toLowerCase().includes(search.toLowerCase());
+      const title = language === 'es' ? (m.title_es || m.title) : m.title;
+      const matchSearch = title.toLowerCase().includes(search.toLowerCase());
       const matchSkill = selectedSkill === 'All' || m.skill === selectedSkill;
       return matchSearch && matchSkill;
     });
@@ -126,15 +131,22 @@ const Marketplace = () => {
     }
   };
 
-  const parseDeliverables = (description: string | null): string[] => {
-    if (!description) return [];
-    // Try to extract bullet points or numbered items
-    const lines = description.split('\n').map(l => l.trim()).filter(Boolean);
+  const mt = (mission: MarketplaceMission, field: 'title' | 'description') => {
+    if (language === 'es') {
+      if (field === 'title') return mission.title_es || mission.title;
+      return mission.description_es || mission.description;
+    }
+    return field === 'title' ? mission.title : mission.description;
+  };
+
+  const parseDeliverables = (mission: MarketplaceMission): string[] => {
+    const desc = mt(mission, 'description');
+    if (!desc) return [];
+    const lines = desc.split('\n').map(l => l.trim()).filter(Boolean);
     const deliverables = lines.filter(l => 
       l.startsWith('-') || l.startsWith('•') || l.startsWith('*') || /^\d+[\.\)]/.test(l)
     ).map(l => l.replace(/^[-•*]\s*/, '').replace(/^\d+[\.\)]\s*/, ''));
-    // If no structured deliverables, return the full description as one item
-    return deliverables.length > 0 ? deliverables : [description];
+    return deliverables.length > 0 ? deliverables : [desc];
   };
 
   return (
@@ -188,7 +200,7 @@ const Marketplace = () => {
                 </span>
                 <Zap className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
-              <h3 className="font-heading font-bold mb-3">{mission.title}</h3>
+              <h3 className="font-heading font-bold mb-3">{mt(mission, 'title')}</h3>
               <div className="flex flex-wrap gap-4 mb-4 text-sm text-muted-foreground font-body">
                 <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {mission.hours}h</span>
                 <span className="flex items-center gap-1"><DollarSign className="h-3 w-3" /> ${mission.reward.toLocaleString()}</span>
@@ -247,7 +259,7 @@ const Marketplace = () => {
                   <span className="text-xs font-heading font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary">
                     {selectedMission.skill}
                   </span>
-                  <h2 className="text-xl md:text-2xl font-heading font-bold mt-3">{selectedMission.title}</h2>
+                  <h2 className="text-xl md:text-2xl font-heading font-bold mt-3">{mt(selectedMission, 'title')}</h2>
                   <p className="text-sm text-muted-foreground font-body mt-1">
                     {language === 'en' ? 'Project' : 'Proyecto'}: {selectedMission.projectTitle}
                   </p>
@@ -284,7 +296,7 @@ const Marketplace = () => {
                     <h3 className="font-heading font-bold">{language === 'en' ? 'Mission Description' : 'Descripción de la Misión'}</h3>
                   </div>
                   <p className="text-sm text-muted-foreground font-body leading-relaxed whitespace-pre-wrap">
-                    {selectedMission.description || (language === 'en' ? 'No description available.' : 'Sin descripción disponible.')}
+                    {mt(selectedMission, 'description') || (language === 'en' ? 'No description available.' : 'Sin descripción disponible.')}
                   </p>
                 </div>
 
@@ -295,7 +307,7 @@ const Marketplace = () => {
                     <h3 className="font-heading font-bold">{language === 'en' ? 'Expected Deliverables' : 'Entregables Esperados'}</h3>
                   </div>
                   <div className="space-y-2">
-                    {parseDeliverables(selectedMission.description).map((item, i) => (
+                    {parseDeliverables(selectedMission).map((item, i) => (
                       <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
                         <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
                           <span className="text-xs font-heading font-bold text-primary">{i + 1}</span>
