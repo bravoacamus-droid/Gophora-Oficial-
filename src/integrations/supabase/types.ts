@@ -234,6 +234,57 @@ export type Database = {
         }
         Relationships: []
       }
+      withdrawal_requests: {
+        Row: {
+          admin_note: string | null
+          amount: number
+          bank_account: string | null
+          bank_holder: string | null
+          bank_name: string | null
+          created_at: string
+          crypto_address: string | null
+          crypto_network: string | null
+          id: string
+          method: string
+          processed_at: string | null
+          processed_by: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          admin_note?: string | null
+          amount: number
+          bank_account?: string | null
+          bank_holder?: string | null
+          bank_name?: string | null
+          created_at?: string
+          crypto_address?: string | null
+          crypto_network?: string | null
+          id?: string
+          method: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          admin_note?: string | null
+          amount?: number
+          bank_account?: string | null
+          bank_holder?: string | null
+          bank_name?: string | null
+          created_at?: string
+          crypto_address?: string | null
+          crypto_network?: string | null
+          id?: string
+          method?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
