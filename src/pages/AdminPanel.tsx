@@ -383,40 +383,88 @@ const AdminPanel = () => {
                 </thead>
                 <tbody>
                   {missions.map((m) => (
-                    <tr key={m.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
-                      <td className="p-4">
-                        <div className="text-sm font-heading font-semibold">{m.title}</div>
-                        <div className="text-xs text-muted-foreground font-body mt-1">{m.hours}h @ ${m.hourly_rate}/hr</div>
-                      </td>
-                      <td className="p-4 text-sm font-body">{m.projects?.title || '—'}</td>
-                      <td className="p-4">
-                        <span className="text-xs font-heading font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary">{m.skill}</span>
-                      </td>
-                      <td className="p-4 text-sm font-heading font-semibold text-primary">${Number(m.reward).toLocaleString()}</td>
-                      <td className="p-4">{statusBadge(m.projects?.payment_status || 'unpaid')}</td>
-                      <td className="p-4">{statusBadge(m.status)}</td>
-                      <td className="p-4">
-                        {m.status === 'open' && (
-                          <div className="flex gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-xs font-heading text-green-500 gap-1"
-                              onClick={() => handleApproveMission(m.id)}
-                              disabled={m.projects?.payment_status !== 'paid'}
-                              title={m.projects?.payment_status !== 'paid' ? 'Project must be paid first' : 'Approve mission'}
-                            >
-                              <CheckCircle className="h-3 w-3" /> Approve
-                            </Button>
-                            <Button variant="ghost" size="sm" className="text-xs font-heading text-destructive gap-1" onClick={() => handleRejectMission(m.id)}>
-                              <XCircle className="h-3 w-3" /> Reject
-                            </Button>
+                    <>
+                      <tr
+                        key={m.id}
+                        className="border-b border-border/50 last:border-0 hover:bg-muted/30 cursor-pointer"
+                        onClick={() => setExpandedMission(expandedMission === m.id ? null : m.id)}
+                      >
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            {expandedMission === m.id ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
+                            <div>
+                              <div className="text-sm font-heading font-semibold">{m.title}</div>
+                              <div className="text-xs text-muted-foreground font-body mt-1">{m.hours}h @ ${m.hourly_rate}/hr</div>
+                            </div>
                           </div>
-                        )}
-                        {m.status === 'approved' && <span className="text-xs text-green-500 font-heading">✓ Approved</span>}
-                        {m.status === 'rejected' && <span className="text-xs text-destructive font-heading">✗ Rejected</span>}
-                      </td>
-                    </tr>
+                        </td>
+                        <td className="p-4 text-sm font-body">{m.projects?.title || '—'}</td>
+                        <td className="p-4">
+                          <span className="text-xs font-heading font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary">{m.skill}</span>
+                        </td>
+                        <td className="p-4 text-sm font-heading font-semibold text-primary">${Number(m.reward).toLocaleString()}</td>
+                        <td className="p-4">{statusBadge(m.projects?.payment_status || 'unpaid')}</td>
+                        <td className="p-4">{statusBadge(m.status)}</td>
+                        <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                          {m.status === 'open' && (
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs font-heading text-green-500 gap-1"
+                                onClick={() => handleApproveMission(m.id)}
+                                disabled={m.projects?.payment_status !== 'paid'}
+                                title={m.projects?.payment_status !== 'paid' ? 'Project must be paid first' : 'Approve mission'}
+                              >
+                                <CheckCircle className="h-3 w-3" /> Approve
+                              </Button>
+                              <Button variant="ghost" size="sm" className="text-xs font-heading text-destructive gap-1" onClick={() => handleRejectMission(m.id)}>
+                                <XCircle className="h-3 w-3" /> Reject
+                              </Button>
+                            </div>
+                          )}
+                          {m.status === 'approved' && <span className="text-xs text-green-500 font-heading">✓ Approved</span>}
+                          {m.status === 'rejected' && <span className="text-xs text-destructive font-heading">✗ Rejected</span>}
+                        </td>
+                      </tr>
+                      {expandedMission === m.id && (
+                        <tr key={`${m.id}-detail`} className="border-b border-border/50 bg-muted/20">
+                          <td colSpan={7} className="p-6">
+                            <div className="space-y-4">
+                              <h4 className="font-heading font-bold text-sm uppercase tracking-wider flex items-center gap-2">
+                                <Image className="h-4 w-4" /> Prueba de Pago del Proyecto
+                              </h4>
+                              {m.projects?.payment_screenshot_url ? (
+                                <div className="space-y-3">
+                                  <a href={m.projects.payment_screenshot_url} target="_blank" rel="noopener noreferrer" className="block">
+                                    <img
+                                      src={m.projects.payment_screenshot_url}
+                                      alt="Comprobante de pago"
+                                      className="max-w-md max-h-80 rounded-lg border border-border/50 object-contain hover:opacity-90 transition-opacity"
+                                    />
+                                  </a>
+                                  <p className="text-xs text-muted-foreground font-body">Click en la imagen para verla en tamaño completo</p>
+                                </div>
+                              ) : (
+                                <p className="text-sm text-muted-foreground font-body italic">No se proporcionó captura de pago</p>
+                              )}
+                              {m.projects?.tx_hash && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground font-heading uppercase">TX Hash:</span>
+                                  <code className="font-mono text-xs text-primary bg-primary/5 px-2 py-1 rounded">{m.projects.tx_hash}</code>
+                                </div>
+                              )}
+                              {m.description && (
+                                <div>
+                                  <span className="text-xs text-muted-foreground font-heading uppercase">Descripción:</span>
+                                  <p className="text-sm font-body mt-1">{m.description}</p>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))}
                   {missions.length === 0 && (
                     <tr><td colSpan={7} className="p-8 text-center text-muted-foreground font-body">No missions yet</td></tr>
