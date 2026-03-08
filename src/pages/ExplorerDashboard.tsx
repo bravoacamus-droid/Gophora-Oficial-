@@ -203,6 +203,18 @@ const ExplorerDashboard = () => {
     return map[status] || 'bg-muted text-muted-foreground';
   };
 
+  if (onboardingDone === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!onboardingDone) {
+    return <ExplorerOnboarding onComplete={() => setOnboardingDone(true)} />;
+  }
+
   return (
     <div className="container py-8 max-w-6xl">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
