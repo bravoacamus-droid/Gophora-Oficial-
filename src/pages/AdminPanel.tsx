@@ -35,16 +35,18 @@ const AdminPanel = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [statsData, usersData, projectsData, missionsData] = await Promise.all([
+      const [statsData, usersData, projectsData, missionsData, releasesData] = await Promise.all([
         adminCall('get_stats'),
         adminCall('get_users'),
         adminCall('get_projects'),
         adminCall('get_missions'),
+        adminCall('get_pending_releases'),
       ]);
       setStats(statsData);
       setUsers(usersData);
       setProjects(projectsData);
       setMissions(missionsData);
+      setPendingReleases(releasesData || []);
     } catch (err: any) {
       console.error('Admin load error:', err);
       toast.error(err.message || 'Failed to load admin data');
