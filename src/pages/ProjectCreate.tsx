@@ -110,6 +110,7 @@ const ProjectCreate = () => {
           budget: budgetNum,
           payment_status: 'paid',
           user_id: user?.id,
+          resource_link: resourceLink || null,
         })
         .select()
         .single();
