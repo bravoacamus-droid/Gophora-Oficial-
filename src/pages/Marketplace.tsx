@@ -258,7 +258,7 @@ const Marketplace = () => {
                   <span className="text-xs font-heading font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary">
                     {selectedMission.skill}
                   </span>
-                  <h2 className="text-xl md:text-2xl font-heading font-bold mt-3">{selectedMission.title}</h2>
+                  <h2 className="text-xl md:text-2xl font-heading font-bold mt-3">{mt(selectedMission, 'title')}</h2>
                   <p className="text-sm text-muted-foreground font-body mt-1">
                     {language === 'en' ? 'Project' : 'Proyecto'}: {selectedMission.projectTitle}
                   </p>
