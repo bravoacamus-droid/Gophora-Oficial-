@@ -211,8 +211,8 @@ const translations: Record<string, Record<Language, string>> = {
   'explorer.browse': { en: 'Browse Missions', es: 'Explorar Misiones' },
 
   // Marketplace
-  'marketplace.title': { en: 'Mission Marketplace', es: 'Mercado de Misiones' },
-  'marketplace.subtitle': { en: 'Find and activate approved missions that match your skills', es: 'Encuentra y activa misiones aprobadas que coincidan con tus habilidades' },
+  'marketplace.title': { en: 'Immediate Opportunity Horizon', es: 'Horizonte de Oportunidad Inmediata' },
+  'marketplace.subtitle': { en: 'The following missions are filtered by Visnity AI to match your skills. Activate any one instantly.', es: 'Las siguientes son misiones filtradas por Visnity AI que coinciden con tus habilidades. Actívate en la que quieras de inmediato.' },
   'marketplace.apply': { en: 'Activate Mission', es: 'Activar Misión' },
   'marketplace.skill': { en: 'Skill', es: 'Habilidad' },
   'marketplace.reward': { en: 'Reward', es: 'Recompensa' },
