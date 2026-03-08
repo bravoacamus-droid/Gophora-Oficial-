@@ -1,4 +1,4 @@
-import { Zap, ArrowRight, Target, Cpu, Users, Globe, Rocket, Clock, TrendingUp, LayoutGrid, Sparkles, CheckCircle, BarChart3, Building2, Calendar } from 'lucide-react';
+import { Zap, ArrowRight, Target, Cpu, Users, Globe, Rocket, Clock, TrendingUp, LayoutGrid, Calendar } from 'lucide-react';
 import gophoraLogo from '@/assets/gophora-logo.png';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -33,24 +33,24 @@ const Landing = () => {
   const { t } = useLanguage();
 
   const benefits = [
-    { icon: Clock, title: 'Faster execution', desc: 'Projects completed in days, not weeks.' },
-    { icon: TrendingUp, title: 'Scalable operations', desc: 'Handle more work without increasing payroll.' },
-    { icon: LayoutGrid, title: 'Structured delivery', desc: 'Clear outputs. Clear accountability.' },
-    { icon: Globe, title: 'Global talent activation', desc: 'Access specialized execution instantly.' },
+    { icon: Clock, title: t('landing.benefits.speed.title'), desc: t('landing.benefits.speed.desc') },
+    { icon: TrendingUp, title: t('landing.benefits.scale.title'), desc: t('landing.benefits.scale.desc') },
+    { icon: LayoutGrid, title: t('landing.benefits.structure.title'), desc: t('landing.benefits.structure.desc') },
+    { icon: Globe, title: t('landing.benefits.global.title'), desc: t('landing.benefits.global.desc') },
   ];
 
   const steps = [
-    { icon: Target, num: '01', title: 'Submit the outcome', desc: 'Describe what needs to be done.' },
-    { icon: Cpu, num: '02', title: 'Missions are generated', desc: 'Our system decomposes projects into executable units.' },
-    { icon: Users, num: '03', title: 'Execution begins instantly', desc: 'Specialized talent completes missions with defined deliverables.' },
-    { icon: Zap, num: '04', title: 'Results delivered', desc: 'Most projects complete in under 72 hours.' },
+    { icon: Target, num: '01', title: t('landing.steps.1.title'), desc: t('landing.steps.1.desc') },
+    { icon: Cpu, num: '02', title: t('landing.steps.2.title'), desc: t('landing.steps.2.desc') },
+    { icon: Users, num: '03', title: t('landing.steps.3.title'), desc: t('landing.steps.3.desc') },
+    { icon: Zap, num: '04', title: t('landing.steps.4.title'), desc: t('landing.steps.4.desc') },
   ];
 
   const tractionStats = [
-    { value: '$50K', label: 'Services processed' },
-    { value: '$5K', label: 'Revenue generated' },
-    { value: '20', label: 'Projects completed' },
-    { value: '∞', label: 'Agencies actively using GOPHORA' },
+    { value: '$50K', label: t('landing.traction.processed') },
+    { value: '$5K', label: t('landing.traction.revenue') },
+    { value: '20', label: t('landing.traction.projects') },
+    { value: '∞', label: t('landing.traction.agencies') },
   ];
 
   return (
@@ -70,8 +70,8 @@ const Landing = () => {
             transition={{ duration: 0.6, delay: 0.15 }}
             className="text-4xl md:text-6xl lg:text-7xl font-heading font-black tracking-tight leading-[1.05] mb-6"
           >
-            Execution at the speed of{' '}
-            <span className="text-gradient-primary italic">intent</span>
+            {t('landing.hero.title1')}{' '}
+            <span className="text-gradient-primary italic">{t('landing.hero.title2')}</span>
           </motion.h1>
           <motion.p
             initial={{ opacity: 0 }}
@@ -79,7 +79,7 @@ const Landing = () => {
             transition={{ duration: 0.6, delay: 0.35 }}
             className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto mb-4 font-body leading-relaxed"
           >
-            Turn complex projects into structured missions and get measurable outcomes in under 72 hours.
+            {t('landing.hero.subtitle')}
           </motion.p>
           <motion.p
             initial={{ opacity: 0 }}
@@ -87,7 +87,7 @@ const Landing = () => {
             transition={{ duration: 0.5, delay: 0.5 }}
             className="text-primary font-heading font-semibold text-sm mb-10"
           >
-            GOPHORA is the execution layer for modern companies.
+            {t('landing.hero.tagline')}
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 15 }}
@@ -97,12 +97,12 @@ const Landing = () => {
           >
             <Link to="/register">
               <Button variant="hero" size="lg" className="w-full sm:w-auto gap-2">
-                Start executing <ArrowRight className="h-4 w-4" />
+                {t('landing.hero.cta_start')} <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
             <Link to="/login">
               <Button variant="hero-outline" size="lg" className="w-full sm:w-auto gap-2">
-                Book a demo <Calendar className="h-4 w-4" />
+                {t('landing.hero.cta_demo')} <Calendar className="h-4 w-4" />
               </Button>
             </Link>
           </motion.div>
@@ -118,22 +118,22 @@ const Landing = () => {
           viewport={{ once: true, amount: 0.3 }}
         >
           <motion.p variants={fadeUp} custom={0} className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3">
-            Category Statement
+            {t('landing.gap.badge')}
           </motion.p>
           <motion.h2 variants={fadeUp} custom={1} className="text-3xl md:text-5xl font-heading font-bold mb-8">
-            The execution gap
+            {t('landing.gap.title')}
           </motion.h2>
           <motion.div variants={fadeUp} custom={2} className="space-y-6 text-lg md:text-xl font-body text-muted-foreground leading-relaxed">
-            <p><span className="text-foreground font-semibold">Ideas move instantly.</span><br />Execution doesn't.</p>
-            <p>Teams spend weeks coordinating work that should take days.</p>
+            <p><span className="text-foreground font-semibold">{t('landing.gap.ideas')}</span><br />{t('landing.gap.execution')}</p>
+            <p>{t('landing.gap.teams')}</p>
             <p className="text-base">
-              Meetings multiply.<br />
-              Freelancers fragment.<br />
-              Projects stall.
+              {t('landing.gap.meetings')}<br />
+              {t('landing.gap.freelancers')}<br />
+              {t('landing.gap.projects')}
             </p>
             <p className="text-foreground font-heading font-bold text-xl md:text-2xl pt-4">
-              The problem isn't talent.<br />
-              <span className="text-primary">It's coordination.</span>
+              {t('landing.gap.not_talent')}<br />
+              <span className="text-primary">{t('landing.gap.coordination')}</span>
             </p>
           </motion.div>
         </motion.div>
@@ -148,33 +148,27 @@ const Landing = () => {
           viewport={{ once: true, amount: 0.3 }}
         >
           <motion.p variants={fadeUp} custom={0} className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3 text-center">
-            The Shift
+            {t('landing.shift.badge')}
           </motion.p>
           <motion.h2 variants={fadeUp} custom={1} className="text-3xl md:text-5xl font-heading font-bold mb-12 text-center">
-            Work is changing
+            {t('landing.shift.title')}
           </motion.h2>
           <div className="grid md:grid-cols-2 gap-8">
-            <motion.div
-              variants={scaleIn} custom={2}
-              className="rounded-xl border border-border/50 bg-background p-8"
-            >
-              <p className="text-xs font-heading font-semibold tracking-[0.2em] text-muted-foreground uppercase mb-4">The old model</p>
+            <motion.div variants={scaleIn} custom={2} className="rounded-xl border border-border/50 bg-background p-8">
+              <p className="text-xs font-heading font-semibold tracking-[0.2em] text-muted-foreground uppercase mb-4">{t('landing.shift.old_label')}</p>
               <p className="text-muted-foreground font-body leading-relaxed">
-                Hire more people → manage more tasks → <span className="text-destructive font-semibold">move slowly.</span>
+                {t('landing.shift.old_desc')} <span className="text-destructive font-semibold">{t('landing.shift.old_result')}</span>
               </p>
             </motion.div>
-            <motion.div
-              variants={scaleIn} custom={3}
-              className="rounded-xl border border-primary/30 bg-primary/5 p-8"
-            >
-              <p className="text-xs font-heading font-semibold tracking-[0.2em] text-primary uppercase mb-4">The new model</p>
+            <motion.div variants={scaleIn} custom={3} className="rounded-xl border border-primary/30 bg-primary/5 p-8">
+              <p className="text-xs font-heading font-semibold tracking-[0.2em] text-primary uppercase mb-4">{t('landing.shift.new_label')}</p>
               <p className="text-foreground font-body leading-relaxed">
-                Define outcomes → activate talent → <span className="text-primary font-semibold">execute instantly.</span>
+                {t('landing.shift.new_desc')} <span className="text-primary font-semibold">{t('landing.shift.new_result')}</span>
               </p>
             </motion.div>
           </div>
           <motion.p variants={fadeUp} custom={4} className="text-center mt-8 text-lg font-heading font-bold text-primary">
-            GOPHORA powers this shift.
+            {t('landing.shift.powers')}
           </motion.p>
         </motion.div>
       </section>
@@ -188,19 +182,19 @@ const Landing = () => {
           viewport={{ once: true, amount: 0.3 }}
         >
           <motion.p variants={fadeUp} custom={0} className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3">
-            Product
+            {t('landing.product.badge')}
           </motion.p>
           <motion.h2 variants={fadeUp} custom={1} className="text-3xl md:text-5xl font-heading font-bold mb-6">
-            From project to outcome
+            {t('landing.product.title')}
           </motion.h2>
           <motion.p variants={fadeUp} custom={2} className="text-lg text-muted-foreground font-body leading-relaxed mb-4">
-            GOPHORA converts complex work into structured missions and orchestrates execution across global talent.
+            {t('landing.product.desc')}
           </motion.p>
           <motion.p variants={fadeUp} custom={3} className="text-muted-foreground font-body">
-            No hiring.<br />No coordination chaos.
+            {t('landing.product.no_hiring')}<br />{t('landing.product.no_chaos')}
           </motion.p>
           <motion.p variants={fadeUp} custom={4} className="text-xl font-heading font-bold text-primary mt-6">
-            Just completed outcomes.
+            {t('landing.product.outcome')}
           </motion.p>
         </motion.div>
       </section>
@@ -214,7 +208,7 @@ const Landing = () => {
             viewport={{ once: true }}
             className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3 text-center"
           >
-            How it works
+            {t('landing.how.badge')}
           </motion.p>
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
@@ -223,7 +217,7 @@ const Landing = () => {
             transition={{ duration: 0.5 }}
             className="text-3xl md:text-4xl font-heading font-bold text-center mb-16"
           >
-            Four steps to execution
+            {t('landing.how.title')}
           </motion.h2>
           <motion.div
             className="grid md:grid-cols-4 gap-8"
@@ -262,7 +256,7 @@ const Landing = () => {
             viewport={{ once: true }}
             className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3 text-center"
           >
-            Product Benefits
+            {t('landing.benefits.badge')}
           </motion.p>
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
@@ -271,7 +265,7 @@ const Landing = () => {
             transition={{ duration: 0.5 }}
             className="text-3xl md:text-4xl font-heading font-bold text-center mb-12"
           >
-            Why companies choose GOPHORA
+            {t('landing.benefits.title')}
           </motion.h2>
           <motion.div
             className="grid sm:grid-cols-2 gap-6"
@@ -308,26 +302,26 @@ const Landing = () => {
           viewport={{ once: true, amount: 0.3 }}
         >
           <motion.p variants={fadeUp} custom={0} className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3 text-center">
-            Real Example
+            {t('landing.example.badge')}
           </motion.p>
           <motion.h2 variants={fadeUp} custom={1} className="text-3xl md:text-4xl font-heading font-bold text-center mb-12">
-            Marketing campaign execution
+            {t('landing.example.title')}
           </motion.h2>
           <div className="grid md:grid-cols-2 gap-8">
             <motion.div variants={scaleIn} custom={2} className="rounded-xl border border-border/50 bg-background p-8">
-              <p className="text-xs font-heading font-semibold tracking-[0.2em] text-muted-foreground uppercase mb-4">Traditional agency workflow</p>
+              <p className="text-xs font-heading font-semibold tracking-[0.2em] text-muted-foreground uppercase mb-4">{t('landing.example.traditional_label')}</p>
               <ul className="space-y-2 text-sm text-muted-foreground font-body">
-                <li className="flex items-center gap-2"><span className="text-muted-foreground">•</span> Recruit freelancers</li>
-                <li className="flex items-center gap-2"><span className="text-muted-foreground">•</span> Coordinate tasks</li>
-                <li className="flex items-center gap-2"><span className="text-muted-foreground">•</span> Review iterations</li>
-                <li className="flex items-center gap-2"><span className="text-muted-foreground">•</span> Launch in weeks</li>
+                <li className="flex items-center gap-2"><span>•</span> {t('landing.example.trad1')}</li>
+                <li className="flex items-center gap-2"><span>•</span> {t('landing.example.trad2')}</li>
+                <li className="flex items-center gap-2"><span>•</span> {t('landing.example.trad3')}</li>
+                <li className="flex items-center gap-2"><span>•</span> {t('landing.example.trad4')}</li>
               </ul>
             </motion.div>
             <motion.div variants={scaleIn} custom={3} className="rounded-xl border border-primary/30 bg-primary/5 p-8">
-              <p className="text-xs font-heading font-semibold tracking-[0.2em] text-primary uppercase mb-4">Using GOPHORA</p>
-              <p className="text-sm text-foreground font-body mb-3">Project decomposed into missions.</p>
-              <p className="text-sm text-foreground font-body font-semibold mb-3">Design. Copy. Ads. Analytics.</p>
-              <p className="text-primary font-heading font-bold text-lg">Completed in 72 hours.</p>
+              <p className="text-xs font-heading font-semibold tracking-[0.2em] text-primary uppercase mb-4">{t('landing.example.gophora_label')}</p>
+              <p className="text-sm text-foreground font-body mb-3">{t('landing.example.gophora1')}</p>
+              <p className="text-sm text-foreground font-body font-semibold mb-3">{t('landing.example.gophora2')}</p>
+              <p className="text-primary font-heading font-bold text-lg">{t('landing.example.gophora3')}</p>
             </motion.div>
           </div>
         </motion.div>
@@ -342,23 +336,18 @@ const Landing = () => {
           viewport={{ once: true, amount: 0.3 }}
         >
           <motion.p variants={fadeUp} custom={0} className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3 text-center">
-            Traction
+            {t('landing.traction.badge')}
           </motion.p>
           <motion.h2 variants={fadeUp} custom={1} className="text-2xl md:text-3xl font-heading font-bold text-center mb-2">
-            Execution infrastructure is already working.
+            {t('landing.traction.title')}
           </motion.h2>
-          <motion.p variants={fadeUp} custom={2} className="text-sm text-muted-foreground text-center mb-10 font-body">Since January 2026</motion.p>
+          <motion.p variants={fadeUp} custom={2} className="text-sm text-muted-foreground text-center mb-10 font-body">{t('landing.traction.since')}</motion.p>
           <motion.div
             className="grid grid-cols-2 md:grid-cols-4 gap-6"
             variants={staggerContainer}
           >
             {tractionStats.map((stat, i) => (
-              <motion.div
-                key={i}
-                variants={fadeUp}
-                custom={i}
-                className="text-center"
-              >
+              <motion.div key={i} variants={fadeUp} custom={i} className="text-center">
                 <div className="text-3xl md:text-4xl font-heading font-black text-primary">{stat.value}</div>
                 <div className="text-xs md:text-sm text-muted-foreground font-body mt-1">{stat.label}</div>
               </motion.div>
@@ -376,16 +365,16 @@ const Landing = () => {
           viewport={{ once: true, amount: 0.3 }}
         >
           <motion.p variants={fadeUp} custom={0} className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3">
-            Why GOPHORA
+            {t('landing.why.badge')}
           </motion.p>
           <motion.p variants={fadeUp} custom={1} className="text-xl md:text-2xl text-muted-foreground font-body mb-4">
-            Most platforms organize work.
+            {t('landing.why.organize')}
           </motion.p>
           <motion.h2 variants={fadeUp} custom={2} className="text-3xl md:text-5xl font-heading font-bold mb-4">
-            GOPHORA <span className="text-primary">completes</span> work.
+            GOPHORA <span className="text-primary">{t('landing.why.completes')}</span> {t('landing.why.work')}
           </motion.h2>
           <motion.p variants={fadeUp} custom={3} className="text-lg text-muted-foreground font-body">
-            That difference changes everything.
+            {t('landing.why.difference')}
           </motion.p>
         </motion.div>
       </section>
@@ -399,16 +388,16 @@ const Landing = () => {
           viewport={{ once: true, amount: 0.3 }}
         >
           <motion.p variants={fadeUp} custom={0} className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3">
-            The Future
+            {t('landing.future.badge')}
           </motion.p>
           <motion.p variants={fadeUp} custom={1} className="text-xl md:text-2xl font-body text-muted-foreground leading-relaxed mb-6">
-            The next generation of companies won't scale by hiring more people.
+            {t('landing.future.line1')}
           </motion.p>
           <motion.p variants={fadeUp} custom={2} className="text-xl md:text-2xl font-heading font-bold text-foreground mb-6">
-            They will scale by <span className="text-primary">activating execution.</span>
+            {t('landing.future.line2_pre')} <span className="text-primary">{t('landing.future.line2_highlight')}</span>
           </motion.p>
           <motion.p variants={fadeUp} custom={3} className="text-muted-foreground font-body">
-            GOPHORA is building the infrastructure that makes this possible.
+            {t('landing.future.line3')}
           </motion.p>
         </motion.div>
       </section>
@@ -422,20 +411,20 @@ const Landing = () => {
           viewport={{ once: true, amount: 0.3 }}
         >
           <motion.h2 variants={fadeUp} custom={0} className="text-3xl md:text-5xl font-heading font-bold mb-6">
-            Start executing faster
+            {t('landing.cta.title')}
           </motion.h2>
           <motion.p variants={fadeUp} custom={1} className="text-lg text-muted-foreground font-body mb-10">
-            Submit your first project and experience structured execution.
+            {t('landing.cta.desc')}
           </motion.p>
           <motion.div variants={fadeUp} custom={2} className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/register">
               <Button variant="hero" size="lg" className="w-full sm:w-auto gap-2">
-                Start your first mission <ArrowRight className="h-4 w-4" />
+                {t('landing.cta.start')} <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
             <Link to="/login">
               <Button variant="hero-outline" size="lg" className="w-full sm:w-auto gap-2">
-                Book a demo <Calendar className="h-4 w-4" />
+                {t('landing.cta.demo')} <Calendar className="h-4 w-4" />
               </Button>
             </Link>
           </motion.div>
@@ -448,14 +437,14 @@ const Landing = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
               <img src={gophoraLogo} alt="GOPHORA" className="h-6 dark:invert" />
-              <span className="text-xs text-muted-foreground font-body">Execution infrastructure for the modern economy</span>
+              <span className="text-xs text-muted-foreground font-body">{t('landing.footer.tagline')}</span>
             </div>
             <nav className="flex items-center gap-6 text-sm font-body text-muted-foreground">
               <Link to="/about" className="hover:text-primary transition-colors">{t('nav.about')}</Link>
               <Link to="/faq" className="hover:text-primary transition-colors">{t('nav.faq')}</Link>
               <Link to="/organizations" className="hover:text-primary transition-colors">{t('nav.organizations')}</Link>
             </nav>
-            <p className="text-sm text-muted-foreground font-body">© 2026 GOPHORA. All rights reserved.</p>
+            <p className="text-sm text-muted-foreground font-body">© 2026 GOPHORA. {t('landing.footer.rights')}</p>
           </div>
         </div>
       </footer>
