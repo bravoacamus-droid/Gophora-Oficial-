@@ -1,9 +1,10 @@
-import { Zap, ArrowRight, Target, Cpu, Users, Globe, Rocket, Clock, TrendingUp, LayoutGrid, Calendar } from 'lucide-react';
+import { useState } from 'react';
+import { Zap, ArrowRight, Target, Cpu, Users, Globe, Rocket, Clock, TrendingUp, LayoutGrid, Calendar, X } from 'lucide-react';
 import gophoraLogo from '@/assets/gophora-logo.png';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { Easing } from 'framer-motion';
 
 const ease: Easing = [0.25, 0.1, 0.25, 1];
