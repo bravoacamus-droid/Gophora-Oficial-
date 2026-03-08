@@ -246,23 +246,7 @@ const ProjectCreate = () => {
             </p>
           </div>
 
-          {/* Resource Link */}
-          <div>
-            <Label className="font-heading text-xs tracking-wider uppercase flex items-center gap-2">
-              <Link2 className="h-4 w-4" />
-              {t('project.resource_link')}
-            </Label>
-            <Input
-              className="mt-1.5"
-              type="url"
-              placeholder={t('project.resource_link_placeholder')}
-              value={resourceLink}
-              onChange={e => setResourceLink(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground font-body mt-1.5 leading-relaxed">
-              {t('project.resource_link_help')}
-            </p>
-          </div>
+          
           {/* Budget Summary */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="rounded-xl border border-border/50 bg-card p-4">
