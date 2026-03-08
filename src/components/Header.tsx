@@ -8,7 +8,7 @@ import gophoraLogo from '@/assets/gophora-logo.png';
 
 const Header = () => {
   const { language, setLanguage, t } = useLanguage();
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, accountType } = useAuth();
   const location = useLocation();
   const [darkMode, setDarkMode] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -25,9 +25,9 @@ const Header = () => {
   const isActive = (path: string) => location.pathname === path;
 
   const navLinks = user ? [
-    { path: user.accountType === 'company' ? '/company' : '/explorer', label: t('nav.dashboard') },
+    { path: accountType === 'company' ? '/company' : '/explorer', label: t('nav.dashboard') },
     { path: '/marketplace', label: t('nav.marketplace') },
-    ...(user.accountType === 'company' ? [{ path: '/projects/create', label: t('nav.projects') }] : []),
+    ...(accountType === 'company' ? [{ path: '/projects/create', label: t('nav.projects') }] : []),
     ...(isAdmin ? [{ path: '/admin', label: t('nav.admin') }] : []),
   ] : [];
 
