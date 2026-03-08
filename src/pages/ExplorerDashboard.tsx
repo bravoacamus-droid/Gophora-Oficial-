@@ -169,9 +169,10 @@ const ExplorerDashboard = () => {
   const statusLabel = (status: string) => {
     const map: Record<string, string> = {
       pending: 'ACTIVADA',
-      delivered: 'ENTREGADA',
+      delivered: 'EN REVISIÓN',
       completed: 'COMPLETADA',
       rejected: 'RECHAZADA',
+      funds_released: 'FONDOS LIBERADOS',
     };
     return map[status] || status.toUpperCase();
   };
