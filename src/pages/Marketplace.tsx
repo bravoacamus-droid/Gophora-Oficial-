@@ -320,6 +320,38 @@ const Marketplace = () => {
                   </div>
                 </div>
 
+                {/* Resource Link */}
+                {selectedMission.resourceLink && (
+                  <div className="mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <ExternalLink className="h-4 w-4 text-primary" />
+                      <h3 className="font-heading font-bold">{language === 'en' ? 'Project Resources & Brief' : 'Recursos y Brief del Proyecto'}</h3>
+                    </div>
+                    <a
+                      href={selectedMission.resourceLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-4 rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors group"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                        <ExternalLink className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-heading font-semibold text-foreground group-hover:text-primary transition-colors">
+                          {language === 'en' ? 'Open full project brief' : 'Abrir brief completo del proyecto'}
+                        </p>
+                        <p className="text-xs text-muted-foreground font-body truncate">{selectedMission.resourceLink}</p>
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                    </a>
+                    <p className="text-xs text-muted-foreground font-body mt-2">
+                      {language === 'en'
+                        ? 'Contains: deliverables breakdown, brand assets, color palette, logos, background info and all resources needed.'
+                        : 'Contiene: desglose de entregables, activos de marca, paleta de colores, logos, antecedentes y todos los recursos necesarios.'}
+                    </p>
+                  </div>
+                )}
+
                 {/* Actions */}
                 <div className="flex flex-col sm:flex-row gap-3">
                   {(() => {
