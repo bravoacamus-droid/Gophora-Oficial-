@@ -99,6 +99,7 @@ const ProjectCreate = () => {
           category,
           priority,
           budget: budgetNum,
+          user_id: user?.id,
         })
         .select()
         .single();
