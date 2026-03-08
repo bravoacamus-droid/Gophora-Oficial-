@@ -454,6 +454,7 @@ const AdminPanel = () => {
                           )}
                           {m.status === 'approved' && <span className="text-xs text-green-500 font-heading">✓ Approved</span>}
                           {m.status === 'rejected' && <span className="text-xs text-destructive font-heading">✗ Rejected</span>}
+                          {m.status === 'completed' && <span className="text-xs text-muted-foreground font-heading">✓ Completed</span>}
                         </td>
                       </tr>
                       {expandedMission === m.id && (
