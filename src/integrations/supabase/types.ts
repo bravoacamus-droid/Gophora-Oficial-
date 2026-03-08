@@ -147,9 +147,16 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           created_at: string
+          education: string[] | null
           email: string | null
           full_name: string | null
+          hobbies: string[] | null
           id: string
+          interests: string[] | null
+          onboarding_completed: boolean | null
+          skills: string[] | null
+          social_links: Json | null
+          talents: string[] | null
           updated_at: string
         }
         Insert: {
@@ -157,9 +164,16 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          education?: string[] | null
           email?: string | null
           full_name?: string | null
+          hobbies?: string[] | null
           id: string
+          interests?: string[] | null
+          onboarding_completed?: boolean | null
+          skills?: string[] | null
+          social_links?: Json | null
+          talents?: string[] | null
           updated_at?: string
         }
         Update: {
@@ -167,9 +181,16 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          education?: string[] | null
           email?: string | null
           full_name?: string | null
+          hobbies?: string[] | null
           id?: string
+          interests?: string[] | null
+          onboarding_completed?: boolean | null
+          skills?: string[] | null
+          social_links?: Json | null
+          talents?: string[] | null
           updated_at?: string
         }
         Relationships: []
