@@ -14,9 +14,11 @@ const STEPS = [
     titleEn: 'What are you interested in?',
     titleEs: '¿Qué te interesa?',
     options: [
-      'Technology', 'Design', 'Marketing', 'Writing', 'Finance',
-      'Music', 'Sports', 'Travel', 'Gaming', 'Health',
-      'Education', 'Science', 'Art', 'Photography', 'Cooking',
+      { en: 'Technology', es: 'Tecnología' }, { en: 'Design', es: 'Diseño' }, { en: 'Marketing', es: 'Marketing' },
+      { en: 'Writing', es: 'Escritura' }, { en: 'Finance', es: 'Finanzas' }, { en: 'Music', es: 'Música' },
+      { en: 'Sports', es: 'Deportes' }, { en: 'Travel', es: 'Viajes' }, { en: 'Gaming', es: 'Videojuegos' },
+      { en: 'Health', es: 'Salud' }, { en: 'Education', es: 'Educación' }, { en: 'Science', es: 'Ciencia' },
+      { en: 'Art', es: 'Arte' }, { en: 'Photography', es: 'Fotografía' }, { en: 'Cooking', es: 'Cocina' },
     ],
   },
   {
@@ -24,9 +26,13 @@ const STEPS = [
     titleEn: 'What skills do you have?',
     titleEs: '¿Qué habilidades tienes?',
     options: [
-      'Web Development', 'Graphic Design', 'Copywriting', 'Data Analysis', 'Video Editing',
-      'Social Media', 'SEO', 'Translation', 'Sales', 'Project Management',
-      'UI/UX Design', 'Photography', 'Public Speaking', 'Research', 'Customer Support',
+      { en: 'Web Development', es: 'Desarrollo Web' }, { en: 'Graphic Design', es: 'Diseño Gráfico' },
+      { en: 'Copywriting', es: 'Redacción' }, { en: 'Data Analysis', es: 'Análisis de Datos' },
+      { en: 'Video Editing', es: 'Edición de Video' }, { en: 'Social Media', es: 'Redes Sociales' },
+      { en: 'SEO', es: 'SEO' }, { en: 'Translation', es: 'Traducción' }, { en: 'Sales', es: 'Ventas' },
+      { en: 'Project Management', es: 'Gestión de Proyectos' }, { en: 'UI/UX Design', es: 'Diseño UI/UX' },
+      { en: 'Photography', es: 'Fotografía' }, { en: 'Public Speaking', es: 'Oratoria' },
+      { en: 'Research', es: 'Investigación' }, { en: 'Customer Support', es: 'Atención al Cliente' },
     ],
   },
   {
@@ -34,9 +40,12 @@ const STEPS = [
     titleEn: 'What do you do for fun?',
     titleEs: '¿Qué haces por diversión?',
     options: [
-      'Reading', 'Hiking', 'Painting', 'Dancing', 'Yoga',
-      'Coding', 'Volunteering', 'Streaming', 'Podcasting', 'Gardening',
-      'Fitness', 'Board Games', 'Film', 'Fashion', 'DIY Crafts',
+      { en: 'Reading', es: 'Lectura' }, { en: 'Hiking', es: 'Senderismo' }, { en: 'Painting', es: 'Pintura' },
+      { en: 'Dancing', es: 'Baile' }, { en: 'Yoga', es: 'Yoga' }, { en: 'Coding', es: 'Programación' },
+      { en: 'Volunteering', es: 'Voluntariado' }, { en: 'Streaming', es: 'Streaming' },
+      { en: 'Podcasting', es: 'Podcasting' }, { en: 'Gardening', es: 'Jardinería' },
+      { en: 'Fitness', es: 'Fitness' }, { en: 'Board Games', es: 'Juegos de Mesa' },
+      { en: 'Film', es: 'Cine' }, { en: 'Fashion', es: 'Moda' }, { en: 'DIY Crafts', es: 'Manualidades' },
     ],
   },
   {
@@ -44,8 +53,11 @@ const STEPS = [
     titleEn: 'What is your education level?',
     titleEs: '¿Cuál es tu nivel educativo?',
     options: [
-      'High School', 'Associate Degree', 'Bachelor\'s Degree', 'Master\'s Degree',
-      'PhD', 'Self-Taught', 'Bootcamp', 'Certifications', 'Currently Studying',
+      { en: 'High School', es: 'Preparatoria' }, { en: 'Associate Degree', es: 'Técnico Superior' },
+      { en: "Bachelor's Degree", es: 'Licenciatura' }, { en: "Master's Degree", es: 'Maestría' },
+      { en: 'PhD', es: 'Doctorado' }, { en: 'Self-Taught', es: 'Autodidacta' },
+      { en: 'Bootcamp', es: 'Bootcamp' }, { en: 'Certifications', es: 'Certificaciones' },
+      { en: 'Currently Studying', es: 'Estudiando Actualmente' },
     ],
   },
   {
@@ -53,9 +65,12 @@ const STEPS = [
     titleEn: 'What are you naturally good at?',
     titleEs: '¿En qué eres naturalmente bueno?',
     options: [
-      'Problem Solving', 'Communication', 'Leadership', 'Creativity',
-      'Organization', 'Negotiation', 'Teaching', 'Adaptability',
-      'Critical Thinking', 'Teamwork', 'Empathy', 'Time Management',
+      { en: 'Problem Solving', es: 'Resolución de Problemas' }, { en: 'Communication', es: 'Comunicación' },
+      { en: 'Leadership', es: 'Liderazgo' }, { en: 'Creativity', es: 'Creatividad' },
+      { en: 'Organization', es: 'Organización' }, { en: 'Negotiation', es: 'Negociación' },
+      { en: 'Teaching', es: 'Enseñanza' }, { en: 'Adaptability', es: 'Adaptabilidad' },
+      { en: 'Critical Thinking', es: 'Pensamiento Crítico' }, { en: 'Teamwork', es: 'Trabajo en Equipo' },
+      { en: 'Empathy', es: 'Empatía' }, { en: 'Time Management', es: 'Gestión del Tiempo' },
     ],
   },
   {
