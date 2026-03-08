@@ -502,8 +502,7 @@ const AdminPanel = () => {
               <div className="divide-y divide-border/50">
               {filterWithdrawals(withdrawalRequests).length === 0 && (
                 <div className="p-8 text-center text-muted-foreground font-body">No hay solicitudes de retiro</div>
-              {withdrawalRequests.map((w: any) => {
-                const isPending = w.status === 'pending';
+              {filterWithdrawals(withdrawalRequests).map((w: any) => {
                 return (
                   <div key={w.id} className="p-4 md:p-6 space-y-3">
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
