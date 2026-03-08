@@ -53,7 +53,7 @@ const Register = () => {
         email,
         password,
         options: {
-          emailRedirectTo: window.location.origin + '/login',
+          emailRedirectTo: window.location.origin + '/auth/callback',
           data: { account_type: accountType },
         },
       });
