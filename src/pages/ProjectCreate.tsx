@@ -40,6 +40,7 @@ const ProjectCreate = () => {
   const [projectDescription, setProjectDescription] = useState('');
   const [category, setCategory] = useState(categories[0]);
   const [priority, setPriority] = useState(priorities[1]);
+  const [resourceLink, setResourceLink] = useState('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
