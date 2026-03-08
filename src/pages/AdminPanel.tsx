@@ -500,161 +500,207 @@ const AdminPanel = () => {
                 )}
               </div>
               <div className="divide-y divide-border/50">
-              {filterWithdrawals(withdrawalRequests).length === 0 && (
-                <div className="p-8 text-center text-muted-foreground font-body">No hay solicitudes de retiro</div>
-              {filterWithdrawals(withdrawalRequests).map((w: any) => {
-                return (
-                  <div key={w.id} className="p-4 md:p-6 space-y-3">
-                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
-                      <div className="flex items-start gap-4">
-                        <div className={`p-2 rounded-lg ${w.method === 'bank' ? 'bg-primary/10' : 'bg-accent/50'}`}>
-                          {w.method === 'bank' ? <Building2 className="h-4 w-4 text-primary" /> : <Bitcoin className="h-4 w-4 text-primary" />}
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-heading font-semibold text-sm">
-                            ${Number(w.amount).toLocaleString()} — {w.explorerEmail}
-                          </p>
-                          {w.explorerName && <p className="text-xs text-muted-foreground font-body">{w.explorerName}</p>}
-                          
-                          {/* Full withdrawal details */}
-                          <div className="rounded-lg border border-border/50 bg-muted/30 p-3 mt-2 space-y-1">
-                            <p className="text-xs font-heading font-semibold uppercase tracking-wider text-muted-foreground">
-                              {w.method === 'bank' ? 'Datos bancarios' : 'Datos crypto'}
-                            </p>
-                            {w.method === 'bank' ? (
-                              <>
-                                <p className="text-sm font-body"><span className="text-muted-foreground">Banco:</span> {w.bank_name || '—'}</p>
-                                <p className="text-sm font-body"><span className="text-muted-foreground">Cuenta:</span> {w.bank_account || '—'}</p>
-                                <p className="text-sm font-body"><span className="text-muted-foreground">Titular:</span> {w.bank_holder || '—'}</p>
-                              </>
-                            ) : (
-                              <>
-                                <p className="text-sm font-body"><span className="text-muted-foreground">Red:</span> {w.crypto_network || '—'}</p>
-                                <p className="text-sm font-body"><span className="text-muted-foreground">Dirección:</span> <span className="break-all">{w.crypto_address || '—'}</span></p>
-                              </>
-                            )}
+                {filterWithdrawals(withdrawalRequests).length === 0 && (
+                  <div className="p-8 text-center text-muted-foreground font-body">No hay solicitudes de retiro</div>
+                )}
+                {filterWithdrawals(withdrawalRequests).map((w: any) => {
+                  const isPending = w.status === 'pending';
+                  return (
+                    <div key={w.id} className="p-4 md:p-6 space-y-3">
+                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                        <div className="flex items-start gap-4">
+                          <div className={`p-2 rounded-lg ${w.method === 'bank' ? 'bg-primary/10' : 'bg-accent/50'}`}>
+                            {w.method === 'bank' ? <Building2 className="h-4 w-4 text-primary" /> : <Bitcoin className="h-4 w-4 text-primary" />}
                           </div>
+                          <div className="space-y-1">
+                            <p className="font-heading font-semibold text-sm">
+                              ${Number(w.amount).toLocaleString()} — {w.explorerEmail}
+                            </p>
+                            {w.explorerName && <p className="text-xs text-muted-foreground font-body">{w.explorerName}</p>}
+                            
+                            <div className="rounded-lg border border-border/50 bg-muted/30 p-3 mt-2 space-y-1">
+                              <p className="text-xs font-heading font-semibold uppercase tracking-wider text-muted-foreground">
+                                {w.method === 'bank' ? 'Datos bancarios' : 'Datos crypto'}
+                              </p>
+                              {w.method === 'bank' ? (
+                                <>
+                                  <p className="text-sm font-body"><span className="text-muted-foreground">Banco:</span> {w.bank_name || '—'}</p>
+                                  <p className="text-sm font-body"><span className="text-muted-foreground">Cuenta:</span> {w.bank_account || '—'}</p>
+                                  <p className="text-sm font-body"><span className="text-muted-foreground">Titular:</span> {w.bank_holder || '—'}</p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-sm font-body"><span className="text-muted-foreground">Red:</span> {w.crypto_network || '—'}</p>
+                                  <p className="text-sm font-body"><span className="text-muted-foreground">Dirección:</span> <span className="break-all">{w.crypto_address || '—'}</span></p>
+                                </>
+                              )}
+                            </div>
 
-                          <p className="text-xs text-muted-foreground font-body">{new Date(w.created_at).toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground font-body">{new Date(w.created_at).toLocaleString()}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-2">
+                          <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${
+                            w.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
+                            w.status === 'approved' ? 'bg-green-500/10 text-green-500' :
+                            'bg-destructive/10 text-destructive'
+                          }`}>
+                            {w.status.toUpperCase()}
+                          </span>
+                          {w.qr_image_url && (
+                            <a href={w.qr_image_url} target="_blank" rel="noopener noreferrer">
+                              <img src={w.qr_image_url} alt="QR Code" className="h-24 w-24 rounded-lg border border-border/50 object-cover hover:opacity-80 transition-opacity" />
+                            </a>
+                          )}
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-end gap-2">
-                        <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${
-                          w.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
-                          w.status === 'approved' ? 'bg-green-500/10 text-green-500' :
-                          'bg-destructive/10 text-destructive'
-                        }`}>
-                          {w.status.toUpperCase()}
-                        </span>
-                        {w.qr_image_url && (
-                          <a href={w.qr_image_url} target="_blank" rel="noopener noreferrer">
-                            <img src={w.qr_image_url} alt="QR Code" className="h-24 w-24 rounded-lg border border-border/50 object-cover hover:opacity-80 transition-opacity" />
-                          </a>
-                        )}
-                      </div>
+                      {isPending && (
+                        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                          <Input
+                            placeholder="Nota (opcional)"
+                            value={withdrawalNotes[w.id] || ''}
+                            onChange={(e) => setWithdrawalNotes(prev => ({ ...prev, [w.id]: e.target.value }))}
+                            className="flex-1 text-sm"
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              className="gap-1 font-heading text-xs"
+                              onClick={() => handleProcessWithdrawal(w.id, 'approved')}
+                              disabled={processingId === w.id}
+                            >
+                              <CheckCircle className="h-3 w-3" /> Aprobar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1 font-heading text-xs text-destructive border-destructive/30"
+                              onClick={() => handleProcessWithdrawal(w.id, 'rejected')}
+                              disabled={processingId === w.id}
+                            >
+                              <XCircle className="h-3 w-3" /> Rechazar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {w.admin_note && (
+                        <p className="text-sm text-muted-foreground font-body italic">Nota: {w.admin_note}</p>
+                      )}
                     </div>
-
-                    {isPending && (
-                      <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-                        <Input
-                          placeholder="Nota (opcional)"
-                          value={withdrawalNotes[w.id] || ''}
-                          onChange={(e) => setWithdrawalNotes(prev => ({ ...prev, [w.id]: e.target.value }))}
-                          className="flex-1 text-sm"
-                        />
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            className="gap-1 font-heading text-xs"
-                            onClick={() => handleProcessWithdrawal(w.id, 'approved')}
-                            disabled={processingId === w.id}
-                          >
-                            <CheckCircle className="h-3 w-3" /> Aprobar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1 font-heading text-xs text-destructive border-destructive/30"
-                            onClick={() => handleProcessWithdrawal(w.id, 'rejected')}
-                            disabled={processingId === w.id}
-                          >
-                            <XCircle className="h-3 w-3" /> Rechazar
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {w.admin_note && (
-                      <p className="text-sm text-muted-foreground font-body italic">Nota: {w.admin_note}</p>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
 
           {/* PAYOUTS TAB - Successful withdrawals */}
           {activeTab === 'Payouts' && (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border/50 bg-muted/50">
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Explorer</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Monto</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Método</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Detalles de pago</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">QR</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Fecha solicitud</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Fecha pago</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Nota</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {withdrawalRequests.filter((w: any) => w.status === 'approved').map((w: any) => (
-                    <tr key={w.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
-                      <td className="p-4">
-                        <div className="text-sm font-heading font-semibold">{w.explorerEmail}</div>
-                        {w.explorerName && <div className="text-xs text-muted-foreground font-body">{w.explorerName}</div>}
-                      </td>
-                      <td className="p-4 text-sm font-heading font-semibold text-primary">${Number(w.amount).toLocaleString()}</td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          {w.method === 'bank' ? <Building2 className="h-3 w-3 text-muted-foreground" /> : <Bitcoin className="h-3 w-3 text-muted-foreground" />}
-                          <span className="text-sm font-body">{w.method === 'bank' ? 'Banco' : 'Crypto'}</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        {w.method === 'bank' ? (
-                          <div className="space-y-0.5">
-                            <p className="text-xs font-body"><span className="text-muted-foreground">Banco:</span> {w.bank_name || '—'}</p>
-                            <p className="text-xs font-body"><span className="text-muted-foreground">Cuenta:</span> {w.bank_account || '—'}</p>
-                            <p className="text-xs font-body"><span className="text-muted-foreground">Titular:</span> {w.bank_holder || '—'}</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-0.5">
-                            <p className="text-xs font-body"><span className="text-muted-foreground">Red:</span> {w.crypto_network || '—'}</p>
-                            <p className="text-xs font-body"><span className="text-muted-foreground">Wallet:</span> <span className="break-all">{w.crypto_address || '—'}</span></p>
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        {w.qr_image_url ? (
-                          <a href={w.qr_image_url} target="_blank" rel="noopener noreferrer">
-                            <img src={w.qr_image_url} alt="QR" className="h-12 w-12 rounded border border-border/50 object-cover hover:opacity-80 transition-opacity" />
-                          </a>
-                        ) : <span className="text-xs text-muted-foreground">—</span>}
-                      </td>
-                      <td className="p-4 text-xs text-muted-foreground font-body">{new Date(w.created_at).toLocaleDateString()}</td>
-                      <td className="p-4 text-xs text-muted-foreground font-body">{w.processed_at ? new Date(w.processed_at).toLocaleDateString() : '—'}</td>
-                      <td className="p-4 text-xs text-muted-foreground font-body italic">{w.admin_note || '—'}</td>
+            <div>
+              {/* Filter Bar */}
+              <div className="p-4 border-b border-border/50 bg-muted/30 flex flex-wrap items-center gap-3">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <Select value={wFilterUser} onValueChange={setWFilterUser}>
+                  <SelectTrigger className="w-[200px] text-sm">
+                    <SelectValue placeholder="Todos los usuarios" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los usuarios</SelectItem>
+                    {withdrawalUsers.map(u => (
+                      <SelectItem key={u.id} value={u.id}>{u.email}{u.name ? ` (${u.name})` : ''}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className={cn("gap-2 text-xs font-heading", !wFilterDateFrom && "text-muted-foreground")}>
+                      <CalendarIcon className="h-3 w-3" />
+                      {wFilterDateFrom ? format(wFilterDateFrom, 'dd/MM/yyyy') : 'Desde'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={wFilterDateFrom} onSelect={setWFilterDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className={cn("gap-2 text-xs font-heading", !wFilterDateTo && "text-muted-foreground")}>
+                      <CalendarIcon className="h-3 w-3" />
+                      {wFilterDateTo ? format(wFilterDateTo, 'dd/MM/yyyy') : 'Hasta'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={wFilterDateTo} onSelect={setWFilterDateTo} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="sm" className="gap-1 text-xs font-heading text-muted-foreground" onClick={clearFilters}>
+                    <X className="h-3 w-3" /> Limpiar
+                  </Button>
+                )}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border/50 bg-muted/50">
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Explorer</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Monto</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Método</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Detalles de pago</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">QR</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Fecha solicitud</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Fecha pago</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Nota</th>
                     </tr>
-                  ))}
-                  {withdrawalRequests.filter((w: any) => w.status === 'approved').length === 0 && (
-                    <tr><td colSpan={8} className="p-8 text-center text-muted-foreground font-body">No hay retiros realizados con éxito</td></tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filterWithdrawals(withdrawalRequests.filter((w: any) => w.status === 'approved')).map((w: any) => (
+                      <tr key={w.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                        <td className="p-4">
+                          <div className="text-sm font-heading font-semibold">{w.explorerEmail}</div>
+                          {w.explorerName && <div className="text-xs text-muted-foreground font-body">{w.explorerName}</div>}
+                        </td>
+                        <td className="p-4 text-sm font-heading font-semibold text-primary">${Number(w.amount).toLocaleString()}</td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            {w.method === 'bank' ? <Building2 className="h-3 w-3 text-muted-foreground" /> : <Bitcoin className="h-3 w-3 text-muted-foreground" />}
+                            <span className="text-sm font-body">{w.method === 'bank' ? 'Banco' : 'Crypto'}</span>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          {w.method === 'bank' ? (
+                            <div className="space-y-0.5">
+                              <p className="text-xs font-body"><span className="text-muted-foreground">Banco:</span> {w.bank_name || '—'}</p>
+                              <p className="text-xs font-body"><span className="text-muted-foreground">Cuenta:</span> {w.bank_account || '—'}</p>
+                              <p className="text-xs font-body"><span className="text-muted-foreground">Titular:</span> {w.bank_holder || '—'}</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-0.5">
+                              <p className="text-xs font-body"><span className="text-muted-foreground">Red:</span> {w.crypto_network || '—'}</p>
+                              <p className="text-xs font-body"><span className="text-muted-foreground">Wallet:</span> <span className="break-all">{w.crypto_address || '—'}</span></p>
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          {w.qr_image_url ? (
+                            <a href={w.qr_image_url} target="_blank" rel="noopener noreferrer">
+                              <img src={w.qr_image_url} alt="QR" className="h-12 w-12 rounded border border-border/50 object-cover hover:opacity-80 transition-opacity" />
+                            </a>
+                          ) : <span className="text-xs text-muted-foreground">—</span>}
+                        </td>
+                        <td className="p-4 text-xs text-muted-foreground font-body">{new Date(w.created_at).toLocaleDateString()}</td>
+                        <td className="p-4 text-xs text-muted-foreground font-body">{w.processed_at ? new Date(w.processed_at).toLocaleDateString() : '—'}</td>
+                        <td className="p-4 text-xs text-muted-foreground font-body italic">{w.admin_note || '—'}</td>
+                      </tr>
+                    ))}
+                    {filterWithdrawals(withdrawalRequests.filter((w: any) => w.status === 'approved')).length === 0 && (
+                      <tr><td colSpan={8} className="p-8 text-center text-muted-foreground font-body">No hay retiros realizados con éxito</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
