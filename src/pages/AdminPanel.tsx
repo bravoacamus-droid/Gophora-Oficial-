@@ -22,6 +22,7 @@ const AdminPanel = () => {
   const [missions, setMissions] = useState<any[]>([]);
   const [pendingReleases, setPendingReleases] = useState<any[]>([]);
   const [withdrawalRequests, setWithdrawalRequests] = useState<any[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [releasingId, setReleasingId] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
