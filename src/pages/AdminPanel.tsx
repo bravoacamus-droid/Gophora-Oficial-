@@ -32,6 +32,7 @@ const AdminPanel = () => {
   const [releasingId, setReleasingId] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [withdrawalNotes, setWithdrawalNotes] = useState<Record<string, string>>({});
+  const [expandedMission, setExpandedMission] = useState<string | null>(null);
   
   // Filters for Withdrawals & Payouts
   const [wFilterUser, setWFilterUser] = useState<string>('all');
