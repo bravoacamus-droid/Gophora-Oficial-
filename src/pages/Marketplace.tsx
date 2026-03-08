@@ -72,6 +72,7 @@ const Marketplace = () => {
         description_es: (m as any).description_es || null,
         project_id: m.project_id,
         projectTitle: projectMap.get(m.project_id)?.title || 'Proyecto',
+        resourceLink: projectMap.get(m.project_id)?.resource_link || null,
       }));
 
       setMissions(mappedMissions);
