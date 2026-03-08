@@ -36,6 +36,8 @@ const ProjectCreate = () => {
   const [quoteAccepted, setQuoteAccepted] = useState(false);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [txHash, setTxHash] = useState('');
+  const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(null);
+  const [paymentScreenshotPreview, setPaymentScreenshotPreview] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [budget, setBudget] = useState('');
   const [editingBudget, setEditingBudget] = useState('');
