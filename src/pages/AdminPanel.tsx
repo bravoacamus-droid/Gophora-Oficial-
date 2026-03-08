@@ -25,6 +25,7 @@ const AdminPanel = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [missions, setMissions] = useState<any[]>([]);
+  const [missionFilter, setMissionFilter] = useState<string>('active');
   const [pendingReleases, setPendingReleases] = useState<any[]>([]);
   const [withdrawalRequests, setWithdrawalRequests] = useState<any[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
@@ -369,6 +370,27 @@ const AdminPanel = () => {
           {/* MISSIONS TAB */}
           {activeTab === 'Missions' && (
             <div className="overflow-x-auto">
+              <div className="flex items-center gap-3 mb-4 p-2">
+                <span className="text-xs font-heading uppercase tracking-wider text-muted-foreground">Filter:</span>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'active', label: 'Active', desc: 'open + approved' },
+                    { value: 'completed', label: 'Completed', desc: 'delivered & paid' },
+                    { value: 'rejected', label: 'Rejected', desc: '' },
+                    { value: 'all', label: 'All', desc: '' },
+                  ].map((f) => (
+                    <Button
+                      key={f.value}
+                      variant={missionFilter === f.value ? 'default' : 'outline'}
+                      size="sm"
+                      className="text-xs font-heading"
+                      onClick={() => setMissionFilter(f.value)}
+                    >
+                      {f.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border/50 bg-muted/50">
@@ -382,7 +404,14 @@ const AdminPanel = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {missions.map((m) => (
+                  {missions
+                    .filter((m) => {
+                      if (missionFilter === 'active') return ['open', 'approved'].includes(m.status);
+                      if (missionFilter === 'completed') return m.status === 'completed';
+                      if (missionFilter === 'rejected') return m.status === 'rejected';
+                      return true;
+                    })
+                    .map((m) => (
                     <>
                       <tr
                         key={m.id}
@@ -425,6 +454,7 @@ const AdminPanel = () => {
                           )}
                           {m.status === 'approved' && <span className="text-xs text-green-500 font-heading">✓ Approved</span>}
                           {m.status === 'rejected' && <span className="text-xs text-destructive font-heading">✗ Rejected</span>}
+                          {m.status === 'completed' && <span className="text-xs text-muted-foreground font-heading">✓ Completed</span>}
                         </td>
                       </tr>
                       {expandedMission === m.id && (
