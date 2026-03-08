@@ -658,6 +658,11 @@ const AdminPanel = () => {
                     <X className="h-3 w-3" /> Limpiar
                   </Button>
                 )}
+                <div className="ml-auto">
+                  <Button variant="outline" size="sm" className="gap-2 text-xs font-heading" onClick={exportPayoutsCsv}>
+                    <Download className="h-3 w-3" /> Exportar CSV
+                  </Button>
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
