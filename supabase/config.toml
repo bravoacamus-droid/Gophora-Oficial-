@@ -2,3 +2,6 @@ project_id = "exufhdquecaloqpswdqz"
 
 [functions.analyze-project]
 verify_jwt = false
+
+[functions.admin-actions]
+verify_jwt = false
