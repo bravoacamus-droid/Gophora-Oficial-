@@ -94,6 +94,7 @@ export type Database = {
           approved_by: string | null
           created_at: string
           description: string | null
+          description_es: string | null
           hourly_rate: number
           hours: number
           id: string
@@ -102,12 +103,14 @@ export type Database = {
           skill: string
           status: string
           title: string
+          title_es: string | null
         }
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
           description?: string | null
+          description_es?: string | null
           hourly_rate: number
           hours: number
           id?: string
@@ -116,12 +119,14 @@ export type Database = {
           skill: string
           status?: string
           title: string
+          title_es?: string | null
         }
         Update: {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
           description?: string | null
+          description_es?: string | null
           hourly_rate?: number
           hours?: number
           id?: string
@@ -130,6 +135,7 @@ export type Database = {
           skill?: string
           status?: string
           title?: string
+          title_es?: string | null
         }
         Relationships: [
           {
