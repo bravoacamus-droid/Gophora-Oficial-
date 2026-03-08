@@ -25,6 +25,7 @@ const AdminPanel = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [missions, setMissions] = useState<any[]>([]);
+  const [missionFilter, setMissionFilter] = useState<string>('active');
   const [pendingReleases, setPendingReleases] = useState<any[]>([]);
   const [withdrawalRequests, setWithdrawalRequests] = useState<any[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
