@@ -77,6 +77,7 @@ const ProjectCreate = () => {
       if (data?.error) throw new Error(data.error);
 
       setMissions(data.missions || []);
+      setBudgetPaid(false);
       setAnalyzed(true);
     } catch (err: any) {
       console.error('Analysis failed:', err);
