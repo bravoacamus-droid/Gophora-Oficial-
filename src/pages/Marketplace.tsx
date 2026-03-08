@@ -62,11 +62,13 @@ const Marketplace = () => {
       const mappedMissions = (missionRows || []).map((m) => ({
         id: m.id,
         title: m.title,
+        title_es: (m as any).title_es || null,
         skill: m.skill,
         hours: Number(m.hours),
         reward: Number(m.reward),
         hourly_rate: Number(m.hourly_rate),
         description: m.description,
+        description_es: (m as any).description_es || null,
         project_id: m.project_id,
         projectTitle: projectMap.get(m.project_id)?.title || 'Proyecto',
       }));
