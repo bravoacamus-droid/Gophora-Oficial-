@@ -39,6 +39,7 @@ const App = () => (
               <Route path="/organizations" element={<Organizations />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
 
               <Route element={<ProtectedRoute />}>
                 <Route path="/company" element={<CompanyDashboard />} />
