@@ -13,6 +13,24 @@ const ProjectCreate = () => {
   const { t } = useLanguage();
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzed, setAnalyzed] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.files) {
+      setFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleAnalyze = (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,10 +89,25 @@ const ProjectCreate = () => {
           </div>
           <div>
             <Label className="font-heading text-xs tracking-wider uppercase">{t('project.files')}</Label>
-            <div className="mt-1.5 border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/30 transition-colors cursor-pointer">
+            <label
+              className="mt-1.5 border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/30 transition-colors cursor-pointer block"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+            >
+              <input type="file" multiple className="hidden" onChange={handleFileChange} />
               <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm text-muted-foreground font-body">Drag & drop files or click to browse</p>
-            </div>
+            </label>
+            {files.length > 0 && (
+              <ul className="mt-3 space-y-2">
+                {files.map((f, i) => (
+                  <li key={i} className="flex items-center justify-between text-sm bg-muted/50 rounded-md px-3 py-2">
+                    <span className="truncate font-body">{f.name}</span>
+                    <button type="button" onClick={() => removeFile(i)} className="text-destructive text-xs font-heading ml-2 shrink-0">Remove</button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <Button type="submit" variant="hero" className="w-full gap-2" disabled={analyzing}>
             {analyzing ? (
