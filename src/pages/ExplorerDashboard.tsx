@@ -52,6 +52,19 @@ const ExplorerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [deliveryUrls, setDeliveryUrls] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .select('onboarding_completed')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        setOnboardingDone(data?.onboarding_completed ?? false);
+      });
+  }, [user]);
 
   const loadData = async () => {
     if (!user) return;
