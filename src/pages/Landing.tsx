@@ -100,11 +100,11 @@ const Landing = () => {
                 {t('landing.hero.cta_start')} <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Link to="/login">
+            <a href="https://calendar.app.google/KHFmF25rhPbACBHK7" target="_blank" rel="noopener noreferrer">
               <Button variant="hero-outline" size="lg" className="w-full sm:w-auto gap-2">
                 {t('landing.hero.cta_demo')} <Calendar className="h-4 w-4" />
               </Button>
-            </Link>
+            </a>
           </motion.div>
         </div>
       </section>
@@ -422,11 +422,11 @@ const Landing = () => {
                 {t('landing.cta.start')} <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Link to="/login">
+            <a href="https://calendar.app.google/KHFmF25rhPbACBHK7" target="_blank" rel="noopener noreferrer">
               <Button variant="hero-outline" size="lg" className="w-full sm:w-auto gap-2">
                 {t('landing.cta.demo')} <Calendar className="h-4 w-4" />
               </Button>
-            </Link>
+            </a>
           </motion.div>
         </motion.div>
       </section>

@@ -39,7 +39,7 @@ const Header = () => {
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <img src={gophoraLogo} alt="GOPHORA" className="h-8 dark:invert" />
+          <img src={gophoraLogo} alt="GOPHORA" className="h-12 dark:invert" />
         </Link>
 
         {/* Desktop Nav */}

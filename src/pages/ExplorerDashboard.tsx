@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Compass, Zap, CheckCircle, DollarSign, Star, Trophy, ExternalLink, Send } from 'lucide-react';
 import BalanceModule from '@/components/BalanceModule';
 import { toast } from 'sonner';
+import ExplorerOnboarding from '@/components/ExplorerOnboarding';
 
 const StatCard = ({ icon: Icon, label, value, accent = false }: { icon: any; label: string; value: string; accent?: boolean }) => (
   <div className={`rounded-xl border p-6 transition-all hover:border-primary/30 ${accent ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-card'}`}>
@@ -51,6 +52,19 @@ const ExplorerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [deliveryUrls, setDeliveryUrls] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .select('onboarding_completed')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        setOnboardingDone(data?.onboarding_completed ?? false);
+      });
+  }, [user]);
 
   const loadData = async () => {
     if (!user) return;
@@ -188,6 +202,18 @@ const ExplorerDashboard = () => {
     };
     return map[status] || 'bg-muted text-muted-foreground';
   };
+
+  if (onboardingDone === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!onboardingDone) {
+    return <ExplorerOnboarding onComplete={() => setOnboardingDone(true)} />;
+  }
 
   return (
     <div className="container py-8 max-w-6xl">
