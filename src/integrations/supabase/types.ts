@@ -14,7 +14,89 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      missions: {
+        Row: {
+          created_at: string
+          description: string | null
+          hourly_rate: number
+          hours: number
+          id: string
+          project_id: string
+          reward: number
+          skill: string
+          status: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          hourly_rate: number
+          hours: number
+          id?: string
+          project_id: string
+          reward: number
+          skill: string
+          status?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          hourly_rate?: number
+          hours?: number
+          id?: string
+          project_id?: string
+          reward?: number
+          skill?: string
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "missions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          budget: number
+          category: string
+          created_at: string
+          deadline: string | null
+          description: string
+          id: string
+          priority: string
+          status: string
+          title: string
+        }
+        Insert: {
+          budget?: number
+          category: string
+          created_at?: string
+          deadline?: string | null
+          description: string
+          id?: string
+          priority: string
+          status?: string
+          title: string
+        }
+        Update: {
+          budget?: number
+          category?: string
+          created_at?: string
+          deadline?: string | null
+          description?: string
+          id?: string
+          priority?: string
+          status?: string
+          title?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
