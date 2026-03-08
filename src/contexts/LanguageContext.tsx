@@ -74,8 +74,8 @@ const translations: Record<string, Record<Language, string>> = {
 
   // Marketplace
   'marketplace.title': { en: 'Mission Marketplace', es: 'Mercado de Misiones' },
-  'marketplace.subtitle': { en: 'Find and apply to missions that match your skills', es: 'Encuentra y postúlate a misiones que coincidan con tus habilidades' },
-  'marketplace.apply': { en: 'Apply to Mission', es: 'Postularse a Misión' },
+  'marketplace.subtitle': { en: 'Find and activate approved missions that match your skills', es: 'Encuentra y activa misiones aprobadas que coincidan con tus habilidades' },
+  'marketplace.apply': { en: 'Activate Mission', es: 'Activar Misión' },
   'marketplace.skill': { en: 'Skill', es: 'Habilidad' },
   'marketplace.reward': { en: 'Reward', es: 'Recompensa' },
   'marketplace.time': { en: 'Est. Time', es: 'Tiempo Est.' },

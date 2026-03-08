@@ -32,6 +32,7 @@ const ProjectCreate = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [analyzed, setAnalyzed] = useState(false);
+  const [budgetPaid, setBudgetPaid] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [budget, setBudget] = useState('');
   const [missions, setMissions] = useState<Mission[]>([]);
@@ -76,6 +77,7 @@ const ProjectCreate = () => {
       if (data?.error) throw new Error(data.error);
 
       setMissions(data.missions || []);
+      setBudgetPaid(false);
       setAnalyzed(true);
     } catch (err: any) {
       console.error('Analysis failed:', err);
@@ -90,6 +92,11 @@ const ProjectCreate = () => {
   };
 
   const handlePublish = async () => {
+    if (!budgetPaid) {
+      toast.error('Debes pagar el presupuesto antes de publicar las misiones.');
+      return;
+    }
+
     setPublishing(true);
     try {
       const { data: project, error: projectError } = await supabase
@@ -100,6 +107,7 @@ const ProjectCreate = () => {
           category,
           priority,
           budget: budgetNum,
+          payment_status: 'paid',
           user_id: user?.id,
         })
         .select()
@@ -277,6 +285,28 @@ const ProjectCreate = () => {
             </div>
           )}
 
+          <div className={`rounded-xl border p-5 ${budgetPaid ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-card'}`}>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <p className="text-xs font-heading tracking-wider uppercase text-muted-foreground">Pago de presupuesto</p>
+                <p className="font-heading font-semibold mt-1">
+                  {budgetPaid ? `Presupuesto pagado: $${budgetNum.toLocaleString()}` : `Pendiente de pago: $${budgetNum.toLocaleString()}`}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant={budgetPaid ? 'outline' : 'hero-outline'}
+                onClick={() => {
+                  setBudgetPaid(true);
+                  toast.success('Pago registrado. Ya puedes publicar las misiones.');
+                }}
+                disabled={budgetPaid}
+              >
+                {budgetPaid ? 'Pagado' : 'Pagar presupuesto'}
+              </Button>
+            </div>
+          </div>
+
           <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -335,8 +365,17 @@ const ProjectCreate = () => {
           </div>
 
           <div className="flex gap-4">
-            <Button variant="outline" onClick={() => setAnalyzed(false)} className="font-heading">Back to Edit</Button>
-            <Button variant="hero" className="flex-1 font-heading gap-2" disabled={overBudget || publishing} onClick={handlePublish}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAnalyzed(false);
+                setBudgetPaid(false);
+              }}
+              className="font-heading"
+            >
+              Back to Edit
+            </Button>
+            <Button variant="hero" className="flex-1 font-heading gap-2" disabled={overBudget || publishing || !budgetPaid} onClick={handlePublish}>
               {publishing ? (
                 <>
                   <div className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
@@ -344,7 +383,7 @@ const ProjectCreate = () => {
                 </>
               ) : (
                 <>
-                  <Zap className="h-4 w-4" /> Publish {missions.length} Missions
+                  <Zap className="h-4 w-4" /> {budgetPaid ? `Publish ${missions.length} Missions` : 'Pay Budget to Publish'}
                 </>
               )}
             </Button>
