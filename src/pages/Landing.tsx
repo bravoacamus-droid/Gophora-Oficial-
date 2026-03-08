@@ -431,7 +431,7 @@ const Landing = () => {
               variant="hero-outline"
               size="lg"
               className="w-full sm:w-auto gap-2"
-              onClick={() => window.open('https://calendar.app.google/KHFmF25rhPbACBHK7', '_blank')}
+              onClick={() => setShowCalendar(true)}
             >
               {t('landing.cta.demo')} <Calendar className="h-4 w-4" />
             </Button>
