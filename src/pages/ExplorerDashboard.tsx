@@ -330,7 +330,7 @@ const ExplorerDashboard = () => {
                     </div>
                   )}
 
-                  {app.review_note && (
+                  {app.review_note && app.status !== 'rejected' && (
                     <p className="text-sm text-muted-foreground font-body italic">
                       Nota de revisión: {app.review_note}
                     </p>
