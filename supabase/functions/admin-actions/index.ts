@@ -363,6 +363,52 @@ serve(async (req) => {
         break;
       }
 
+      case 'get_payment_history': {
+        // Get all completed or funds_released applications
+        const { data: paidApps, error: paidError } = await supabase
+          .from('mission_applications')
+          .select('id, status, delivery_url, delivered_at, reviewed_at, review_note, mission_id, user_id')
+          .in('status', ['completed', 'funds_released'])
+          .order('reviewed_at', { ascending: false });
+
+        if (paidError) throw paidError;
+        const pApps = paidApps || [];
+
+        if (pApps.length === 0) { result = []; break; }
+
+        const pMissionIds = [...new Set(pApps.map(a => a.mission_id))];
+        const pUserIds = [...new Set(pApps.map(a => a.user_id))];
+
+        const [pMissionsRes, pProfilesRes] = await Promise.all([
+          supabase.from('missions').select('id, title, reward, project_id').in('id', pMissionIds),
+          supabase.from('profiles').select('id, email, full_name').in('id', pUserIds),
+        ]);
+
+        if (pMissionsRes.error) throw pMissionsRes.error;
+        if (pProfilesRes.error) throw pProfilesRes.error;
+
+        const pMissionMap = new Map((pMissionsRes.data || []).map(m => [m.id, m]));
+        const pProfileMap = new Map((pProfilesRes.data || []).map(p => [p.id, p]));
+
+        const pProjectIds = [...new Set((pMissionsRes.data || []).map(m => m.project_id))];
+        const { data: pProjectRows } = await supabase.from('projects').select('id, title').in('id', pProjectIds);
+        const pProjectMap = new Map((pProjectRows || []).map(p => [p.id, p.title]));
+
+        result = pApps.map(a => {
+          const mission = pMissionMap.get(a.mission_id);
+          const profile = pProfileMap.get(a.user_id);
+          return {
+            ...a,
+            missionTitle: mission?.title || 'Mission',
+            missionReward: Number(mission?.reward || 0),
+            projectTitle: mission ? (pProjectMap.get(mission.project_id) || 'Project') : 'Project',
+            explorerEmail: profile?.email || '',
+            explorerName: profile?.full_name || '',
+          };
+        });
+        break;
+      }
+
       case 'process_withdrawal': {
         const { withdrawal_id, new_status, admin_note } = params;
         if (!withdrawal_id || !['approved', 'rejected'].includes(new_status)) {
