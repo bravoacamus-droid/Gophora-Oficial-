@@ -4,7 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Cpu, Upload, Zap, DollarSign, Clock, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 
 const categories = ['Marketing', 'Web Development', 'Design', 'Data', 'Research', 'Operations'];
 const priorities = ['Low', 'Medium', 'High', 'Critical'];
@@ -14,32 +16,12 @@ const COMMISSION_RATE = 0.10;
 
 interface Mission {
   title: string;
+  description: string;
   skill: string;
   hours: number;
   hourlyRate: number;
   reward: number;
 }
-
-const generateMissions = (budget: number): Mission[] => {
-  const baseMissions = [
-    { title: 'Design wireframes for homepage', skill: 'Design', hours: 3 },
-    { title: 'Develop responsive header component', skill: 'Web Development', hours: 4 },
-    { title: 'Create brand color palette', skill: 'Design', hours: 2 },
-    { title: 'Write SEO-optimized copy', skill: 'Marketing', hours: 3 },
-    { title: 'Setup analytics tracking', skill: 'Data', hours: 2 },
-  ];
-
-  const totalHours = baseMissions.reduce((sum, m) => sum + m.hours, 0);
-  const availableBudget = budget / (1 + COMMISSION_RATE); // budget after GOPHORA commission
-  const calculatedRate = Math.floor(availableBudget / totalHours);
-  const hourlyRate = Math.max(calculatedRate, MIN_HOURLY_RATE);
-
-  return baseMissions.map(m => ({
-    ...m,
-    hourlyRate,
-    reward: m.hours * hourlyRate,
-  }));
-};
 
 const ProjectCreate = () => {
   const { t } = useLanguage();
@@ -48,6 +30,10 @@ const ProjectCreate = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [budget, setBudget] = useState('');
   const [missions, setMissions] = useState<Mission[]>([]);
+  const [projectTitle, setProjectTitle] = useState('');
+  const [projectDescription, setProjectDescription] = useState('');
+  const [category, setCategory] = useState(categories[0]);
+  const [priority, setPriority] = useState(priorities[1]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -66,16 +52,36 @@ const ProjectCreate = () => {
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleAnalyze = (e: React.FormEvent) => {
+  const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     setAnalyzing(true);
-    const budgetNum = parseFloat(budget) || 0;
-    const generated = generateMissions(budgetNum);
-    setMissions(generated);
-    setTimeout(() => {
-      setAnalyzing(false);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-project', {
+        body: {
+          title: projectTitle,
+          description: projectDescription,
+          category,
+          priority,
+          budget: parseFloat(budget) || 0,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setMissions(data.missions || []);
       setAnalyzed(true);
-    }, 2000);
+    } catch (err: any) {
+      console.error('Analysis failed:', err);
+      toast.error(err.message || 'Failed to analyze project. Please try again.');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const deleteMission = (index: number) => {
+    setMissions(prev => prev.filter((_, i) => i !== index));
   };
 
   const totalTalentCost = missions.reduce((sum, m) => sum + m.reward, 0);
@@ -93,22 +99,22 @@ const ProjectCreate = () => {
         <form onSubmit={handleAnalyze} className="space-y-6 rounded-xl border border-border/50 bg-card p-6">
           <div>
             <Label className="font-heading text-xs tracking-wider uppercase">{t('project.title')}</Label>
-            <Input className="mt-1.5" placeholder="E-commerce Website Redesign" required />
+            <Input className="mt-1.5" placeholder="E-commerce Website Redesign" value={projectTitle} onChange={e => setProjectTitle(e.target.value)} required />
           </div>
           <div>
             <Label className="font-heading text-xs tracking-wider uppercase">{t('project.description')}</Label>
-            <Textarea className="mt-1.5 min-h-[120px]" placeholder="Describe your project in detail..." required />
+            <Textarea className="mt-1.5 min-h-[120px]" placeholder="Describe your project in detail..." value={projectDescription} onChange={e => setProjectDescription(e.target.value)} required />
           </div>
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <Label className="font-heading text-xs tracking-wider uppercase">{t('project.category')}</Label>
-              <select className="w-full mt-1.5 h-10 rounded-md border border-input bg-background px-3 text-sm font-body">
+              <select className="w-full mt-1.5 h-10 rounded-md border border-input bg-background px-3 text-sm font-body" value={category} onChange={e => setCategory(e.target.value)}>
                 {categories.map(c => <option key={c}>{c}</option>)}
               </select>
             </div>
             <div>
               <Label className="font-heading text-xs tracking-wider uppercase">{t('project.priority')}</Label>
-              <select className="w-full mt-1.5 h-10 rounded-md border border-input bg-background px-3 text-sm font-body">
+              <select className="w-full mt-1.5 h-10 rounded-md border border-input bg-background px-3 text-sm font-body" value={priority} onChange={e => setPriority(e.target.value)}>
                 {priorities.map(p => <option key={p}>{p}</option>)}
               </select>
             </div>
@@ -160,7 +166,7 @@ const ProjectCreate = () => {
             {analyzing ? (
               <>
                 <div className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                Analyzing...
+                Analyzing with AI...
               </>
             ) : (
               <>
@@ -176,8 +182,8 @@ const ProjectCreate = () => {
               <Cpu className="h-6 w-6 text-primary" />
               <h2 className="font-heading font-bold text-lg">AI Mission Architect</h2>
             </div>
-            <p className="text-sm text-muted-foreground font-body mb-4">
-              Your project has been analyzed and divided into {missions.length} executable micro-missions based on your ${budgetNum.toLocaleString()} budget.
+            <p className="text-sm text-muted-foreground font-body mb-2">
+              Your project <span className="font-semibold text-foreground">"{projectTitle}"</span> has been analyzed and divided into <span className="font-semibold text-primary">{missions.length}</span> executable micro-missions based on your ${budgetNum.toLocaleString()} budget.
             </p>
           </div>
 
@@ -227,6 +233,7 @@ const ProjectCreate = () => {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border/50 bg-muted/50">
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">#</th>
                     <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Mission</th>
                     <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Skill</th>
                     <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Hours</th>
@@ -238,7 +245,11 @@ const ProjectCreate = () => {
                 <tbody>
                   {missions.map((m, i) => (
                     <tr key={i} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
-                      <td className="p-4 font-body text-sm">{m.title}</td>
+                      <td className="p-4 text-xs text-muted-foreground font-body">{i + 1}</td>
+                      <td className="p-4 font-body text-sm">
+                        <div>{m.title}</div>
+                        {m.description && <div className="text-xs text-muted-foreground mt-1">{m.description}</div>}
+                      </td>
                       <td className="p-4">
                         <span className="text-xs font-heading font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary">{m.skill}</span>
                       </td>
@@ -246,29 +257,26 @@ const ProjectCreate = () => {
                       <td className="p-4 text-sm text-muted-foreground font-body">${m.hourlyRate}/hr</td>
                       <td className="p-4 text-sm font-heading font-semibold text-primary">${m.reward.toLocaleString()}</td>
                       <td className="p-4">
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" className="text-xs font-heading">Edit</Button>
-                          <Button variant="ghost" size="sm" className="text-xs font-heading text-destructive">Delete</Button>
-                        </div>
+                        <Button variant="ghost" size="sm" className="text-xs font-heading text-destructive" onClick={() => deleteMission(i)}>Delete</Button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-border/50 bg-muted/30">
-                    <td className="p-4 font-heading font-bold text-sm" colSpan={2}>TOTAL</td>
+                    <td className="p-4 font-heading font-bold text-sm" colSpan={3}>TOTAL ({missions.length} missions)</td>
                     <td className="p-4 font-heading font-bold text-sm">{totalHours}h</td>
                     <td className="p-4 text-sm text-muted-foreground font-body">—</td>
                     <td className="p-4 font-heading font-bold text-sm text-primary">${totalTalentCost.toLocaleString()}</td>
                     <td className="p-4"></td>
                   </tr>
                   <tr className="bg-muted/30">
-                    <td className="px-4 pb-2 text-xs text-muted-foreground font-body" colSpan={4}>GOPHORA Commission ({COMMISSION_RATE * 100}%)</td>
+                    <td className="px-4 pb-2 text-xs text-muted-foreground font-body" colSpan={5}>GOPHORA Commission ({COMMISSION_RATE * 100}%)</td>
                     <td className="px-4 pb-2 text-xs text-muted-foreground font-heading">${gophoraCommission.toLocaleString()}</td>
                     <td></td>
                   </tr>
                   <tr className="bg-muted/30">
-                    <td className="px-4 pb-4 text-sm font-heading font-bold" colSpan={4}>GRAND TOTAL</td>
+                    <td className="px-4 pb-4 text-sm font-heading font-bold" colSpan={5}>GRAND TOTAL</td>
                     <td className={`px-4 pb-4 text-sm font-heading font-bold ${overBudget ? 'text-destructive' : 'text-primary'}`}>${totalCost.toLocaleString()}</td>
                     <td></td>
                   </tr>
@@ -280,7 +288,7 @@ const ProjectCreate = () => {
           <div className="flex gap-4">
             <Button variant="outline" onClick={() => setAnalyzed(false)} className="font-heading">Back to Edit</Button>
             <Button variant="hero" className="flex-1 font-heading gap-2" disabled={overBudget}>
-              <Zap className="h-4 w-4" /> Publish Missions
+              <Zap className="h-4 w-4" /> Publish {missions.length} Missions
             </Button>
           </div>
         </div>
