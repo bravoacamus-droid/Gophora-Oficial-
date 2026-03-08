@@ -199,7 +199,7 @@ const Marketplace = () => {
                 </span>
                 <Zap className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
-              <h3 className="font-heading font-bold mb-3">{mission.title}</h3>
+              <h3 className="font-heading font-bold mb-3">{mt(mission, 'title')}</h3>
               <div className="flex flex-wrap gap-4 mb-4 text-sm text-muted-foreground font-body">
                 <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {mission.hours}h</span>
                 <span className="flex items-center gap-1"><DollarSign className="h-3 w-3" /> ${mission.reward.toLocaleString()}</span>
