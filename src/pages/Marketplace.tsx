@@ -14,11 +14,13 @@ const skills = ['All', 'Design', 'Web Development', 'Marketing', 'Data', 'Resear
 interface MarketplaceMission {
   id: string;
   title: string;
+  title_es: string | null;
   skill: string;
   hours: number;
   reward: number;
   hourly_rate: number;
   description: string | null;
+  description_es: string | null;
   project_id: string;
   projectTitle: string;
 }
