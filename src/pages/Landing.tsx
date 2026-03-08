@@ -425,11 +425,14 @@ const Landing = () => {
                 {t('landing.cta.start')} <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <a href="https://calendar.app.google/KHFmF25rhPbACBHK7" target="_blank" rel="noopener noreferrer">
-              <Button variant="hero-outline" size="lg" className="w-full sm:w-auto gap-2">
-                {t('landing.cta.demo')} <Calendar className="h-4 w-4" />
-              </Button>
-            </a>
+            <Button
+              variant="hero-outline"
+              size="lg"
+              className="w-full sm:w-auto gap-2"
+              onClick={() => window.open('https://calendar.app.google/KHFmF25rhPbACBHK7', '_blank')}
+            >
+              {t('landing.cta.demo')} <Calendar className="h-4 w-4" />
+            </Button>
           </motion.div>
         </motion.div>
       </section>
