@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Cpu, Upload, Zap, DollarSign, Clock, AlertTriangle } from 'lucide-react';
+import { Cpu, Upload, Zap, DollarSign, Clock, AlertTriangle, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const categories = ['Marketing', 'Web Development', 'Design', 'Data', 'Research', 'Operations'];
@@ -40,6 +40,7 @@ const ProjectCreate = () => {
   const [projectDescription, setProjectDescription] = useState('');
   const [category, setCategory] = useState(categories[0]);
   const [priority, setPriority] = useState(priorities[1]);
+  const [resourceLink, setResourceLink] = useState('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -109,6 +110,7 @@ const ProjectCreate = () => {
           budget: budgetNum,
           payment_status: 'paid',
           user_id: user?.id,
+          resource_link: resourceLink || null,
         })
         .select()
         .single();
@@ -244,6 +246,23 @@ const ProjectCreate = () => {
             </p>
           </div>
 
+          {/* Resource Link */}
+          <div>
+            <Label className="font-heading text-xs tracking-wider uppercase flex items-center gap-2">
+              <Link2 className="h-4 w-4" />
+              {t('project.resource_link')}
+            </Label>
+            <Input
+              className="mt-1.5"
+              type="url"
+              placeholder={t('project.resource_link_placeholder')}
+              value={resourceLink}
+              onChange={e => setResourceLink(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground font-body mt-1.5 leading-relaxed">
+              {t('project.resource_link_help')}
+            </p>
+          </div>
           {/* Budget Summary */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="rounded-xl border border-border/50 bg-card p-4">

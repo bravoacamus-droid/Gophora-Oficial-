@@ -230,6 +230,9 @@ const translations: Record<string, Record<Language, string>> = {
   'project.budget': { en: 'Budget (USD)', es: 'Presupuesto (USD)' },
   'project.priority': { en: 'Priority', es: 'Prioridad' },
   'project.files': { en: 'File Upload', es: 'Subir Archivos' },
+  'project.resource_link': { en: 'Project Resources Link', es: 'Link de Recursos del Proyecto' },
+  'project.resource_link_placeholder': { en: 'https://drive.google.com/... or https://notion.so/...', es: 'https://drive.google.com/... o https://notion.so/...' },
+  'project.resource_link_help': { en: 'Share a link with the complete project brief: deliverables, brand assets, color palette, logos, background info, and all materials needed for explorers to deliver precise results.', es: 'Comparte un link con el brief completo del proyecto: entregables, activos de marca, paleta de colores, logos, antecedentes e información necesaria para que los exploradores entreguen resultados precisos y ajustados a tu marca.' },
   'project.analyze': { en: 'Analyze Project with AI', es: 'Analizar Proyecto con IA' },
 
   // Admin
