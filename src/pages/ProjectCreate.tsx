@@ -143,6 +143,22 @@ const ProjectCreate = () => {
   const handlePublish = async () => {
     setPublishing(true);
     try {
+      let screenshotUrl: string | null = null;
+
+      // Upload payment screenshot if provided
+      if (paymentScreenshot) {
+        const ext = paymentScreenshot.name.split('.').pop() || 'png';
+        const filePath = `${user?.id}/${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('payment-screenshots')
+          .upload(filePath, paymentScreenshot);
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage
+          .from('payment-screenshots')
+          .getPublicUrl(filePath);
+        screenshotUrl = urlData.publicUrl;
+      }
+
       const { data: project, error: projectError } = await supabase
         .from('projects')
         .insert({
@@ -155,6 +171,8 @@ const ProjectCreate = () => {
           user_id: user?.id,
           resource_link: resourceLink || null,
           deadline: deadline || null,
+          payment_screenshot_url: screenshotUrl,
+          tx_hash: txHash || null,
         })
         .select()
         .single();

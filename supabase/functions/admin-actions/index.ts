@@ -149,7 +149,7 @@ serve(async (req) => {
         if (projectIds.length > 0) {
           const { data: projectRows, error: projectsError } = await supabase
             .from('projects')
-            .select('id, title, user_id, payment_status')
+            .select('id, title, user_id, payment_status, payment_screenshot_url, tx_hash')
             .in('id', projectIds);
 
           if (projectsError) throw projectsError;
@@ -159,6 +159,8 @@ serve(async (req) => {
               title: project.title,
               user_id: project.user_id,
               payment_status: project.payment_status,
+              payment_screenshot_url: project.payment_screenshot_url,
+              tx_hash: project.tx_hash,
             });
           });
         }
