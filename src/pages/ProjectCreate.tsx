@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Cpu, Upload, Zap, DollarSign, Clock, AlertTriangle } from 'lucide-react';
+import { Cpu, Upload, Zap, DollarSign, Clock, AlertTriangle, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const categories = ['Marketing', 'Web Development', 'Design', 'Data', 'Research', 'Operations'];
