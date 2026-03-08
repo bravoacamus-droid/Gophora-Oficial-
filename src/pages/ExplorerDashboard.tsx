@@ -183,6 +183,7 @@ const ExplorerDashboard = () => {
       delivered: 'bg-yellow-500/10 text-yellow-500',
       completed: 'bg-green-500/10 text-green-500',
       rejected: 'bg-destructive/10 text-destructive',
+      funds_released: 'bg-green-500/10 text-green-500',
     };
     return map[status] || 'bg-muted text-muted-foreground';
   };

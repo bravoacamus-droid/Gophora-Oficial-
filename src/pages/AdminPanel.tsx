@@ -349,6 +349,53 @@ const AdminPanel = () => {
             </div>
           )}
 
+          {/* FUND RELEASES TAB */}
+          {activeTab === 'Fund Releases' && (
+            <div className="divide-y divide-border/50">
+              {pendingReleases.length === 0 && (
+                <div className="p-8 text-center text-muted-foreground font-body">No hay entregas aprobadas pendientes de liberación de fondos</div>
+              )}
+              {pendingReleases.map((r: any) => (
+                <div key={r.id} className="p-4 md:p-6 space-y-3">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-heading font-semibold">{r.missionTitle}</h3>
+                      <p className="text-sm text-muted-foreground font-body">
+                        {r.projectTitle} • Explorer: {r.explorerName || r.explorerEmail}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-heading font-semibold text-primary">${r.missionReward?.toLocaleString()}</span>
+                      <span className="text-xs font-heading font-semibold px-2 py-1 rounded-full bg-green-500/10 text-green-500">
+                        APROBADA POR EMPRESA
+                      </span>
+                    </div>
+                  </div>
+                  {r.delivery_url && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                      <a href={r.delivery_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-body truncate">
+                        {r.delivery_url}
+                      </a>
+                    </div>
+                  )}
+                  {r.review_note && (
+                    <p className="text-sm text-muted-foreground font-body italic">Nota: {r.review_note}</p>
+                  )}
+                  <Button
+                    size="sm"
+                    className="gap-1 font-heading text-xs"
+                    onClick={() => handleReleaseFunds(r.id)}
+                    disabled={releasingId === r.id}
+                  >
+                    <Banknote className="h-3 w-3" />
+                    {releasingId === r.id ? 'Liberando...' : 'Liberar fondos'}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* REVENUE TAB */}
           {activeTab === 'Revenue' && stats && (
             <div className="p-6">
