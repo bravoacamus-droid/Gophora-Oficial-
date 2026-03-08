@@ -32,6 +32,7 @@ const scaleIn = {
 
 const Landing = () => {
   const { t } = useLanguage();
+  const [showCalendar, setShowCalendar] = useState(false);
 
   const benefits = [
     { icon: Clock, title: t('landing.benefits.speed.title'), desc: t('landing.benefits.speed.desc') },
