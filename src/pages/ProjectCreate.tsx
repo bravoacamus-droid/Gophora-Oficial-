@@ -444,16 +444,141 @@ const ProjectCreate = () => {
             </div>
           </div>
         </div>
+      ) : !paymentConfirmed ? (
+        /* ── PAYMENT PHASE ── */
+        <div className="space-y-6">
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <Wallet className="h-6 w-6 text-primary" />
+              <h2 className="font-heading font-bold text-lg">Pago Requerido</h2>
+            </div>
+            <p className="text-sm text-muted-foreground font-body">
+              Para publicar tus <span className="font-semibold text-primary">{missions.length}</span> misiones, realiza el pago de <span className="font-semibold text-primary">${totalCost.toLocaleString()} USDT</span> a la siguiente wallet de GOPHORA.
+            </p>
+          </div>
+
+          {/* Payment Summary */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="rounded-xl border border-border/50 bg-card p-4 text-center">
+              <p className="text-xs text-muted-foreground font-heading uppercase mb-1">Misiones</p>
+              <p className="text-2xl font-heading font-bold text-primary">{missions.length}</p>
+            </div>
+            <div className="rounded-xl border border-border/50 bg-card p-4 text-center">
+              <p className="text-xs text-muted-foreground font-heading uppercase mb-1">Horas</p>
+              <p className="text-2xl font-heading font-bold">{totalHours}h</p>
+            </div>
+            <div className="rounded-xl border border-border/50 bg-card p-4 text-center">
+              <p className="text-xs text-muted-foreground font-heading uppercase mb-1">Total a Pagar</p>
+              <p className="text-2xl font-heading font-bold text-primary">${totalCost.toLocaleString()}</p>
+            </div>
+          </div>
+
+          {/* Wallet Info */}
+          <div className="rounded-xl border border-border/50 bg-card p-6 space-y-4">
+            <h3 className="font-heading font-bold text-sm uppercase tracking-wider">Datos de Pago</h3>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
+                <div>
+                  <p className="text-xs text-muted-foreground font-heading uppercase">Red</p>
+                  <p className="font-heading font-bold text-sm">BNB Smart Chain (BSC) — BEP20</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
+                <div>
+                  <p className="text-xs text-muted-foreground font-heading uppercase">Moneda</p>
+                  <p className="font-heading font-bold text-sm">USDT (Tether)</p>
+                </div>
+              </div>
+
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground font-heading uppercase mb-1">Binance Pay ID</p>
+                <div className="flex items-center gap-2">
+                  <code className="font-mono text-sm font-bold text-primary break-all">514263259</code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 h-8 w-8 p-0"
+                    onClick={() => {
+                      navigator.clipboard.writeText('514263259');
+                      toast.success('ID copiado al portapapeles');
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground font-heading uppercase mb-1">Monto Exacto</p>
+                <div className="flex items-center gap-2">
+                  <code className="font-mono text-lg font-bold text-primary">{totalCost.toLocaleString()} USDT</code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 h-8 w-8 p-0"
+                    onClick={() => {
+                      navigator.clipboard.writeText(totalCost.toString());
+                      toast.success('Monto copiado al portapapeles');
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3">
+              <p className="text-xs font-body text-yellow-700 dark:text-yellow-400 leading-relaxed">
+                ⚠️ <strong>Importante:</strong> Envía exactamente <strong>{totalCost.toLocaleString()} USDT</strong> por la red <strong>BSC (BEP20)</strong> usando Binance Pay al ID indicado. Otros montos o redes pueden causar pérdida de fondos.
+              </p>
+            </div>
+          </div>
+
+          {/* TX Hash Confirmation */}
+          <div className="rounded-xl border border-border/50 bg-card p-6 space-y-3">
+            <Label className="font-heading text-xs tracking-wider uppercase">Hash de Transacción (opcional)</Label>
+            <Input
+              className="font-mono text-sm"
+              placeholder="0x..."
+              value={txHash}
+              onChange={e => setTxHash(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground font-body">
+              Pega el hash de tu transacción para facilitar la verificación. También puedes confirmar sin él.
+            </p>
+          </div>
+
+          <div className="flex gap-4">
+            <Button
+              variant="outline"
+              onClick={() => setQuoteAccepted(false)}
+              className="font-heading gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" /> Volver
+            </Button>
+            <Button
+              variant="hero"
+              className="flex-1 font-heading gap-2"
+              onClick={() => setPaymentConfirmed(true)}
+            >
+              <CheckCircle className="h-4 w-4" /> Ya realicé el pago
+            </Button>
+          </div>
+        </div>
       ) : (
-        /* ── PAYMENT & PUBLISH PHASE ── */
+        /* ── PUBLISH PHASE ── */
         <div className="space-y-6">
           <div className="rounded-xl border border-primary/30 bg-primary/5 p-6">
             <div className="flex items-center gap-3 mb-2">
               <CheckCircle className="h-6 w-6 text-primary" />
-              <h2 className="font-heading font-bold text-lg">Cotización Aceptada</h2>
+              <h2 className="font-heading font-bold text-lg">Pago Confirmado</h2>
             </div>
             <p className="text-sm text-muted-foreground font-body">
-              Has aceptado <span className="font-semibold text-primary">{missions.length}</span> misiones por un total de <span className="font-semibold text-primary">${totalCost.toLocaleString()}</span> (incluye comisión GOPHORA del {COMMISSION_RATE * 100}%).
+              Has confirmado el pago de <span className="font-semibold text-primary">${totalCost.toLocaleString()} USDT</span>. 
+              {txHash && <> TX: <code className="font-mono text-xs text-primary">{txHash.slice(0, 16)}...</code></>}
+              {' '}Nuestro equipo verificará el pago. Publica tus misiones para que queden activas una vez verificado.
             </p>
           </div>
 
@@ -475,10 +600,10 @@ const ProjectCreate = () => {
           <div className="flex gap-4">
             <Button
               variant="outline"
-              onClick={() => setQuoteAccepted(false)}
+              onClick={() => setPaymentConfirmed(false)}
               className="font-heading gap-2"
             >
-              <ArrowLeft className="h-4 w-4" /> Volver a Cotización
+              <ArrowLeft className="h-4 w-4" /> Volver
             </Button>
             <Button variant="hero" className="flex-1 font-heading gap-2" disabled={publishing} onClick={handlePublish}>
               {publishing ? (
