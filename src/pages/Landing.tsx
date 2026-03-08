@@ -456,6 +456,42 @@ const Landing = () => {
           </div>
         </div>
       </footer>
+
+      {/* ========== CALENDAR MODAL ========== */}
+      <AnimatePresence>
+        {showCalendar && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            onClick={() => setShowCalendar(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="relative w-full max-w-2xl bg-card rounded-2xl border border-border/50 overflow-hidden shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-border/50">
+                <h3 className="font-heading font-bold text-lg">{t('landing.hero.cta_demo')}</h3>
+                <Button variant="ghost" size="icon" onClick={() => setShowCalendar(false)}>
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+              <iframe
+                src="https://calendar.google.com/calendar/appointments/AcZssZ3B3xhww76gwntADM2FcsS8Qp4w-JIKSSHQsFA=?gv=true"
+                style={{ border: 0 }}
+                width="100%"
+                height="600"
+                title="Book a demo"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
