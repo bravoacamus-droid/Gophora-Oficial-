@@ -54,10 +54,10 @@ const Marketplace = () => {
       if (projectIds.length > 0) {
         const { data: projectRows, error: projectsError } = await supabase
           .from('projects')
-          .select('id, title')
+          .select('id, title, resource_link')
           .in('id', projectIds);
         if (projectsError) throw projectsError;
-        projectMap = new Map((projectRows || []).map((p) => [p.id, { title: p.title }]));
+        projectMap = new Map((projectRows || []).map((p: any) => [p.id, { title: p.title, resource_link: p.resource_link || null }]));
       }
 
       const mappedMissions = (missionRows || []).map((m) => ({
