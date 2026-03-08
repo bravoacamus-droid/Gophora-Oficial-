@@ -255,6 +255,12 @@ const ExplorerDashboard = () => {
             </div>
           </div>
 
+          {/* Balance & Withdrawals */}
+          <div className="mb-8">
+            <h2 className="font-heading font-bold mb-4">Balance & Retiros</h2>
+            <BalanceModule />
+          </div>
+
           <div className="rounded-xl border border-border/50 bg-card">
             <div className="p-6 border-b border-border/50">
               <h2 className="font-heading font-bold">Mis Misiones</h2>
