@@ -191,19 +191,21 @@ const ExplorerOnboarding = ({ onComplete }: ExplorerOnboardingProps) => {
             {!isSocialsStep ? (
               <div className="flex flex-wrap gap-2 justify-center mb-8">
                 {current.options.map(option => {
-                  const selected = (selections[current.key] || []).includes(option);
+                  const optionKey = typeof option === 'string' ? option : option.en;
+                  const optionLabel = typeof option === 'string' ? option : (language === 'en' ? option.en : option.es);
+                  const selected = (selections[current.key] || []).includes(optionKey);
                   return (
                     <button
-                      key={option}
+                      key={optionKey}
                       type="button"
-                      onClick={() => toggle(option)}
+                      onClick={() => toggle(optionKey)}
                       className={`px-4 py-2 rounded-full text-sm font-heading font-medium transition-all border ${
                         selected
                           ? 'border-primary bg-primary/15 text-primary'
                           : 'border-border hover:border-primary/40 text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      {option}
+                      {optionLabel}
                     </button>
                   );
                 })}
