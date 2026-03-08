@@ -99,7 +99,8 @@ const Marketplace = () => {
 
   const filtered = useMemo(() => {
     return missions.filter((m) => {
-      const matchSearch = m.title.toLowerCase().includes(search.toLowerCase());
+      const title = language === 'es' ? (m.title_es || m.title) : m.title;
+      const matchSearch = title.toLowerCase().includes(search.toLowerCase());
       const matchSkill = selectedSkill === 'All' || m.skill === selectedSkill;
       return matchSearch && matchSkill;
     });
