@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Compass, Zap, CheckCircle, DollarSign, Star, Trophy } from 'lucide-react';
 
 const StatCard = ({ icon: Icon, label, value, accent = false }: { icon: any; label: string; value: string; accent?: boolean }) => (
@@ -16,16 +18,106 @@ const StatCard = ({ icon: Icon, label, value, accent = false }: { icon: any; lab
   </div>
 );
 
-const badges = [
-  { name: 'Explorer', icon: Compass, earned: true },
-  { name: 'Specialist', icon: Star, earned: true },
-  { name: 'Elite Operator', icon: Trophy, earned: false },
-  { name: 'Speed Runner', icon: Zap, earned: false },
+interface ApplicationWithMission {
+  id: string;
+  status: string;
+  created_at: string;
+  mission_id: string;
+  missionTitle: string;
+  missionReward: number;
+  missionSkill: string;
+  projectTitle: string;
+}
+
+const levelConfig = [
+  { name: 'Rookie', threshold: 0 },
+  { name: 'Explorer', threshold: 3 },
+  { name: 'Specialist', threshold: 10 },
+  { name: 'Elite Operator', threshold: 25 },
+  { name: 'Legend', threshold: 50 },
 ];
 
 const ExplorerDashboard = () => {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const [applications, setApplications] = useState<ApplicationWithMission[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      setLoading(true);
+      const { data: appRows } = await supabase
+        .from('mission_applications')
+        .select('id, status, created_at, mission_id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      const apps = appRows || [];
+
+      if (apps.length > 0) {
+        const missionIds = [...new Set(apps.map((a) => a.mission_id))];
+        const { data: missionRows } = await supabase
+          .from('missions')
+          .select('id, title, reward, skill, project_id')
+          .in('id', missionIds);
+
+        const mRows = missionRows || [];
+        const projectIds = [...new Set(mRows.map((m) => m.project_id))];
+        let projectMap = new Map<string, string>();
+
+        if (projectIds.length > 0) {
+          const { data: projectRows } = await supabase
+            .from('projects')
+            .select('id, title')
+            .in('id', projectIds);
+          (projectRows || []).forEach((p) => projectMap.set(p.id, p.title));
+        }
+
+        const missionMap = new Map(mRows.map((m) => [m.id, m]));
+
+        const mapped: ApplicationWithMission[] = apps.map((a) => {
+          const mission = missionMap.get(a.mission_id);
+          return {
+            id: a.id,
+            status: a.status,
+            created_at: a.created_at,
+            mission_id: a.mission_id,
+            missionTitle: mission?.title || 'Mission',
+            missionReward: Number(mission?.reward || 0),
+            missionSkill: mission?.skill || '',
+            projectTitle: mission ? (projectMap.get(mission.project_id) || 'Project') : 'Project',
+          };
+        });
+        setApplications(mapped);
+      } else {
+        setApplications([]);
+      }
+      setLoading(false);
+    };
+    load();
+  }, [user]);
+
+  const completedCount = applications.filter((a) => a.status === 'completed').length;
+  const activatedCount = applications.length;
+  const inProgressCount = applications.filter((a) => a.status === 'pending').length;
+  const totalEarnings = applications
+    .filter((a) => a.status === 'completed')
+    .reduce((sum, a) => sum + a.missionReward, 0);
+
+  // Level calculation
+  const currentLevel = levelConfig.reduce((lvl, l) => (completedCount >= l.threshold ? l : lvl), levelConfig[0]);
+  const nextLevel = levelConfig[levelConfig.indexOf(currentLevel) + 1];
+  const progressToNext = nextLevel
+    ? ((completedCount - currentLevel.threshold) / (nextLevel.threshold - currentLevel.threshold)) * 100
+    : 100;
+
+  const badges = [
+    { name: 'Explorer', icon: Compass, earned: activatedCount >= 1 },
+    { name: 'Specialist', icon: Star, earned: completedCount >= 5 },
+    { name: 'Elite Operator', icon: Trophy, earned: completedCount >= 25 },
+    { name: 'Speed Runner', icon: Zap, earned: completedCount >= 10 },
+  ];
 
   return (
     <div className="container py-8 max-w-6xl">
@@ -41,78 +133,90 @@ const ExplorerDashboard = () => {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={Compass} label={t('explorer.available')} value="24" accent />
-        <StatCard icon={Zap} label={t('explorer.in_progress')} value="2" />
-        <StatCard icon={CheckCircle} label={t('explorer.completed')} value="18" />
-        <StatCard icon={DollarSign} label={t('explorer.earnings')} value="$2,340" />
-      </div>
-
-      {/* Explorer Level & Badges */}
-      <div className="grid md:grid-cols-2 gap-6 mb-8">
-        <div className="rounded-xl border border-border/50 bg-card p-6">
-          <h2 className="font-heading font-bold mb-4">{t('explorer.level')}</h2>
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-16 h-16 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
-              <span className="text-2xl font-heading font-black text-primary">L3</span>
-            </div>
-            <div>
-              <p className="font-heading font-bold">Specialist</p>
-              <p className="text-sm text-muted-foreground font-body">18 missions completed • 94% success rate</p>
-            </div>
-          </div>
-          <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
-            <div className="h-full bg-primary rounded-full" style={{ width: '65%' }} />
-          </div>
-          <p className="text-xs text-muted-foreground mt-2 font-body">7 more missions to reach Elite Operator</p>
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
         </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <StatCard icon={Compass} label={t('explorer.available')} value={String(activatedCount)} accent />
+            <StatCard icon={Zap} label={t('explorer.in_progress')} value={String(inProgressCount)} />
+            <StatCard icon={CheckCircle} label={t('explorer.completed')} value={String(completedCount)} />
+            <StatCard icon={DollarSign} label={t('explorer.earnings')} value={`$${totalEarnings.toLocaleString()}`} />
+          </div>
 
-        <div className="rounded-xl border border-border/50 bg-card p-6">
-          <h2 className="font-heading font-bold mb-4">Badges</h2>
-          <div className="grid grid-cols-2 gap-3">
-            {badges.map((badge, i) => (
-              <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border ${badge.earned ? 'border-primary/30 bg-primary/5' : 'border-border/50 opacity-40'}`}>
-                <badge.icon className={`h-5 w-5 ${badge.earned ? 'text-primary' : 'text-muted-foreground'}`} />
-                <span className={`text-sm font-heading font-semibold ${badge.earned ? '' : 'text-muted-foreground'}`}>{badge.name}</span>
+          <div className="grid md:grid-cols-2 gap-6 mb-8">
+            <div className="rounded-xl border border-border/50 bg-card p-6">
+              <h2 className="font-heading font-bold mb-4">{t('explorer.level')}</h2>
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
+                  <span className="text-2xl font-heading font-black text-primary">
+                    L{levelConfig.indexOf(currentLevel) + 1}
+                  </span>
+                </div>
+                <div>
+                  <p className="font-heading font-bold">{currentLevel.name}</p>
+                  <p className="text-sm text-muted-foreground font-body">
+                    {completedCount} missions completed
+                  </p>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Missions */}
-      <div className="rounded-xl border border-border/50 bg-card">
-        <div className="p-6 border-b border-border/50">
-          <h2 className="font-heading font-bold">Recent Missions</h2>
-        </div>
-        <div className="divide-y divide-border/50">
-          {[
-            { name: 'Design Landing Page Header', client: 'TechCorp', reward: '$120', rating: 5, status: 'Completed' },
-            { name: 'API Integration Module', client: 'StartupXYZ', reward: '$250', rating: null, status: 'In Progress' },
-            { name: 'User Research Survey', client: 'AgencyPro', reward: '$80', rating: 4, status: 'Completed' },
-          ].map((mission, i) => (
-            <div key={i} className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-muted/50 transition-colors">
-              <div>
-                <h3 className="font-heading font-semibold">{mission.name}</h3>
-                <p className="text-sm text-muted-foreground font-body">{mission.client}</p>
+              <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(progressToNext, 100)}%` }} />
               </div>
-              <div className="flex items-center gap-4">
-                {mission.rating && (
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: mission.rating }).map((_, j) => (
-                      <Star key={j} className="h-3 w-3 text-primary fill-primary" />
-                    ))}
+              {nextLevel && (
+                <p className="text-xs text-muted-foreground mt-2 font-body">
+                  {nextLevel.threshold - completedCount} more missions to reach {nextLevel.name}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-border/50 bg-card p-6">
+              <h2 className="font-heading font-bold mb-4">Badges</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {badges.map((badge, i) => (
+                  <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border ${badge.earned ? 'border-primary/30 bg-primary/5' : 'border-border/50 opacity-40'}`}>
+                    <badge.icon className={`h-5 w-5 ${badge.earned ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <span className={`text-sm font-heading font-semibold ${badge.earned ? '' : 'text-muted-foreground'}`}>{badge.name}</span>
                   </div>
-                )}
-                <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${mission.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary'}`}>
-                  {mission.status}
-                </span>
-                <span className="text-sm font-heading font-semibold text-primary">{mission.reward}</span>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
+
+          <div className="rounded-xl border border-border/50 bg-card">
+            <div className="p-6 border-b border-border/50">
+              <h2 className="font-heading font-bold">My Missions</h2>
+            </div>
+            <div className="divide-y divide-border/50">
+              {applications.length === 0 && (
+                <div className="p-8 text-center text-muted-foreground font-body">
+                  No missions activated yet. Browse the marketplace to find missions.
+                </div>
+              )}
+              {applications.map((app) => (
+                <div key={app.id} className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-muted/50 transition-colors">
+                  <div>
+                    <h3 className="font-heading font-semibold">{app.missionTitle}</h3>
+                    <p className="text-sm text-muted-foreground font-body">{app.projectTitle}</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${
+                      app.status === 'completed' ? 'bg-green-500/10 text-green-500' :
+                      app.status === 'pending' ? 'bg-primary/10 text-primary' :
+                      'bg-muted text-muted-foreground'
+                    }`}>
+                      {app.status.toUpperCase()}
+                    </span>
+                    <span className="text-sm font-heading font-semibold text-primary">${app.missionReward.toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
