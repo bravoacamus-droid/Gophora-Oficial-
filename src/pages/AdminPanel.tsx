@@ -517,6 +517,24 @@ const AdminPanel = () => {
                   </Button>
                 )}
               </div>
+              {(() => {
+                const filtered = filterWithdrawals(withdrawalRequests);
+                const totalAmount = filtered.reduce((sum: number, w: any) => sum + Number(w.amount), 0);
+                return (
+                  <div className="flex items-center gap-6 px-4 py-3 bg-muted/30 border-b border-border/50">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-body text-muted-foreground">Monto total:</span>
+                      <span className="text-sm font-heading font-bold text-primary">${totalAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Wallet className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-body text-muted-foreground">Retiros:</span>
+                      <span className="text-sm font-heading font-bold">{filtered.length}</span>
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="divide-y divide-border/50">
                 {filterWithdrawals(withdrawalRequests).length === 0 && (
                   <div className="p-8 text-center text-muted-foreground font-body">No hay solicitudes de retiro</div>
