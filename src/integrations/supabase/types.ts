@@ -211,6 +211,7 @@ export type Database = {
           id: string
           payment_status: string
           priority: string
+          resource_link: string | null
           status: string
           title: string
           user_id: string | null
@@ -224,6 +225,7 @@ export type Database = {
           id?: string
           payment_status?: string
           priority: string
+          resource_link?: string | null
           status?: string
           title: string
           user_id?: string | null
@@ -237,6 +239,7 @@ export type Database = {
           id?: string
           payment_status?: string
           priority?: string
+          resource_link?: string | null
           status?: string
           title?: string
           user_id?: string | null
