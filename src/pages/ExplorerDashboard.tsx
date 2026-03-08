@@ -298,7 +298,21 @@ const ExplorerDashboard = () => {
                     </div>
                   )}
 
-                  {app.delivery_url && (
+                  {app.status === 'delivered' && (
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                        <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+                        <span className="text-sm font-heading font-semibold text-yellow-500">En revisión</span>
+                      </div>
+                      {app.delivery_url && (
+                        <a href={app.delivery_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm text-primary hover:underline font-body truncate">
+                          <ExternalLink className="h-3 w-3" /> {app.delivery_url}
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {(app.status === 'completed' || app.status === 'rejected') && app.delivery_url && (
                     <div className="flex items-center gap-2 text-sm">
                       <ExternalLink className="h-3 w-3 text-muted-foreground" />
                       <a href={app.delivery_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-body truncate">
