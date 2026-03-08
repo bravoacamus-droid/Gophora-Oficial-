@@ -336,6 +336,55 @@ serve(async (req) => {
         break;
       }
 
+      case 'get_withdrawals': {
+        const { data: wRows, error: wError } = await supabase
+          .from('withdrawal_requests')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (wError) throw wError;
+        const wApps = wRows || [];
+
+        if (wApps.length === 0) { result = []; break; }
+
+        const wUserIds = [...new Set(wApps.map(w => w.user_id))];
+        const { data: wProfiles } = await supabase
+          .from('profiles')
+          .select('id, email, full_name')
+          .in('id', wUserIds);
+
+        const wProfileMap = new Map((wProfiles || []).map(p => [p.id, p]));
+
+        result = wApps.map(w => ({
+          ...w,
+          explorerEmail: wProfileMap.get(w.user_id)?.email || '',
+          explorerName: wProfileMap.get(w.user_id)?.full_name || '',
+        }));
+        break;
+      }
+
+      case 'process_withdrawal': {
+        const { withdrawal_id, new_status, admin_note } = params;
+        if (!withdrawal_id || !['approved', 'rejected'].includes(new_status)) {
+          return jsonResponse({ error: 'Invalid withdrawal_id or status' }, 400);
+        }
+
+        const { error } = await supabase
+          .from('withdrawal_requests')
+          .update({
+            status: new_status,
+            admin_note: admin_note || null,
+            processed_at: new Date().toISOString(),
+            processed_by: caller.id,
+          })
+          .eq('id', withdrawal_id)
+          .eq('status', 'pending');
+
+        if (error) throw error;
+        result = { success: true };
+        break;
+      }
+
       default:
         return jsonResponse({ error: 'Unknown action' }, 400);
     }

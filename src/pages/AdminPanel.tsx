@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, FolderOpen, Zap, DollarSign, BarChart3, CheckCircle, XCircle, Ban, UserCheck, CreditCard, Banknote, ExternalLink } from 'lucide-react';
+import { Users, FolderOpen, Zap, DollarSign, BarChart3, CheckCircle, XCircle, Ban, UserCheck, CreditCard, Banknote, ExternalLink, Wallet, Building2, Bitcoin } from 'lucide-react';
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
 
-const tabs = ['Users', 'Projects', 'Missions', 'Fund Releases', 'Revenue'] as const;
+const tabs = ['Users', 'Projects', 'Missions', 'Fund Releases', 'Withdrawals', 'Revenue'] as const;
 type Tab = typeof tabs[number];
-const tabIcons: Record<Tab, any> = { Users, Projects: FolderOpen, Missions: Zap, 'Fund Releases': Banknote, Revenue: BarChart3 };
+const tabIcons: Record<Tab, any> = { Users, Projects: FolderOpen, Missions: Zap, 'Fund Releases': Banknote, Withdrawals: Wallet, Revenue: BarChart3 };
 
 const AdminPanel = () => {
   const { t } = useLanguage();
@@ -20,8 +21,11 @@ const AdminPanel = () => {
   const [projects, setProjects] = useState<any[]>([]);
   const [missions, setMissions] = useState<any[]>([]);
   const [pendingReleases, setPendingReleases] = useState<any[]>([]);
+  const [withdrawalRequests, setWithdrawalRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [releasingId, setReleasingId] = useState<string | null>(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [withdrawalNotes, setWithdrawalNotes] = useState<Record<string, string>>({});
 
   const adminCall = useCallback(async (action: string, params: any = {}) => {
     const { data, error } = await supabase.functions.invoke('admin-actions', {
@@ -35,18 +39,20 @@ const AdminPanel = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [statsData, usersData, projectsData, missionsData, releasesData] = await Promise.all([
+      const [statsData, usersData, projectsData, missionsData, releasesData, withdrawalsData] = await Promise.all([
         adminCall('get_stats'),
         adminCall('get_users'),
         adminCall('get_projects'),
         adminCall('get_missions'),
         adminCall('get_pending_releases'),
+        adminCall('get_withdrawals'),
       ]);
       setStats(statsData);
       setUsers(usersData);
       setProjects(projectsData);
       setMissions(missionsData);
       setPendingReleases(releasesData || []);
+      setWithdrawalRequests(withdrawalsData || []);
     } catch (err: any) {
       console.error('Admin load error:', err);
       toast.error(err.message || 'Failed to load admin data');
@@ -121,6 +127,23 @@ const AdminPanel = () => {
       loadData();
     } catch (err: any) {
       toast.error(err.message);
+    }
+  };
+
+  const handleProcessWithdrawal = async (withdrawalId: string, newStatus: 'approved' | 'rejected') => {
+    setProcessingId(withdrawalId);
+    try {
+      await adminCall('process_withdrawal', {
+        withdrawal_id: withdrawalId,
+        new_status: newStatus,
+        admin_note: withdrawalNotes[withdrawalId] || null,
+      });
+      toast.success(newStatus === 'approved' ? 'Retiro aprobado' : 'Retiro rechazado');
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -393,6 +416,81 @@ const AdminPanel = () => {
                   </Button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* WITHDRAWALS TAB */}
+          {activeTab === 'Withdrawals' && (
+            <div className="divide-y divide-border/50">
+              {withdrawalRequests.length === 0 && (
+                <div className="p-8 text-center text-muted-foreground font-body">No hay solicitudes de retiro</div>
+              )}
+              {withdrawalRequests.map((w: any) => {
+                const isPending = w.status === 'pending';
+                return (
+                  <div key={w.id} className="p-4 md:p-6 space-y-3">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      <div className="flex items-center gap-4">
+                        <div className={`p-2 rounded-lg ${w.method === 'bank' ? 'bg-primary/10' : 'bg-accent/50'}`}>
+                          {w.method === 'bank' ? <Building2 className="h-4 w-4 text-primary" /> : <Bitcoin className="h-4 w-4 text-primary" />}
+                        </div>
+                        <div>
+                          <p className="font-heading font-semibold text-sm">
+                            ${Number(w.amount).toLocaleString()} — {w.explorerEmail}
+                          </p>
+                          <p className="text-xs text-muted-foreground font-body">
+                            {w.method === 'bank'
+                              ? `${w.bank_name} • Cuenta: ${w.bank_account} • Titular: ${w.bank_holder}`
+                              : `${w.crypto_network} • ${w.crypto_address}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground font-body">{new Date(w.created_at).toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${
+                        w.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
+                        w.status === 'approved' ? 'bg-green-500/10 text-green-500' :
+                        'bg-destructive/10 text-destructive'
+                      }`}>
+                        {w.status.toUpperCase()}
+                      </span>
+                    </div>
+
+                    {isPending && (
+                      <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                        <Input
+                          placeholder="Nota (opcional)"
+                          value={withdrawalNotes[w.id] || ''}
+                          onChange={(e) => setWithdrawalNotes(prev => ({ ...prev, [w.id]: e.target.value }))}
+                          className="flex-1 text-sm"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            className="gap-1 font-heading text-xs"
+                            onClick={() => handleProcessWithdrawal(w.id, 'approved')}
+                            disabled={processingId === w.id}
+                          >
+                            <CheckCircle className="h-3 w-3" /> Aprobar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 font-heading text-xs text-destructive border-destructive/30"
+                            onClick={() => handleProcessWithdrawal(w.id, 'rejected')}
+                            disabled={processingId === w.id}
+                          >
+                            <XCircle className="h-3 w-3" /> Rechazar
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {w.admin_note && (
+                      <p className="text-sm text-muted-foreground font-body italic">Nota: {w.admin_note}</p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 

@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Compass, Zap, CheckCircle, DollarSign, Star, Trophy, ExternalLink, Send } from 'lucide-react';
+import BalanceModule from '@/components/BalanceModule';
 import { toast } from 'sonner';
 
 const StatCard = ({ icon: Icon, label, value, accent = false }: { icon: any; label: string; value: string; accent?: boolean }) => (
@@ -252,6 +253,12 @@ const ExplorerDashboard = () => {
                 ))}
               </div>
             </div>
+          </div>
+
+          {/* Balance & Withdrawals */}
+          <div className="mb-8">
+            <h2 className="font-heading font-bold mb-4">Balance & Retiros</h2>
+            <BalanceModule />
           </div>
 
           <div className="rounded-xl border border-border/50 bg-card">
