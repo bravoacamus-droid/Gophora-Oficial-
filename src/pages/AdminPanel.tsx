@@ -8,9 +8,9 @@ import { Users, FolderOpen, Zap, DollarSign, BarChart3, CheckCircle, XCircle, Ba
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
 
-const tabs = ['Users', 'Projects', 'Missions', 'Fund Releases', 'Withdrawals', 'Payments', 'Revenue'] as const;
+const tabs = ['Users', 'Projects', 'Missions', 'Fund Releases', 'Withdrawals', 'Payouts', 'Payments', 'Revenue'] as const;
 type Tab = typeof tabs[number];
-const tabIcons: Record<Tab, any> = { Users, Projects: FolderOpen, Missions: Zap, 'Fund Releases': Banknote, Withdrawals: Wallet, Payments: CreditCard, Revenue: BarChart3 };
+const tabIcons: Record<Tab, any> = { Users, Projects: FolderOpen, Missions: Zap, 'Fund Releases': Banknote, Withdrawals: Wallet, Payouts: CheckCircle, Payments: CreditCard, Revenue: BarChart3 };
 
 const AdminPanel = () => {
   const { t } = useLanguage();
@@ -521,7 +521,70 @@ const AdminPanel = () => {
             </div>
           )}
 
-          {/* PAYMENTS TAB */}
+          {/* PAYOUTS TAB - Successful withdrawals */}
+          {activeTab === 'Payouts' && (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border/50 bg-muted/50">
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Explorer</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Monto</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Método</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Detalles de pago</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">QR</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Fecha solicitud</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Fecha pago</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Nota</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {withdrawalRequests.filter((w: any) => w.status === 'approved').map((w: any) => (
+                    <tr key={w.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                      <td className="p-4">
+                        <div className="text-sm font-heading font-semibold">{w.explorerEmail}</div>
+                        {w.explorerName && <div className="text-xs text-muted-foreground font-body">{w.explorerName}</div>}
+                      </td>
+                      <td className="p-4 text-sm font-heading font-semibold text-primary">${Number(w.amount).toLocaleString()}</td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          {w.method === 'bank' ? <Building2 className="h-3 w-3 text-muted-foreground" /> : <Bitcoin className="h-3 w-3 text-muted-foreground" />}
+                          <span className="text-sm font-body">{w.method === 'bank' ? 'Banco' : 'Crypto'}</span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        {w.method === 'bank' ? (
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-body"><span className="text-muted-foreground">Banco:</span> {w.bank_name || '—'}</p>
+                            <p className="text-xs font-body"><span className="text-muted-foreground">Cuenta:</span> {w.bank_account || '—'}</p>
+                            <p className="text-xs font-body"><span className="text-muted-foreground">Titular:</span> {w.bank_holder || '—'}</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-body"><span className="text-muted-foreground">Red:</span> {w.crypto_network || '—'}</p>
+                            <p className="text-xs font-body"><span className="text-muted-foreground">Wallet:</span> <span className="break-all">{w.crypto_address || '—'}</span></p>
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        {w.qr_image_url ? (
+                          <a href={w.qr_image_url} target="_blank" rel="noopener noreferrer">
+                            <img src={w.qr_image_url} alt="QR" className="h-12 w-12 rounded border border-border/50 object-cover hover:opacity-80 transition-opacity" />
+                          </a>
+                        ) : <span className="text-xs text-muted-foreground">—</span>}
+                      </td>
+                      <td className="p-4 text-xs text-muted-foreground font-body">{new Date(w.created_at).toLocaleDateString()}</td>
+                      <td className="p-4 text-xs text-muted-foreground font-body">{w.processed_at ? new Date(w.processed_at).toLocaleDateString() : '—'}</td>
+                      <td className="p-4 text-xs text-muted-foreground font-body italic">{w.admin_note || '—'}</td>
+                    </tr>
+                  ))}
+                  {withdrawalRequests.filter((w: any) => w.status === 'approved').length === 0 && (
+                    <tr><td colSpan={8} className="p-8 text-center text-muted-foreground font-body">No hay retiros realizados con éxito</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           {activeTab === 'Payments' && (
             <div className="overflow-x-auto">
               <table className="w-full">
