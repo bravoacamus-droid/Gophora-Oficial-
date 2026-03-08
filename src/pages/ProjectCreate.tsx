@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Cpu, Upload, Zap, DollarSign, Clock, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -27,6 +28,7 @@ interface Mission {
 const ProjectCreate = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { user } = useAuth();
   const [analyzing, setAnalyzing] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [analyzed, setAnalyzed] = useState(false);
@@ -98,6 +100,7 @@ const ProjectCreate = () => {
           category,
           priority,
           budget: budgetNum,
+          user_id: user?.id,
         })
         .select()
         .single();
