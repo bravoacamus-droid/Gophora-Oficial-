@@ -33,6 +33,9 @@ const App = () => (
             <Header />
             <Routes>
               <Route path="/" element={<Landing />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/faq" element={<FAQ />} />
+              <Route path="/organizations" element={<Organizations />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
 

@@ -29,7 +29,11 @@ const Header = () => {
     { path: '/marketplace', label: t('nav.marketplace') },
     ...(accountType === 'company' ? [{ path: '/projects/create', label: t('nav.projects') }] : []),
     ...(isAdmin ? [{ path: '/admin', label: t('nav.admin') }] : []),
-  ] : [];
+  ] : [
+    { path: '/about', label: t('nav.about') },
+    { path: '/faq', label: t('nav.faq') },
+    { path: '/organizations', label: t('nav.organizations') },
+  ];
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
