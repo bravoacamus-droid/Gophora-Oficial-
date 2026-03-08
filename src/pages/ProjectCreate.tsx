@@ -147,7 +147,4 @@ const ProjectCreate = () => {
   );
 };
 
-// Fix missing import
-import { Zap } from 'lucide-react';
-
 export default ProjectCreate;
