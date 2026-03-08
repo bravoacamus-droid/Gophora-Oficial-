@@ -43,21 +43,26 @@ const CompanyDashboard = () => {
     if (!user) return;
     const load = async () => {
       setLoading(true);
-      const { data: projectRows } = await supabase
+      const { data: projectRows, error: projectsError } = await supabase
         .from('projects')
         .select('id, title, budget, status, payment_status')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
+
+      if (projectsError) {
+        console.error('Projects load error:', projectsError);
+      }
 
       const pRows = projectRows || [];
       setProjects(pRows);
 
       if (pRows.length > 0) {
         const projectIds = pRows.map((p) => p.id);
-        const { data: missionRows } = await supabase
+        const { data: missionRows, error: missionsError } = await supabase
           .from('missions')
           .select('id, status, project_id')
           .in('project_id', projectIds);
+        if (missionsError) console.error('Missions load error:', missionsError);
         setMissions(missionRows || []);
       } else {
         setMissions([]);
