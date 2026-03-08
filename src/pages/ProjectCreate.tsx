@@ -285,6 +285,28 @@ const ProjectCreate = () => {
             </div>
           )}
 
+          <div className={`rounded-xl border p-5 ${budgetPaid ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-card'}`}>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <p className="text-xs font-heading tracking-wider uppercase text-muted-foreground">Pago de presupuesto</p>
+                <p className="font-heading font-semibold mt-1">
+                  {budgetPaid ? `Presupuesto pagado: $${budgetNum.toLocaleString()}` : `Pendiente de pago: $${budgetNum.toLocaleString()}`}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant={budgetPaid ? 'outline' : 'hero-outline'}
+                onClick={() => {
+                  setBudgetPaid(true);
+                  toast.success('Pago registrado. Ya puedes publicar las misiones.');
+                }}
+                disabled={budgetPaid}
+              >
+                {budgetPaid ? 'Pagado' : 'Pagar presupuesto'}
+              </Button>
+            </div>
+          </div>
+
           <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
