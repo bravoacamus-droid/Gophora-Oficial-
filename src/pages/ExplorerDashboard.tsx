@@ -280,23 +280,30 @@ const ExplorerDashboard = () => {
                   </div>
 
                   {/* Delivery section */}
-                  {app.status === 'pending' && (
-                    <div className="flex gap-2 items-center">
-                      <Input
-                        placeholder="https://link-a-tu-trabajo.com"
-                        value={deliveryUrls[app.id] || ''}
-                        onChange={(e) => setDeliveryUrls((prev) => ({ ...prev, [app.id]: e.target.value }))}
-                        className="flex-1 text-sm"
-                      />
-                      <Button
-                        size="sm"
-                        className="gap-1 font-heading text-xs"
-                        onClick={() => handleSubmitDelivery(app.id)}
-                        disabled={submittingId === app.id}
-                      >
-                        <Send className="h-3 w-3" />
-                        {submittingId === app.id ? 'Enviando...' : 'Entregar'}
-                      </Button>
+                  {(app.status === 'pending' || app.status === 'rejected') && (
+                    <div className="space-y-2">
+                      {app.status === 'rejected' && app.review_note && (
+                        <p className="text-sm text-destructive font-body italic">
+                          Motivo del rechazo: {app.review_note}
+                        </p>
+                      )}
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          placeholder="https://link-a-tu-trabajo.com"
+                          value={deliveryUrls[app.id] || ''}
+                          onChange={(e) => setDeliveryUrls((prev) => ({ ...prev, [app.id]: e.target.value }))}
+                          className="flex-1 text-sm"
+                        />
+                        <Button
+                          size="sm"
+                          className="gap-1 font-heading text-xs"
+                          onClick={() => handleSubmitDelivery(app.id)}
+                          disabled={submittingId === app.id}
+                        >
+                          <Send className="h-3 w-3" />
+                          {submittingId === app.id ? 'Enviando...' : app.status === 'rejected' ? 'Reenviar' : 'Entregar'}
+                        </Button>
+                      </div>
                     </div>
                   )}
 
@@ -314,7 +321,7 @@ const ExplorerDashboard = () => {
                     </div>
                   )}
 
-                  {(app.status === 'completed' || app.status === 'rejected') && app.delivery_url && (
+                  {(app.status === 'completed' || app.status === 'funds_released') && app.delivery_url && (
                     <div className="flex items-center gap-2 text-sm">
                       <ExternalLink className="h-3 w-3 text-muted-foreground" />
                       <a href={app.delivery_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-body truncate">
@@ -323,7 +330,7 @@ const ExplorerDashboard = () => {
                     </div>
                   )}
 
-                  {app.review_note && (
+                  {app.review_note && app.status !== 'rejected' && (
                     <p className="text-sm text-muted-foreground font-body italic">
                       Nota de revisión: {app.review_note}
                     </p>
