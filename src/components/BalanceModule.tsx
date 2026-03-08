@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { DollarSign, Wallet, Building2, Bitcoin, Send, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { DollarSign, Wallet, Building2, Bitcoin, Send, Clock, CheckCircle, XCircle, ImagePlus } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface WithdrawalRequest {
@@ -17,6 +17,7 @@ interface WithdrawalRequest {
   bank_name?: string;
   crypto_network?: string;
   crypto_address?: string;
+  qr_image_url?: string | null;
 }
 
 const BalanceModule = () => {
@@ -27,6 +28,7 @@ const BalanceModule = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
   const [method, setMethod] = useState<'bank' | 'crypto'>('bank');
@@ -36,12 +38,13 @@ const BalanceModule = () => {
   const [bankHolder, setBankHolder] = useState('');
   const [cryptoNetwork, setCryptoNetwork] = useState('');
   const [cryptoAddress, setCryptoAddress] = useState('');
+  const [qrFile, setQrFile] = useState<File | null>(null);
+  const [qrPreview, setQrPreview] = useState<string | null>(null);
 
   const loadData = async () => {
     if (!user) return;
     setLoading(true);
 
-    // Get funds_released applications to calculate available balance
     const { data: apps } = await supabase
       .from('mission_applications')
       .select('id, status, mission_id')
@@ -60,7 +63,6 @@ const BalanceModule = () => {
       const missionMap = new Map((missions || []).map(m => [m.id, Number(m.reward)]));
       const totalReleased = releasedApps.reduce((sum, a) => sum + (missionMap.get(a.mission_id) || 0), 0);
 
-      // Get approved/pending withdrawals to subtract from available
       const { data: withdrawalRows } = await supabase
         .from('withdrawal_requests')
         .select('amount, status')
@@ -77,10 +79,9 @@ const BalanceModule = () => {
       setPendingBalance(0);
     }
 
-    // Load withdrawal history
     const { data: wRows } = await supabase
       .from('withdrawal_requests')
-      .select('id, amount, method, status, admin_note, created_at, processed_at, bank_name, crypto_network, crypto_address')
+      .select('id, amount, method, status, admin_note, created_at, processed_at, bank_name, crypto_network, crypto_address, qr_image_url')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -91,6 +92,33 @@ const BalanceModule = () => {
   useEffect(() => {
     loadData();
   }, [user]);
+
+  const handleQrSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Solo se permiten imágenes');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('La imagen no puede superar 5MB');
+      return;
+    }
+    setQrFile(file);
+    setQrPreview(URL.createObjectURL(file));
+  };
+
+  const uploadQr = async (): Promise<string | null> => {
+    if (!qrFile || !user) return null;
+    const ext = qrFile.name.split('.').pop();
+    const path = `${user.id}/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from('withdrawal-qr')
+      .upload(path, qrFile);
+    if (error) throw error;
+    const { data } = supabase.storage.from('withdrawal-qr').getPublicUrl(path);
+    return data.publicUrl;
+  };
 
   const handleSubmit = async () => {
     const numAmount = parseFloat(amount);
@@ -117,6 +145,8 @@ const BalanceModule = () => {
 
     setSubmitting(true);
     try {
+      const qrUrl = await uploadQr();
+
       const { error } = await supabase.from('withdrawal_requests').insert({
         user_id: user!.id,
         amount: numAmount,
@@ -126,6 +156,7 @@ const BalanceModule = () => {
         bank_holder: method === 'bank' ? bankHolder.trim() : null,
         crypto_network: method === 'crypto' ? cryptoNetwork.trim() : null,
         crypto_address: method === 'crypto' ? cryptoAddress.trim() : null,
+        qr_image_url: qrUrl,
       });
 
       if (error) throw error;
@@ -137,6 +168,8 @@ const BalanceModule = () => {
       setBankHolder('');
       setCryptoNetwork('');
       setCryptoAddress('');
+      setQrFile(null);
+      setQrPreview(null);
       loadData();
     } catch (err: any) {
       toast.error(err.message || 'Error al enviar solicitud');
@@ -257,6 +290,40 @@ const BalanceModule = () => {
             </div>
           )}
 
+          {/* QR Image Upload */}
+          <div>
+            <label className="text-sm font-heading font-semibold mb-2 block">Imagen QR de pago (opcional)</label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleQrSelect}
+              className="hidden"
+            />
+            <div className="flex items-center gap-4">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-2 font-heading text-xs"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <ImagePlus className="h-3 w-3" /> {qrFile ? 'Cambiar imagen' : 'Subir QR'}
+              </Button>
+              {qrPreview && (
+                <div className="relative">
+                  <img src={qrPreview} alt="QR Preview" className="h-20 w-20 rounded-lg border border-border/50 object-cover" />
+                  <button
+                    onClick={() => { setQrFile(null); setQrPreview(null); }}
+                    className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="flex gap-2">
             <Button className="gap-2 font-heading text-xs" onClick={handleSubmit} disabled={submitting}>
               <Send className="h-3 w-3" /> {submitting ? 'Enviando...' : 'Enviar solicitud'}
@@ -281,11 +348,11 @@ const BalanceModule = () => {
               return (
                 <div key={w.id} className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-3">
                   <div className="flex items-center gap-4">
-                    <div className={`p-2 rounded-lg ${w.method === 'bank' ? 'bg-blue-500/10' : 'bg-orange-500/10'}`}>
+                    <div className={`p-2 rounded-lg ${w.method === 'bank' ? 'bg-primary/10' : 'bg-accent/50'}`}>
                       {w.method === 'bank' ? (
-                        <Building2 className={`h-4 w-4 ${w.method === 'bank' ? 'text-blue-500' : 'text-orange-500'}`} />
+                        <Building2 className="h-4 w-4 text-primary" />
                       ) : (
-                        <Bitcoin className="h-4 w-4 text-orange-500" />
+                        <Bitcoin className="h-4 w-4 text-primary" />
                       )}
                     </div>
                     <div>
@@ -293,16 +360,23 @@ const BalanceModule = () => {
                         ${Number(w.amount).toLocaleString()} — {w.method === 'bank' ? w.bank_name : `${w.crypto_network}`}
                       </p>
                       <p className="text-xs text-muted-foreground font-body">
-                        {new Date(w.created_at).toLocaleDateString()} • {w.method === 'bank' ? 'Transferencia bancaria' : `Wallet: ${w.crypto_address?.slice(0, 10)}...`}
+                        {new Date(w.created_at).toLocaleDateString()} • {w.method === 'bank' ? 'Transferencia bancaria' : `Wallet: ${w.crypto_address}`}
                       </p>
                       {w.admin_note && (
                         <p className="text-xs text-muted-foreground font-body italic mt-1">Nota: {w.admin_note}</p>
                       )}
                     </div>
                   </div>
-                  <div className={`flex items-center gap-2 text-xs font-heading font-semibold px-3 py-1 rounded-full ${cfg.color}`}>
-                    <StatusIcon className="h-3 w-3" />
-                    {cfg.label}
+                  <div className="flex items-center gap-3">
+                    {w.qr_image_url && (
+                      <a href={w.qr_image_url} target="_blank" rel="noopener noreferrer">
+                        <img src={w.qr_image_url} alt="QR" className="h-10 w-10 rounded border border-border/50 object-cover" />
+                      </a>
+                    )}
+                    <div className={`flex items-center gap-2 text-xs font-heading font-semibold px-3 py-1 rounded-full ${cfg.color}`}>
+                      <StatusIcon className="h-3 w-3" />
+                      {cfg.label}
+                    </div>
                   </div>
                 </div>
               );
