@@ -32,6 +32,7 @@ const ProjectCreate = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [analyzed, setAnalyzed] = useState(false);
+  const [budgetPaid, setBudgetPaid] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [budget, setBudget] = useState('');
   const [missions, setMissions] = useState<Mission[]>([]);
