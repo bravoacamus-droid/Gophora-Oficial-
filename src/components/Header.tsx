@@ -3,7 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Moon, Sun, Globe, Menu, X, Rocket } from 'lucide-react';
+import { Moon, Sun, Globe, Menu, X } from 'lucide-react';
+import gophoraLogo from '@/assets/gophora-logo.png';
 
 const Header = () => {
   const { language, setLanguage, t } = useLanguage();
