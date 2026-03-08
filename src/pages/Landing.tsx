@@ -1,4 +1,5 @@
-import { Rocket, Zap, Users, BarChart3, ArrowRight, Target, Cpu, Globe } from 'lucide-react';
+import { Zap, Users, BarChart3, ArrowRight, Target, Cpu, Globe, Rocket } from 'lucide-react';
+import gophoraLogo from '@/assets/gophora-logo.png';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -106,10 +107,7 @@ const Landing = () => {
       {/* Footer */}
       <footer className="border-t border-border/50 py-8">
         <div className="container flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground font-body">
-          <div className="flex items-center gap-2">
-            <Rocket className="h-4 w-4 text-primary" />
-            <span className="font-heading font-bold tracking-wider">GOPHORA</span>
-          </div>
+          <img src={gophoraLogo} alt="GOPHORA" className="h-6 invert dark:invert-0" />
           <p>© 2026 GOPHORA. All rights reserved.</p>
         </div>
       </footer>
