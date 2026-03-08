@@ -45,24 +45,36 @@ export type Database = {
         Row: {
           cover_letter: string | null
           created_at: string
+          delivered_at: string | null
+          delivery_url: string | null
           id: string
           mission_id: string
+          review_note: string | null
+          reviewed_at: string | null
           status: string
           user_id: string
         }
         Insert: {
           cover_letter?: string | null
           created_at?: string
+          delivered_at?: string | null
+          delivery_url?: string | null
           id?: string
           mission_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
           status?: string
           user_id: string
         }
         Update: {
           cover_letter?: string | null
           created_at?: string
+          delivered_at?: string | null
+          delivery_url?: string | null
           id?: string
           mission_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
           status?: string
           user_id?: string
         }
