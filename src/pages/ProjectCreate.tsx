@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Cpu, Upload, Zap, DollarSign, Clock, AlertTriangle, Link2 } from 'lucide-react';
+import { Cpu, Upload, Zap, DollarSign, Clock, AlertTriangle, Link2, CheckCircle, Sparkles, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 const categories = ['Marketing', 'Web Development', 'Design', 'Data', 'Research', 'Operations'];
@@ -30,17 +30,20 @@ const ProjectCreate = () => {
   const { t } = useLanguage();
   const { user } = useAuth();
   const [analyzing, setAnalyzing] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [analyzed, setAnalyzed] = useState(false);
-  const [budgetPaid, setBudgetPaid] = useState(false);
+  const [quoteAccepted, setQuoteAccepted] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [budget, setBudget] = useState('');
+  const [editingBudget, setEditingBudget] = useState('');
   const [missions, setMissions] = useState<Mission[]>([]);
   const [projectTitle, setProjectTitle] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
   const [category, setCategory] = useState(categories[0]);
   const [priority, setPriority] = useState(priorities[1]);
   const [resourceLink, setResourceLink] = useState('');
+  const [deadline, setDeadline] = useState('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -78,7 +81,7 @@ const ProjectCreate = () => {
       if (data?.error) throw new Error(data.error);
 
       setMissions(data.missions || []);
-      setBudgetPaid(false);
+      setQuoteAccepted(false);
       setAnalyzed(true);
     } catch (err: any) {
       console.error('Analysis failed:', err);
@@ -88,16 +91,52 @@ const ProjectCreate = () => {
     }
   };
 
+  const handleOptimizeBudget = async () => {
+    setOptimizing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('optimize-missions', {
+        body: {
+          missions,
+          budget: budgetNum,
+          projectTitle,
+          projectDescription,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const keptIndices: number[] = data.kept_indices || [];
+      const optimizedMissions = missions.filter((_, i) => keptIndices.includes(i));
+
+      if (optimizedMissions.length === 0) {
+        toast.error('No se pudieron seleccionar misiones dentro del presupuesto.');
+        return;
+      }
+
+      setMissions(optimizedMissions);
+      toast.success(
+        `IA seleccionó ${optimizedMissions.length} misiones prioritarias que caben en tu presupuesto. ${data.reasoning || ''}`
+      );
+    } catch (err: any) {
+      console.error('Optimization failed:', err);
+      toast.error(err.message || 'Error al optimizar misiones.');
+    } finally {
+      setOptimizing(false);
+    }
+  };
+
   const deleteMission = (index: number) => {
     setMissions(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handlePublish = async () => {
-    if (!budgetPaid) {
-      toast.error('Debes pagar el presupuesto antes de publicar las misiones.');
-      return;
-    }
+  const handleBackToEdit = () => {
+    setAnalyzed(false);
+    setQuoteAccepted(false);
+    setEditingBudget(budget);
+  };
 
+  const handlePublish = async () => {
     setPublishing(true);
     try {
       const { data: project, error: projectError } = await supabase
@@ -111,6 +150,7 @@ const ProjectCreate = () => {
           payment_status: 'paid',
           user_id: user?.id,
           resource_link: resourceLink || null,
+          deadline: deadline || null,
         })
         .select()
         .single();
@@ -133,7 +173,7 @@ const ProjectCreate = () => {
 
       if (missionsError) throw missionsError;
 
-      toast.success(`${missions.length} missions published successfully!`);
+      toast.success(`${missions.length} misiones publicadas exitosamente!`);
       navigate('/marketplace');
     } catch (err: any) {
       console.error('Publish failed:', err);
@@ -181,7 +221,7 @@ const ProjectCreate = () => {
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <Label className="font-heading text-xs tracking-wider uppercase">{t('project.deadline')}</Label>
-              <Input type="date" className="mt-1.5" required />
+              <Input type="date" className="mt-1.5" value={deadline} onChange={e => setDeadline(e.target.value)} required />
             </div>
             <div>
               <Label className="font-heading text-xs tracking-wider uppercase">{t('project.budget')}</Label>
@@ -199,7 +239,6 @@ const ProjectCreate = () => {
               </p>
             </div>
           </div>
-          {/* Resource Link */}
           <div>
             <Label className="font-heading text-xs tracking-wider uppercase flex items-center gap-2">
               <Link2 className="h-4 w-4" />
@@ -251,7 +290,8 @@ const ProjectCreate = () => {
             )}
           </Button>
         </form>
-      ) : (
+      ) : !quoteAccepted ? (
+        /* ── QUOTE REVIEW PHASE ── */
         <div className="space-y-6">
           <div className="rounded-xl border border-primary/30 bg-primary/5 p-6">
             <div className="flex items-center gap-3 mb-4">
@@ -259,31 +299,30 @@ const ProjectCreate = () => {
               <h2 className="font-heading font-bold text-lg">AI Mission Architect</h2>
             </div>
             <p className="text-sm text-muted-foreground font-body mb-2">
-              Your project <span className="font-semibold text-foreground">"{projectTitle}"</span> has been analyzed and divided into <span className="font-semibold text-primary">{missions.length}</span> executable micro-missions based on your ${budgetNum.toLocaleString()} budget.
+              Tu proyecto <span className="font-semibold text-foreground">"{projectTitle}"</span> ha sido analizado y dividido en <span className="font-semibold text-primary">{missions.length}</span> micro-misiones ejecutables basadas en tu presupuesto de ${budgetNum.toLocaleString()}.
             </p>
           </div>
 
-          
           {/* Budget Summary */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="rounded-xl border border-border/50 bg-card p-4">
               <div className="flex items-center gap-2 mb-1">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground font-heading uppercase">Project Budget</span>
+                <span className="text-xs text-muted-foreground font-heading uppercase">Presupuesto</span>
               </div>
               <p className="text-xl font-heading font-bold">${budgetNum.toLocaleString()}</p>
             </div>
             <div className="rounded-xl border border-border/50 bg-card p-4">
               <div className="flex items-center gap-2 mb-1">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground font-heading uppercase">Total Hours</span>
+                <span className="text-xs text-muted-foreground font-heading uppercase">Horas Totales</span>
               </div>
               <p className="text-xl font-heading font-bold">{totalHours}h</p>
             </div>
             <div className="rounded-xl border border-border/50 bg-card p-4">
               <div className="flex items-center gap-2 mb-1">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground font-heading uppercase">Talent Cost</span>
+                <span className="text-xs text-muted-foreground font-heading uppercase">Costo Talento</span>
               </div>
               <p className="text-xl font-heading font-bold">${totalTalentCost.toLocaleString()}</p>
             </div>
@@ -300,45 +339,24 @@ const ProjectCreate = () => {
             <div className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
               <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
               <p className="text-sm font-body text-destructive">
-                Total cost (${totalCost.toLocaleString()}) exceeds your budget (${budgetNum.toLocaleString()}) due to the minimum hourly rate of ${MIN_HOURLY_RATE}/hr. Consider increasing budget or reducing scope.
+                El costo total (${totalCost.toLocaleString()}) excede tu presupuesto (${budgetNum.toLocaleString()}). Puedes ajustar tu presupuesto, eliminar misiones manualmente, o dejar que la IA sugiera las misiones prioritarias.
               </p>
             </div>
           )}
 
-          <div className={`rounded-xl border p-5 ${budgetPaid ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-card'}`}>
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <p className="text-xs font-heading tracking-wider uppercase text-muted-foreground">Pago de presupuesto</p>
-                <p className="font-heading font-semibold mt-1">
-                  {budgetPaid ? `Presupuesto pagado: $${budgetNum.toLocaleString()}` : `Pendiente de pago: $${budgetNum.toLocaleString()}`}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant={budgetPaid ? 'outline' : 'hero-outline'}
-                onClick={() => {
-                  setBudgetPaid(true);
-                  toast.success('Pago registrado. Ya puedes publicar las misiones.');
-                }}
-                disabled={budgetPaid}
-              >
-                {budgetPaid ? 'Pagado' : 'Pagar presupuesto'}
-              </Button>
-            </div>
-          </div>
-
+          {/* Missions Table */}
           <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border/50 bg-muted/50">
                     <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">#</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Mission</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Misión</th>
                     <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Skill</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Hours</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Rate/hr</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Reward</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Actions</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Horas</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Tarifa/hr</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Recompensa</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -356,26 +374,26 @@ const ProjectCreate = () => {
                       <td className="p-4 text-sm text-muted-foreground font-body">${m.hourlyRate}/hr</td>
                       <td className="p-4 text-sm font-heading font-semibold text-primary">${m.reward.toLocaleString()}</td>
                       <td className="p-4">
-                        <Button variant="ghost" size="sm" className="text-xs font-heading text-destructive" onClick={() => deleteMission(i)}>Delete</Button>
+                        <Button variant="ghost" size="sm" className="text-xs font-heading text-destructive" onClick={() => deleteMission(i)}>Eliminar</Button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-border/50 bg-muted/30">
-                    <td className="p-4 font-heading font-bold text-sm" colSpan={3}>TOTAL ({missions.length} missions)</td>
+                    <td className="p-4 font-heading font-bold text-sm" colSpan={3}>TOTAL ({missions.length} misiones)</td>
                     <td className="p-4 font-heading font-bold text-sm">{totalHours}h</td>
                     <td className="p-4 text-sm text-muted-foreground font-body">—</td>
                     <td className="p-4 font-heading font-bold text-sm text-primary">${totalTalentCost.toLocaleString()}</td>
                     <td className="p-4"></td>
                   </tr>
                   <tr className="bg-muted/30">
-                    <td className="px-4 pb-2 text-xs text-muted-foreground font-body" colSpan={5}>GOPHORA Commission ({COMMISSION_RATE * 100}%)</td>
+                    <td className="px-4 pb-2 text-xs text-muted-foreground font-body" colSpan={5}>Comisión GOPHORA ({COMMISSION_RATE * 100}%)</td>
                     <td className="px-4 pb-2 text-xs text-muted-foreground font-heading">${gophoraCommission.toLocaleString()}</td>
                     <td></td>
                   </tr>
                   <tr className="bg-muted/30">
-                    <td className="px-4 pb-4 text-sm font-heading font-bold" colSpan={5}>GRAND TOTAL</td>
+                    <td className="px-4 pb-4 text-sm font-heading font-bold" colSpan={5}>GRAN TOTAL</td>
                     <td className={`px-4 pb-4 text-sm font-heading font-bold ${overBudget ? 'text-destructive' : 'text-primary'}`}>${totalCost.toLocaleString()}</td>
                     <td></td>
                   </tr>
@@ -384,26 +402,91 @@ const ProjectCreate = () => {
             </div>
           </div>
 
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-3">
+            {overBudget && (
+              <Button
+                variant="hero-outline"
+                className="w-full gap-2 font-heading"
+                disabled={optimizing}
+                onClick={handleOptimizeBudget}
+              >
+                {optimizing ? (
+                  <>
+                    <div className="h-4 w-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    Optimizando con IA...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" /> {t('project.optimize_budget')}
+                  </>
+                )}
+              </Button>
+            )}
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                onClick={handleBackToEdit}
+                className="font-heading gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" /> {t('project.edit_budget')}
+              </Button>
+              <Button
+                variant="hero"
+                className="flex-1 font-heading gap-2"
+                disabled={overBudget || missions.length === 0}
+                onClick={() => setQuoteAccepted(true)}
+              >
+                <CheckCircle className="h-4 w-4" /> {t('project.accept_quote')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ── PAYMENT & PUBLISH PHASE ── */
+        <div className="space-y-6">
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <CheckCircle className="h-6 w-6 text-primary" />
+              <h2 className="font-heading font-bold text-lg">Cotización Aceptada</h2>
+            </div>
+            <p className="text-sm text-muted-foreground font-body">
+              Has aceptado <span className="font-semibold text-primary">{missions.length}</span> misiones por un total de <span className="font-semibold text-primary">${totalCost.toLocaleString()}</span> (incluye comisión GOPHORA del {COMMISSION_RATE * 100}%).
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="rounded-xl border border-border/50 bg-card p-4 text-center">
+              <p className="text-xs text-muted-foreground font-heading uppercase mb-1">Misiones</p>
+              <p className="text-2xl font-heading font-bold text-primary">{missions.length}</p>
+            </div>
+            <div className="rounded-xl border border-border/50 bg-card p-4 text-center">
+              <p className="text-xs text-muted-foreground font-heading uppercase mb-1">Horas</p>
+              <p className="text-2xl font-heading font-bold">{totalHours}h</p>
+            </div>
+            <div className="rounded-xl border border-border/50 bg-card p-4 text-center">
+              <p className="text-xs text-muted-foreground font-heading uppercase mb-1">Inversión Total</p>
+              <p className="text-2xl font-heading font-bold text-primary">${totalCost.toLocaleString()}</p>
+            </div>
+          </div>
+
           <div className="flex gap-4">
             <Button
               variant="outline"
-              onClick={() => {
-                setAnalyzed(false);
-                setBudgetPaid(false);
-              }}
-              className="font-heading"
+              onClick={() => setQuoteAccepted(false)}
+              className="font-heading gap-2"
             >
-              Back to Edit
+              <ArrowLeft className="h-4 w-4" /> Volver a Cotización
             </Button>
-            <Button variant="hero" className="flex-1 font-heading gap-2" disabled={overBudget || publishing || !budgetPaid} onClick={handlePublish}>
+            <Button variant="hero" className="flex-1 font-heading gap-2" disabled={publishing} onClick={handlePublish}>
               {publishing ? (
                 <>
                   <div className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  Publishing...
+                  Publicando...
                 </>
               ) : (
                 <>
-                  <Zap className="h-4 w-4" /> {budgetPaid ? `Publish ${missions.length} Missions` : 'Pay Budget to Publish'}
+                  <Zap className="h-4 w-4" /> Publicar {missions.length} Misiones
                 </>
               )}
             </Button>

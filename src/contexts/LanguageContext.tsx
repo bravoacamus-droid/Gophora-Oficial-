@@ -234,6 +234,10 @@ const translations: Record<string, Record<Language, string>> = {
   'project.resource_link_placeholder': { en: 'https://drive.google.com/... or https://notion.so/...', es: 'https://drive.google.com/... o https://notion.so/...' },
   'project.resource_link_help': { en: 'Share a link with the complete project brief: deliverables, brand assets, color palette, logos, background info, and all materials needed for explorers to deliver precise results.', es: 'Comparte un link con el brief completo del proyecto: entregables, activos de marca, paleta de colores, logos, antecedentes e información necesaria para que los exploradores entreguen resultados precisos y ajustados a tu marca.' },
   'project.analyze': { en: 'Analyze Project with AI', es: 'Analizar Proyecto con IA' },
+  'project.accept_quote': { en: 'Accept Quote & Continue', es: 'Aceptar Cotización y Continuar' },
+  'project.optimize_budget': { en: 'Suggest missions for my budget', es: 'Sugerir misiones para mi presupuesto' },
+  'project.reanalyze': { en: 'Re-analyze with AI', es: 'Re-analizar con IA' },
+  'project.edit_budget': { en: 'Edit Budget', es: 'Editar Presupuesto' },
 
   // Admin
   'admin.title': { en: 'Admin Panel', es: 'Panel de Administración' },
