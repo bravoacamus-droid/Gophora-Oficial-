@@ -18,6 +18,7 @@ import ExplorerDashboard from "@/pages/ExplorerDashboard";
 import Marketplace from "@/pages/Marketplace";
 import ProjectCreate from "@/pages/ProjectCreate";
 import AdminPanel from "@/pages/AdminPanel";
+import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
