@@ -248,6 +248,7 @@ export type Database = {
           method: string
           processed_at: string | null
           processed_by: string | null
+          qr_image_url: string | null
           status: string
           user_id: string
         }
@@ -264,6 +265,7 @@ export type Database = {
           method: string
           processed_at?: string | null
           processed_by?: string | null
+          qr_image_url?: string | null
           status?: string
           user_id: string
         }
@@ -280,6 +282,7 @@ export type Database = {
           method?: string
           processed_at?: string | null
           processed_by?: string | null
+          qr_image_url?: string | null
           status?: string
           user_id?: string
         }

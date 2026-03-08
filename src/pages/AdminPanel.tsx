@@ -8,9 +8,9 @@ import { Users, FolderOpen, Zap, DollarSign, BarChart3, CheckCircle, XCircle, Ba
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
 
-const tabs = ['Users', 'Projects', 'Missions', 'Fund Releases', 'Withdrawals', 'Revenue'] as const;
+const tabs = ['Users', 'Projects', 'Missions', 'Fund Releases', 'Withdrawals', 'Payments', 'Revenue'] as const;
 type Tab = typeof tabs[number];
-const tabIcons: Record<Tab, any> = { Users, Projects: FolderOpen, Missions: Zap, 'Fund Releases': Banknote, Withdrawals: Wallet, Revenue: BarChart3 };
+const tabIcons: Record<Tab, any> = { Users, Projects: FolderOpen, Missions: Zap, 'Fund Releases': Banknote, Withdrawals: Wallet, Payments: CreditCard, Revenue: BarChart3 };
 
 const AdminPanel = () => {
   const { t } = useLanguage();
@@ -22,6 +22,7 @@ const AdminPanel = () => {
   const [missions, setMissions] = useState<any[]>([]);
   const [pendingReleases, setPendingReleases] = useState<any[]>([]);
   const [withdrawalRequests, setWithdrawalRequests] = useState<any[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [releasingId, setReleasingId] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -39,13 +40,14 @@ const AdminPanel = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [statsData, usersData, projectsData, missionsData, releasesData, withdrawalsData] = await Promise.all([
+      const [statsData, usersData, projectsData, missionsData, releasesData, withdrawalsData, paymentsData] = await Promise.all([
         adminCall('get_stats'),
         adminCall('get_users'),
         adminCall('get_projects'),
         adminCall('get_missions'),
         adminCall('get_pending_releases'),
         adminCall('get_withdrawals'),
+        adminCall('get_payment_history'),
       ]);
       setStats(statsData);
       setUsers(usersData);
@@ -53,6 +55,7 @@ const AdminPanel = () => {
       setMissions(missionsData);
       setPendingReleases(releasesData || []);
       setWithdrawalRequests(withdrawalsData || []);
+      setPaymentHistory(paymentsData || []);
     } catch (err: any) {
       console.error('Admin load error:', err);
       toast.error(err.message || 'Failed to load admin data');
@@ -429,30 +432,54 @@ const AdminPanel = () => {
                 const isPending = w.status === 'pending';
                 return (
                   <div key={w.id} className="p-4 md:p-6 space-y-3">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                      <div className="flex items-center gap-4">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                      <div className="flex items-start gap-4">
                         <div className={`p-2 rounded-lg ${w.method === 'bank' ? 'bg-primary/10' : 'bg-accent/50'}`}>
                           {w.method === 'bank' ? <Building2 className="h-4 w-4 text-primary" /> : <Bitcoin className="h-4 w-4 text-primary" />}
                         </div>
-                        <div>
+                        <div className="space-y-1">
                           <p className="font-heading font-semibold text-sm">
                             ${Number(w.amount).toLocaleString()} — {w.explorerEmail}
                           </p>
-                          <p className="text-xs text-muted-foreground font-body">
-                            {w.method === 'bank'
-                              ? `${w.bank_name} • Cuenta: ${w.bank_account} • Titular: ${w.bank_holder}`
-                              : `${w.crypto_network} • ${w.crypto_address}`}
-                          </p>
+                          {w.explorerName && <p className="text-xs text-muted-foreground font-body">{w.explorerName}</p>}
+                          
+                          {/* Full withdrawal details */}
+                          <div className="rounded-lg border border-border/50 bg-muted/30 p-3 mt-2 space-y-1">
+                            <p className="text-xs font-heading font-semibold uppercase tracking-wider text-muted-foreground">
+                              {w.method === 'bank' ? 'Datos bancarios' : 'Datos crypto'}
+                            </p>
+                            {w.method === 'bank' ? (
+                              <>
+                                <p className="text-sm font-body"><span className="text-muted-foreground">Banco:</span> {w.bank_name || '—'}</p>
+                                <p className="text-sm font-body"><span className="text-muted-foreground">Cuenta:</span> {w.bank_account || '—'}</p>
+                                <p className="text-sm font-body"><span className="text-muted-foreground">Titular:</span> {w.bank_holder || '—'}</p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-sm font-body"><span className="text-muted-foreground">Red:</span> {w.crypto_network || '—'}</p>
+                                <p className="text-sm font-body"><span className="text-muted-foreground">Dirección:</span> <span className="break-all">{w.crypto_address || '—'}</span></p>
+                              </>
+                            )}
+                          </div>
+
                           <p className="text-xs text-muted-foreground font-body">{new Date(w.created_at).toLocaleString()}</p>
                         </div>
                       </div>
-                      <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${
-                        w.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
-                        w.status === 'approved' ? 'bg-green-500/10 text-green-500' :
-                        'bg-destructive/10 text-destructive'
-                      }`}>
-                        {w.status.toUpperCase()}
-                      </span>
+
+                      <div className="flex flex-col items-end gap-2">
+                        <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${
+                          w.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
+                          w.status === 'approved' ? 'bg-green-500/10 text-green-500' :
+                          'bg-destructive/10 text-destructive'
+                        }`}>
+                          {w.status.toUpperCase()}
+                        </span>
+                        {w.qr_image_url && (
+                          <a href={w.qr_image_url} target="_blank" rel="noopener noreferrer">
+                            <img src={w.qr_image_url} alt="QR Code" className="h-24 w-24 rounded-lg border border-border/50 object-cover hover:opacity-80 transition-opacity" />
+                          </a>
+                        )}
+                      </div>
                     </div>
 
                     {isPending && (
@@ -491,6 +518,50 @@ const AdminPanel = () => {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* PAYMENTS TAB */}
+          {activeTab === 'Payments' && (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border/50 bg-muted/50">
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Misión</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Proyecto</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Explorer</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Monto</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Entregado</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Revisado</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paymentHistory.map((p: any) => (
+                    <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                      <td className="p-4 text-sm font-heading font-semibold">{p.missionTitle}</td>
+                      <td className="p-4 text-sm font-body">{p.projectTitle}</td>
+                      <td className="p-4">
+                        <div className="text-sm font-body">{p.explorerEmail}</div>
+                        {p.explorerName && <div className="text-xs text-muted-foreground">{p.explorerName}</div>}
+                      </td>
+                      <td className="p-4 text-sm font-heading font-semibold text-primary">${Number(p.missionReward).toLocaleString()}</td>
+                      <td className="p-4 text-xs text-muted-foreground font-body">{p.delivered_at ? new Date(p.delivered_at).toLocaleDateString() : '—'}</td>
+                      <td className="p-4 text-xs text-muted-foreground font-body">{p.reviewed_at ? new Date(p.reviewed_at).toLocaleDateString() : '—'}</td>
+                      <td className="p-4">
+                        <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${
+                          p.status === 'funds_released' ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary'
+                        }`}>
+                          {p.status === 'funds_released' ? 'PAGADO' : p.status.toUpperCase()}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {paymentHistory.length === 0 && (
+                    <tr><td colSpan={7} className="p-8 text-center text-muted-foreground font-body">No hay pagos registrados</td></tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
 
