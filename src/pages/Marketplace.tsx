@@ -295,7 +295,7 @@ const Marketplace = () => {
                     <h3 className="font-heading font-bold">{language === 'en' ? 'Mission Description' : 'Descripción de la Misión'}</h3>
                   </div>
                   <p className="text-sm text-muted-foreground font-body leading-relaxed whitespace-pre-wrap">
-                    {selectedMission.description || (language === 'en' ? 'No description available.' : 'Sin descripción disponible.')}
+                    {mt(selectedMission, 'description') || (language === 'en' ? 'No description available.' : 'Sin descripción disponible.')}
                   </p>
                 </div>
 
