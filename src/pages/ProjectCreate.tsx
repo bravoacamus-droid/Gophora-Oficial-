@@ -538,18 +538,67 @@ const ProjectCreate = () => {
             </div>
           </div>
 
-          {/* TX Hash Confirmation */}
-          <div className="rounded-xl border border-border/50 bg-card p-6 space-y-3">
-            <Label className="font-heading text-xs tracking-wider uppercase">Hash de Transacción (opcional)</Label>
-            <Input
-              className="font-mono text-sm"
-              placeholder="0x..."
-              value={txHash}
-              onChange={e => setTxHash(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground font-body">
-              Pega el hash de tu transacción para facilitar la verificación. También puedes confirmar sin él.
-            </p>
+          {/* TX Hash & Screenshot */}
+          <div className="rounded-xl border border-border/50 bg-card p-6 space-y-4">
+            <div className="space-y-3">
+              <Label className="font-heading text-xs tracking-wider uppercase">Hash de Transacción (opcional)</Label>
+              <Input
+                className="font-mono text-sm"
+                placeholder="0x..."
+                value={txHash}
+                onChange={e => setTxHash(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground font-body">
+                Pega el hash de tu transacción para facilitar la verificación.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="font-heading text-xs tracking-wider uppercase flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Captura del Depósito
+              </Label>
+              {paymentScreenshotPreview ? (
+                <div className="relative rounded-lg border border-border/50 overflow-hidden">
+                  <img
+                    src={paymentScreenshotPreview}
+                    alt="Captura de depósito"
+                    className="w-full max-h-64 object-contain bg-muted/30"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 right-2 text-xs font-heading text-destructive bg-card/80 backdrop-blur-sm"
+                    onClick={() => {
+                      setPaymentScreenshot(null);
+                      setPaymentScreenshotPreview(null);
+                    }}
+                  >
+                    Eliminar
+                  </Button>
+                </div>
+              ) : (
+                <label className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/30 transition-colors cursor-pointer block">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setPaymentScreenshot(file);
+                        const reader = new FileReader();
+                        reader.onloadend = () => setPaymentScreenshotPreview(reader.result as string);
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                  <Upload className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground font-body">Sube una captura de pantalla del depósito exitoso</p>
+                  <p className="text-xs text-muted-foreground font-body mt-1">PNG, JPG hasta 5MB</p>
+                </label>
+              )}
+            </div>
           </div>
 
           <div className="flex gap-4">
