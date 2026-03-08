@@ -19,7 +19,9 @@ const AdminPanel = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [missions, setMissions] = useState<any[]>([]);
+  const [pendingReleases, setPendingReleases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [releasingId, setReleasingId] = useState<string | null>(null);
 
   const adminCall = useCallback(async (action: string, params: any = {}) => {
     const { data, error } = await supabase.functions.invoke('admin-actions', {
