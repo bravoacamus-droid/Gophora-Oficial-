@@ -41,7 +41,7 @@ const Marketplace = () => {
     try {
       const { data: missionRows, error: missionsError } = await supabase
         .from('missions')
-        .select('id, title, skill, hours, reward, hourly_rate, description, project_id')
+        .select('id, title, title_es, skill, hours, reward, hourly_rate, description, description_es, project_id')
         .eq('status', 'approved')
         .order('created_at', { ascending: false });
 
