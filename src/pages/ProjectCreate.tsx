@@ -92,6 +92,11 @@ const ProjectCreate = () => {
   };
 
   const handlePublish = async () => {
+    if (!budgetPaid) {
+      toast.error('Debes pagar el presupuesto antes de publicar las misiones.');
+      return;
+    }
+
     setPublishing(true);
     try {
       const { data: project, error: projectError } = await supabase
@@ -102,6 +107,7 @@ const ProjectCreate = () => {
           category,
           priority,
           budget: budgetNum,
+          payment_status: 'paid',
           user_id: user?.id,
         })
         .select()
