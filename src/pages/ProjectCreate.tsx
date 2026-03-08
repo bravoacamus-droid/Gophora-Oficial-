@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Cpu, Upload } from 'lucide-react';
+import { Cpu, Upload, Zap } from 'lucide-react';
 
 const categories = ['Marketing', 'Web Development', 'Design', 'Data', 'Research', 'Operations'];
 const priorities = ['Low', 'Medium', 'High', 'Critical'];
