@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import Header from "@/components/Header";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
@@ -31,11 +32,11 @@ const App = () => (
               <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/company" element={<CompanyDashboard />} />
-              <Route path="/explorer" element={<ExplorerDashboard />} />
-              <Route path="/marketplace" element={<Marketplace />} />
-              <Route path="/projects/create" element={<ProjectCreate />} />
-              <Route path="/admin" element={<AdminPanel />} />
+              <Route path="/company" element={<ProtectedRoute><CompanyDashboard /></ProtectedRoute>} />
+              <Route path="/explorer" element={<ProtectedRoute><ExplorerDashboard /></ProtectedRoute>} />
+              <Route path="/marketplace" element={<ProtectedRoute><Marketplace /></ProtectedRoute>} />
+              <Route path="/projects/create" element={<ProtectedRoute><ProjectCreate /></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
