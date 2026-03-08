@@ -8,7 +8,7 @@ import gophoraLogo from '@/assets/gophora-logo.png';
 
 const Header = () => {
   const { language, setLanguage, t } = useLanguage();
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, accountType } = useAuth();
   const location = useLocation();
   const [darkMode, setDarkMode] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
