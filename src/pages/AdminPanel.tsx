@@ -101,6 +101,19 @@ const AdminPanel = () => {
     }
   };
 
+  const handleReleaseFunds = async (applicationId: string) => {
+    setReleasingId(applicationId);
+    try {
+      await adminCall('release_funds', { application_id: applicationId });
+      toast.success('Fondos liberados exitosamente');
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setReleasingId(null);
+    }
+  };
+
   const handleSuspendUser = async (userId: string) => {
     try {
       await adminCall('suspend_user', { user_id: userId });
