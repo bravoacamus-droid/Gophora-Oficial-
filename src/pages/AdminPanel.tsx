@@ -60,7 +60,25 @@ const AdminPanel = () => {
   const hasActiveFilters = wFilterUser !== 'all' || wFilterDateFrom || wFilterDateTo;
   const clearFilters = () => { setWFilterUser('all'); setWFilterDateFrom(undefined); setWFilterDateTo(undefined); };
 
-  const adminCall = useCallback(async (action: string, params: any = {}) => {
+  const exportPayoutsCsv = () => {
+    const data = filterWithdrawals(withdrawalRequests.filter((w: any) => w.status === 'approved'));
+    if (data.length === 0) { toast.error('No hay datos para exportar'); return; }
+    const headers = ['Explorer Email','Explorer Nombre','Monto','Método','Banco','Cuenta','Titular','Red Crypto','Wallet','QR URL','Fecha Solicitud','Fecha Pago','Nota Admin'];
+    const rows = data.map((w: any) => [
+      w.explorerEmail, w.explorerName || '', Number(w.amount), w.method === 'bank' ? 'Banco' : 'Crypto',
+      w.bank_name || '', w.bank_account || '', w.bank_holder || '',
+      w.crypto_network || '', w.crypto_address || '', w.qr_image_url || '',
+      new Date(w.created_at).toLocaleDateString(), w.processed_at ? new Date(w.processed_at).toLocaleDateString() : '',
+      w.admin_note || '',
+    ]);
+    const csv = [headers, ...rows].map(r => r.map((v: any) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `payouts_${format(new Date(), 'yyyy-MM-dd')}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+
     const { data, error } = await supabase.functions.invoke('admin-actions', {
       body: { action, ...params },
     });
