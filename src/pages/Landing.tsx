@@ -472,18 +472,18 @@ const Landing = () => {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="relative w-full max-w-2xl bg-card rounded-2xl border border-border/50 overflow-hidden shadow-2xl"
+              className="relative w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl bg-white text-black"
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-4 border-b border-border/50">
-                <h3 className="font-heading font-bold text-lg">{t('landing.hero.cta_demo')}</h3>
-                <Button variant="ghost" size="icon" onClick={() => setShowCalendar(false)}>
+              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 className="font-heading font-bold text-lg text-black">{t('landing.hero.cta_demo')}</h3>
+                <Button variant="ghost" size="icon" onClick={() => setShowCalendar(false)} className="text-black hover:bg-gray-100">
                   <X className="h-5 w-5" />
                 </Button>
               </div>
               <iframe
                 src="https://calendar.google.com/calendar/appointments/AcZssZ3B3xhww76gwntADM2FcsS8Qp4w-JIKSSHQsFA=?gv=true"
-                style={{ border: 0 }}
+                style={{ border: 0, background: 'white' }}
                 width="100%"
                 height="600"
                 title="Book a demo"
