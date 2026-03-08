@@ -306,7 +306,7 @@ const Marketplace = () => {
                     <h3 className="font-heading font-bold">{language === 'en' ? 'Expected Deliverables' : 'Entregables Esperados'}</h3>
                   </div>
                   <div className="space-y-2">
-                    {parseDeliverables(selectedMission.description).map((item, i) => (
+                    {parseDeliverables(selectedMission).map((item, i) => (
                       <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
                         <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
                           <span className="text-xs font-heading font-bold text-primary">{i + 1}</span>
