@@ -23,6 +23,7 @@ interface MarketplaceMission {
   description_es: string | null;
   project_id: string;
   projectTitle: string;
+  resourceLink: string | null;
 }
 
 const Marketplace = () => {
