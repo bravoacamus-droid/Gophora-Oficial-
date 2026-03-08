@@ -456,10 +456,52 @@ const AdminPanel = () => {
 
           {/* WITHDRAWALS TAB */}
           {activeTab === 'Withdrawals' && (
-            <div className="divide-y divide-border/50">
-              {withdrawalRequests.length === 0 && (
+            <div>
+              {/* Filter Bar */}
+              <div className="p-4 border-b border-border/50 bg-muted/30 flex flex-wrap items-center gap-3">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <Select value={wFilterUser} onValueChange={setWFilterUser}>
+                  <SelectTrigger className="w-[200px] text-sm">
+                    <SelectValue placeholder="Todos los usuarios" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los usuarios</SelectItem>
+                    {withdrawalUsers.map(u => (
+                      <SelectItem key={u.id} value={u.id}>{u.email}{u.name ? ` (${u.name})` : ''}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className={cn("gap-2 text-xs font-heading", !wFilterDateFrom && "text-muted-foreground")}>
+                      <CalendarIcon className="h-3 w-3" />
+                      {wFilterDateFrom ? format(wFilterDateFrom, 'dd/MM/yyyy') : 'Desde'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={wFilterDateFrom} onSelect={setWFilterDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className={cn("gap-2 text-xs font-heading", !wFilterDateTo && "text-muted-foreground")}>
+                      <CalendarIcon className="h-3 w-3" />
+                      {wFilterDateTo ? format(wFilterDateTo, 'dd/MM/yyyy') : 'Hasta'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={wFilterDateTo} onSelect={setWFilterDateTo} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="sm" className="gap-1 text-xs font-heading text-muted-foreground" onClick={clearFilters}>
+                    <X className="h-3 w-3" /> Limpiar
+                  </Button>
+                )}
+              </div>
+              <div className="divide-y divide-border/50">
+              {filterWithdrawals(withdrawalRequests).length === 0 && (
                 <div className="p-8 text-center text-muted-foreground font-body">No hay solicitudes de retiro</div>
-              )}
               {withdrawalRequests.map((w: any) => {
                 const isPending = w.status === 'pending';
                 return (
