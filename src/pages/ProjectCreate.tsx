@@ -4,16 +4,50 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Cpu, Upload, Zap } from 'lucide-react';
+import { Cpu, Upload, Zap, DollarSign, Clock, AlertTriangle } from 'lucide-react';
 
 const categories = ['Marketing', 'Web Development', 'Design', 'Data', 'Research', 'Operations'];
 const priorities = ['Low', 'Medium', 'High', 'Critical'];
+
+const MIN_HOURLY_RATE = 20;
+const COMMISSION_RATE = 0.10;
+
+interface Mission {
+  title: string;
+  skill: string;
+  hours: number;
+  hourlyRate: number;
+  reward: number;
+}
+
+const generateMissions = (budget: number): Mission[] => {
+  const baseMissions = [
+    { title: 'Design wireframes for homepage', skill: 'Design', hours: 3 },
+    { title: 'Develop responsive header component', skill: 'Web Development', hours: 4 },
+    { title: 'Create brand color palette', skill: 'Design', hours: 2 },
+    { title: 'Write SEO-optimized copy', skill: 'Marketing', hours: 3 },
+    { title: 'Setup analytics tracking', skill: 'Data', hours: 2 },
+  ];
+
+  const totalHours = baseMissions.reduce((sum, m) => sum + m.hours, 0);
+  const availableBudget = budget / (1 + COMMISSION_RATE); // budget after GOPHORA commission
+  const calculatedRate = Math.floor(availableBudget / totalHours);
+  const hourlyRate = Math.max(calculatedRate, MIN_HOURLY_RATE);
+
+  return baseMissions.map(m => ({
+    ...m,
+    hourlyRate,
+    reward: m.hours * hourlyRate,
+  }));
+};
 
 const ProjectCreate = () => {
   const { t } = useLanguage();
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzed, setAnalyzed] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [budget, setBudget] = useState('');
+  const [missions, setMissions] = useState<Mission[]>([]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -35,19 +69,21 @@ const ProjectCreate = () => {
   const handleAnalyze = (e: React.FormEvent) => {
     e.preventDefault();
     setAnalyzing(true);
+    const budgetNum = parseFloat(budget) || 0;
+    const generated = generateMissions(budgetNum);
+    setMissions(generated);
     setTimeout(() => {
       setAnalyzing(false);
       setAnalyzed(true);
     }, 2000);
   };
 
-  const mockMissions = [
-    { title: 'Design wireframes for homepage', skill: 'Design', time: '3h', reward: '$120' },
-    { title: 'Develop responsive header component', skill: 'Web Development', time: '4h', reward: '$160' },
-    { title: 'Create brand color palette', skill: 'Design', time: '2h', reward: '$80' },
-    { title: 'Write SEO-optimized copy', skill: 'Marketing', time: '3h', reward: '$100' },
-    { title: 'Setup analytics tracking', skill: 'Data', time: '2h', reward: '$90' },
-  ];
+  const totalTalentCost = missions.reduce((sum, m) => sum + m.reward, 0);
+  const gophoraCommission = Math.round(totalTalentCost * COMMISSION_RATE);
+  const totalCost = totalTalentCost + gophoraCommission;
+  const totalHours = missions.reduce((sum, m) => sum + m.hours, 0);
+  const budgetNum = parseFloat(budget) || 0;
+  const overBudget = totalCost > budgetNum;
 
   return (
     <div className="container py-8 max-w-4xl">
@@ -84,7 +120,18 @@ const ProjectCreate = () => {
             </div>
             <div>
               <Label className="font-heading text-xs tracking-wider uppercase">{t('project.budget')}</Label>
-              <Input type="number" className="mt-1.5" placeholder="5000" required />
+              <Input
+                type="number"
+                className="mt-1.5"
+                placeholder="5000"
+                min={1}
+                value={budget}
+                onChange={e => setBudget(e.target.value)}
+                required
+              />
+              <p className="text-xs text-muted-foreground font-body mt-1">
+                Min. rate: ${MIN_HOURLY_RATE}/hr • GOPHORA fee: {COMMISSION_RATE * 100}%
+              </p>
             </div>
           </div>
           <div>
@@ -130,9 +177,50 @@ const ProjectCreate = () => {
               <h2 className="font-heading font-bold text-lg">AI Mission Architect</h2>
             </div>
             <p className="text-sm text-muted-foreground font-body mb-4">
-              Your project has been analyzed and divided into {mockMissions.length} executable micro-missions.
+              Your project has been analyzed and divided into {missions.length} executable micro-missions based on your ${budgetNum.toLocaleString()} budget.
             </p>
           </div>
+
+          {/* Budget Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="rounded-xl border border-border/50 bg-card p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground font-heading uppercase">Project Budget</span>
+              </div>
+              <p className="text-xl font-heading font-bold">${budgetNum.toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl border border-border/50 bg-card p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground font-heading uppercase">Total Hours</span>
+              </div>
+              <p className="text-xl font-heading font-bold">{totalHours}h</p>
+            </div>
+            <div className="rounded-xl border border-border/50 bg-card p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground font-heading uppercase">Talent Cost</span>
+              </div>
+              <p className="text-xl font-heading font-bold">${totalTalentCost.toLocaleString()}</p>
+            </div>
+            <div className={`rounded-xl border p-4 ${overBudget ? 'border-destructive/50 bg-destructive/5' : 'border-primary/30 bg-primary/5'}`}>
+              <div className="flex items-center gap-2 mb-1">
+                {overBudget ? <AlertTriangle className="h-4 w-4 text-destructive" /> : <DollarSign className="h-4 w-4 text-primary" />}
+                <span className="text-xs text-muted-foreground font-heading uppercase">Total + Fee ({COMMISSION_RATE * 100}%)</span>
+              </div>
+              <p className={`text-xl font-heading font-bold ${overBudget ? 'text-destructive' : 'text-primary'}`}>${totalCost.toLocaleString()}</p>
+            </div>
+          </div>
+
+          {overBudget && (
+            <div className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+              <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+              <p className="text-sm font-body text-destructive">
+                Total cost (${totalCost.toLocaleString()}) exceeds your budget (${budgetNum.toLocaleString()}) due to the minimum hourly rate of ${MIN_HOURLY_RATE}/hr. Consider increasing budget or reducing scope.
+              </p>
+            </div>
+          )}
 
           <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
             <div className="overflow-x-auto">
@@ -141,20 +229,22 @@ const ProjectCreate = () => {
                   <tr className="border-b border-border/50 bg-muted/50">
                     <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Mission</th>
                     <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Skill</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Time</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Hours</th>
+                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Rate/hr</th>
                     <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Reward</th>
                     <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {mockMissions.map((m, i) => (
+                  {missions.map((m, i) => (
                     <tr key={i} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                       <td className="p-4 font-body text-sm">{m.title}</td>
                       <td className="p-4">
                         <span className="text-xs font-heading font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary">{m.skill}</span>
                       </td>
-                      <td className="p-4 text-sm text-muted-foreground font-body">{m.time}</td>
-                      <td className="p-4 text-sm font-heading font-semibold text-primary">{m.reward}</td>
+                      <td className="p-4 text-sm text-muted-foreground font-body">{m.hours}h</td>
+                      <td className="p-4 text-sm text-muted-foreground font-body">${m.hourlyRate}/hr</td>
+                      <td className="p-4 text-sm font-heading font-semibold text-primary">${m.reward.toLocaleString()}</td>
                       <td className="p-4">
                         <div className="flex gap-2">
                           <Button variant="ghost" size="sm" className="text-xs font-heading">Edit</Button>
@@ -164,13 +254,32 @@ const ProjectCreate = () => {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr className="border-t border-border/50 bg-muted/30">
+                    <td className="p-4 font-heading font-bold text-sm" colSpan={2}>TOTAL</td>
+                    <td className="p-4 font-heading font-bold text-sm">{totalHours}h</td>
+                    <td className="p-4 text-sm text-muted-foreground font-body">—</td>
+                    <td className="p-4 font-heading font-bold text-sm text-primary">${totalTalentCost.toLocaleString()}</td>
+                    <td className="p-4"></td>
+                  </tr>
+                  <tr className="bg-muted/30">
+                    <td className="px-4 pb-2 text-xs text-muted-foreground font-body" colSpan={4}>GOPHORA Commission ({COMMISSION_RATE * 100}%)</td>
+                    <td className="px-4 pb-2 text-xs text-muted-foreground font-heading">${gophoraCommission.toLocaleString()}</td>
+                    <td></td>
+                  </tr>
+                  <tr className="bg-muted/30">
+                    <td className="px-4 pb-4 text-sm font-heading font-bold" colSpan={4}>GRAND TOTAL</td>
+                    <td className={`px-4 pb-4 text-sm font-heading font-bold ${overBudget ? 'text-destructive' : 'text-primary'}`}>${totalCost.toLocaleString()}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
 
           <div className="flex gap-4">
             <Button variant="outline" onClick={() => setAnalyzed(false)} className="font-heading">Back to Edit</Button>
-            <Button variant="hero" className="flex-1 font-heading gap-2">
+            <Button variant="hero" className="flex-1 font-heading gap-2" disabled={overBudget}>
               <Zap className="h-4 w-4" /> Publish Missions
             </Button>
           </div>
