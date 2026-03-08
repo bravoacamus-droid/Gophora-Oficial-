@@ -245,6 +245,71 @@ serve(async (req) => {
         break;
       }
 
+      case 'get_pending_releases': {
+        const { data: appRows, error: appError } = await supabase
+          .from('mission_applications')
+          .select('id, status, delivery_url, delivered_at, reviewed_at, review_note, mission_id, user_id')
+          .eq('status', 'completed')
+          .order('reviewed_at', { ascending: false });
+
+        if (appError) throw appError;
+        const apps = appRows || [];
+
+        if (apps.length === 0) {
+          result = [];
+          break;
+        }
+
+        const missionIds = [...new Set(apps.map((a) => a.mission_id))];
+        const userIds = [...new Set(apps.map((a) => a.user_id))];
+
+        const [missionsRes, profilesRes] = await Promise.all([
+          supabase.from('missions').select('id, title, reward, project_id').in('id', missionIds),
+          supabase.from('profiles').select('id, email, full_name').in('id', userIds),
+        ]);
+
+        if (missionsRes.error) throw missionsRes.error;
+        if (profilesRes.error) throw profilesRes.error;
+
+        const missionMap = new Map((missionsRes.data || []).map((m) => [m.id, m]));
+        const profileMap = new Map((profilesRes.data || []).map((p) => [p.id, p]));
+
+        const projectIds = [...new Set((missionsRes.data || []).map((m) => m.project_id))];
+        const { data: projectRows } = await supabase.from('projects').select('id, title').in('id', projectIds);
+        const projectMap = new Map((projectRows || []).map((p) => [p.id, p.title]));
+
+        result = apps.map((a) => {
+          const mission = missionMap.get(a.mission_id);
+          const profile = profileMap.get(a.user_id);
+          return {
+            ...a,
+            missionTitle: mission?.title || 'Mission',
+            missionReward: Number(mission?.reward || 0),
+            projectTitle: mission ? (projectMap.get(mission.project_id) || 'Project') : 'Project',
+            explorerEmail: profile?.email || '',
+            explorerName: profile?.full_name || '',
+          };
+        });
+        break;
+      }
+
+      case 'release_funds': {
+        const { application_id } = params;
+        if (!application_id) {
+          return jsonResponse({ error: 'application_id is required' }, 400);
+        }
+
+        const { error } = await supabase
+          .from('mission_applications')
+          .update({ status: 'funds_released' })
+          .eq('id', application_id)
+          .eq('status', 'completed');
+
+        if (error) throw error;
+        result = { success: true };
+        break;
+      }
+
       case 'suspend_user': {
         const { user_id } = params;
 
