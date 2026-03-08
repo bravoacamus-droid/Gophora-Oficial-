@@ -107,7 +107,7 @@ const Landing = () => {
       {/* Footer */}
       <footer className="border-t border-border/50 py-8">
         <div className="container flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground font-body">
-          <img src={gophoraLogo} alt="GOPHORA" className="h-6 invert dark:invert-0" />
+          <img src={gophoraLogo} alt="GOPHORA" className="h-6 dark:invert" />
           <p>© 2026 GOPHORA. All rights reserved.</p>
         </div>
       </footer>
