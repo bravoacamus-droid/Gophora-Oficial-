@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Compass, Zap, CheckCircle, DollarSign, Star, Trophy } from 'lucide-react';
+import { Compass, Zap, CheckCircle, DollarSign, Star, Trophy, ExternalLink, Send } from 'lucide-react';
+import { toast } from 'sonner';
 
 const StatCard = ({ icon: Icon, label, value, accent = false }: { icon: any; label: string; value: string; accent?: boolean }) => (
   <div className={`rounded-xl border p-6 transition-all hover:border-primary/30 ${accent ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-card'}`}>
@@ -27,6 +29,10 @@ interface ApplicationWithMission {
   missionReward: number;
   missionSkill: string;
   projectTitle: string;
+  delivery_url: string | null;
+  delivered_at: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
 }
 
 const levelConfig = [
@@ -42,70 +48,111 @@ const ExplorerDashboard = () => {
   const { user } = useAuth();
   const [applications, setApplications] = useState<ApplicationWithMission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deliveryUrls, setDeliveryUrls] = useState<Record<string, string>>({});
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+
+  const loadData = async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data: appRows } = await supabase
+      .from('mission_applications')
+      .select('id, status, created_at, mission_id, delivery_url, delivered_at, reviewed_at, review_note')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    const apps = appRows || [];
+
+    if (apps.length > 0) {
+      const missionIds = [...new Set(apps.map((a) => a.mission_id))];
+      const { data: missionRows } = await supabase
+        .from('missions')
+        .select('id, title, reward, skill, project_id')
+        .in('id', missionIds);
+
+      const mRows = missionRows || [];
+      const projectIds = [...new Set(mRows.map((m) => m.project_id))];
+      const projectMap = new Map<string, string>();
+
+      if (projectIds.length > 0) {
+        const { data: projectRows } = await supabase
+          .from('projects')
+          .select('id, title')
+          .in('id', projectIds);
+        (projectRows || []).forEach((p) => projectMap.set(p.id, p.title));
+      }
+
+      const missionMap = new Map(mRows.map((m) => [m.id, m]));
+
+      const mapped: ApplicationWithMission[] = apps.map((a) => {
+        const mission = missionMap.get(a.mission_id);
+        return {
+          id: a.id,
+          status: a.status,
+          created_at: a.created_at,
+          mission_id: a.mission_id,
+          missionTitle: mission?.title || 'Mission',
+          missionReward: Number(mission?.reward || 0),
+          missionSkill: mission?.skill || '',
+          projectTitle: mission ? (projectMap.get(mission.project_id) || 'Project') : 'Project',
+          delivery_url: a.delivery_url,
+          delivered_at: a.delivered_at,
+          reviewed_at: a.reviewed_at,
+          review_note: a.review_note,
+        };
+      });
+      setApplications(mapped);
+    } else {
+      setApplications([]);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    if (!user) return;
-    const load = async () => {
-      setLoading(true);
-      const { data: appRows } = await supabase
-        .from('mission_applications')
-        .select('id, status, created_at, mission_id')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      const apps = appRows || [];
-
-      if (apps.length > 0) {
-        const missionIds = [...new Set(apps.map((a) => a.mission_id))];
-        const { data: missionRows } = await supabase
-          .from('missions')
-          .select('id, title, reward, skill, project_id')
-          .in('id', missionIds);
-
-        const mRows = missionRows || [];
-        const projectIds = [...new Set(mRows.map((m) => m.project_id))];
-        let projectMap = new Map<string, string>();
-
-        if (projectIds.length > 0) {
-          const { data: projectRows } = await supabase
-            .from('projects')
-            .select('id, title')
-            .in('id', projectIds);
-          (projectRows || []).forEach((p) => projectMap.set(p.id, p.title));
-        }
-
-        const missionMap = new Map(mRows.map((m) => [m.id, m]));
-
-        const mapped: ApplicationWithMission[] = apps.map((a) => {
-          const mission = missionMap.get(a.mission_id);
-          return {
-            id: a.id,
-            status: a.status,
-            created_at: a.created_at,
-            mission_id: a.mission_id,
-            missionTitle: mission?.title || 'Mission',
-            missionReward: Number(mission?.reward || 0),
-            missionSkill: mission?.skill || '',
-            projectTitle: mission ? (projectMap.get(mission.project_id) || 'Project') : 'Project',
-          };
-        });
-        setApplications(mapped);
-      } else {
-        setApplications([]);
-      }
-      setLoading(false);
-    };
-    load();
+    loadData();
   }, [user]);
+
+  const handleSubmitDelivery = async (appId: string) => {
+    const url = deliveryUrls[appId]?.trim();
+    if (!url) {
+      toast.error('Ingresa el link de tu entrega');
+      return;
+    }
+    try {
+      new URL(url);
+    } catch {
+      toast.error('Ingresa una URL válida (ej: https://...)');
+      return;
+    }
+
+    setSubmittingId(appId);
+    try {
+      const { error } = await supabase
+        .from('mission_applications')
+        .update({
+          delivery_url: url,
+          delivered_at: new Date().toISOString(),
+          status: 'delivered',
+        })
+        .eq('id', appId);
+
+      if (error) throw error;
+      toast.success('Entrega enviada correctamente');
+      setDeliveryUrls((prev) => ({ ...prev, [appId]: '' }));
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Error al enviar la entrega');
+    } finally {
+      setSubmittingId(null);
+    }
+  };
 
   const completedCount = applications.filter((a) => a.status === 'completed').length;
   const activatedCount = applications.length;
-  const inProgressCount = applications.filter((a) => a.status === 'pending').length;
+  const inProgressCount = applications.filter((a) => a.status === 'pending' || a.status === 'delivered').length;
   const totalEarnings = applications
     .filter((a) => a.status === 'completed')
     .reduce((sum, a) => sum + a.missionReward, 0);
 
-  // Level calculation
   const currentLevel = levelConfig.reduce((lvl, l) => (completedCount >= l.threshold ? l : lvl), levelConfig[0]);
   const nextLevel = levelConfig[levelConfig.indexOf(currentLevel) + 1];
   const progressToNext = nextLevel
@@ -118,6 +165,26 @@ const ExplorerDashboard = () => {
     { name: 'Elite Operator', icon: Trophy, earned: completedCount >= 25 },
     { name: 'Speed Runner', icon: Zap, earned: completedCount >= 10 },
   ];
+
+  const statusLabel = (status: string) => {
+    const map: Record<string, string> = {
+      pending: 'ACTIVADA',
+      delivered: 'ENTREGADA',
+      completed: 'COMPLETADA',
+      rejected: 'RECHAZADA',
+    };
+    return map[status] || status.toUpperCase();
+  };
+
+  const statusColor = (status: string) => {
+    const map: Record<string, string> = {
+      pending: 'bg-primary/10 text-primary',
+      delivered: 'bg-yellow-500/10 text-yellow-500',
+      completed: 'bg-green-500/10 text-green-500',
+      rejected: 'bg-destructive/10 text-destructive',
+    };
+    return map[status] || 'bg-muted text-muted-foreground';
+  };
 
   return (
     <div className="container py-8 max-w-6xl">
@@ -187,30 +254,64 @@ const ExplorerDashboard = () => {
 
           <div className="rounded-xl border border-border/50 bg-card">
             <div className="p-6 border-b border-border/50">
-              <h2 className="font-heading font-bold">My Missions</h2>
+              <h2 className="font-heading font-bold">Mis Misiones</h2>
             </div>
             <div className="divide-y divide-border/50">
               {applications.length === 0 && (
                 <div className="p-8 text-center text-muted-foreground font-body">
-                  No missions activated yet. Browse the marketplace to find missions.
+                  No hay misiones activadas. Explora el marketplace para encontrar misiones.
                 </div>
               )}
               {applications.map((app) => (
-                <div key={app.id} className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-muted/50 transition-colors">
-                  <div>
-                    <h3 className="font-heading font-semibold">{app.missionTitle}</h3>
-                    <p className="text-sm text-muted-foreground font-body">{app.projectTitle}</p>
+                <div key={app.id} className="p-4 md:p-6 space-y-3">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-heading font-semibold">{app.missionTitle}</h3>
+                      <p className="text-sm text-muted-foreground font-body">{app.projectTitle}</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${statusColor(app.status)}`}>
+                        {statusLabel(app.status)}
+                      </span>
+                      <span className="text-sm font-heading font-semibold text-primary">${app.missionReward.toLocaleString()}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${
-                      app.status === 'completed' ? 'bg-green-500/10 text-green-500' :
-                      app.status === 'pending' ? 'bg-primary/10 text-primary' :
-                      'bg-muted text-muted-foreground'
-                    }`}>
-                      {app.status.toUpperCase()}
-                    </span>
-                    <span className="text-sm font-heading font-semibold text-primary">${app.missionReward.toLocaleString()}</span>
-                  </div>
+
+                  {/* Delivery section */}
+                  {app.status === 'pending' && (
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        placeholder="https://link-a-tu-trabajo.com"
+                        value={deliveryUrls[app.id] || ''}
+                        onChange={(e) => setDeliveryUrls((prev) => ({ ...prev, [app.id]: e.target.value }))}
+                        className="flex-1 text-sm"
+                      />
+                      <Button
+                        size="sm"
+                        className="gap-1 font-heading text-xs"
+                        onClick={() => handleSubmitDelivery(app.id)}
+                        disabled={submittingId === app.id}
+                      >
+                        <Send className="h-3 w-3" />
+                        {submittingId === app.id ? 'Enviando...' : 'Entregar'}
+                      </Button>
+                    </div>
+                  )}
+
+                  {app.delivery_url && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                      <a href={app.delivery_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-body truncate">
+                        {app.delivery_url}
+                      </a>
+                    </div>
+                  )}
+
+                  {app.review_note && (
+                    <p className="text-sm text-muted-foreground font-body italic">
+                      Nota de revisión: {app.review_note}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
