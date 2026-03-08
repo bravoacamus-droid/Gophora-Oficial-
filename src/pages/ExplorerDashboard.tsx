@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Compass, Zap, CheckCircle, DollarSign, Star, Trophy, ExternalLink, Send } from 'lucide-react';
 import BalanceModule from '@/components/BalanceModule';
 import { toast } from 'sonner';
+import ExplorerOnboarding from '@/components/ExplorerOnboarding';
 
 const StatCard = ({ icon: Icon, label, value, accent = false }: { icon: any; label: string; value: string; accent?: boolean }) => (
   <div className={`rounded-xl border p-6 transition-all hover:border-primary/30 ${accent ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-card'}`}>
