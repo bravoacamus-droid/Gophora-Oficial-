@@ -1,61 +1,48 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-
-interface User {
-  id: string;
-  email: string;
-  accountType: 'company' | 'explorer';
-  verified: boolean;
-}
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import type { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => void;
-  register: (email: string, password: string, accountType: 'company' | 'explorer') => void;
-  logout: () => void;
+  session: Session | null;
+  loading: boolean;
+  accountType: 'company' | 'explorer';
   isAdmin: boolean;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    const stored = localStorage.getItem('gophora-user');
-    return stored ? JSON.parse(stored) : null;
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const login = (email: string, _password: string) => {
-    const isAdmin = email === 'admin@gophora.com';
-    const u: User = {
-      id: crypto.randomUUID(),
-      email,
-      accountType: isAdmin ? 'company' : (localStorage.getItem('gophora-last-type') as 'company' | 'explorer') || 'company',
-      verified: true,
-    };
-    setUser(u);
-    localStorage.setItem('gophora-user', JSON.stringify(u));
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const logout = async () => {
+    await supabase.auth.signOut();
   };
 
-  const register = (email: string, _password: string, accountType: 'company' | 'explorer') => {
-    const u: User = {
-      id: crypto.randomUUID(),
-      email,
-      accountType,
-      verified: true,
-    };
-    setUser(u);
-    localStorage.setItem('gophora-user', JSON.stringify(u));
-    localStorage.setItem('gophora-last-type', accountType);
-  };
-
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('gophora-user');
-  };
-
+  const accountType = (user?.user_metadata?.account_type as 'company' | 'explorer') || 'company';
   const isAdmin = user?.email === 'admin@gophora.com';
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isAdmin }}>
+    <AuthContext.Provider value={{ user, session, loading, accountType, isAdmin, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -4,12 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Rocket, Building2, Compass } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Register = () => {
   const { t } = useLanguage();
-  const { register } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
@@ -18,12 +18,36 @@ const Register = () => {
   const [accountType, setAccountType] = useState<'company' | 'explorer'>(
     (searchParams.get('type') as 'company' | 'explorer') || 'company'
   );
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password !== confirmPassword) return;
-    register(email, password, accountType);
-    navigate(accountType === 'company' ? '/company' : '/explorer');
+    if (password !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    if (password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: { account_type: accountType },
+        },
+      });
+      if (error) throw error;
+      toast.success('Account created successfully!');
+      navigate(accountType === 'company' ? '/company' : '/explorer');
+    } catch (err: any) {
+      toast.error(err.message || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -37,7 +61,6 @@ const Register = () => {
           <h1 className="text-2xl font-heading font-bold">{t('auth.join')} GOPHORA</h1>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-border/50 bg-card p-6">
-          {/* Account Type Selector */}
           <div>
             <Label className="font-heading text-xs tracking-wider uppercase">{t('auth.account_type')}</Label>
             <div className="grid grid-cols-2 gap-3 mt-1.5">
@@ -83,7 +106,9 @@ const Register = () => {
             <Label htmlFor="confirm" className="font-heading text-xs tracking-wider uppercase">{t('auth.confirm_password')}</Label>
             <Input id="confirm" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="mt-1.5" />
           </div>
-          <Button type="submit" className="w-full font-heading tracking-wide">{t('auth.register')}</Button>
+          <Button type="submit" className="w-full font-heading tracking-wide" disabled={loading}>
+            {loading ? 'Creating account...' : t('auth.register')}
+          </Button>
           <p className="text-center text-sm text-muted-foreground font-body">
             {t('auth.have_account')}{' '}
             <Link to="/login" className="text-primary hover:underline font-semibold">{t('nav.login')}</Link>
