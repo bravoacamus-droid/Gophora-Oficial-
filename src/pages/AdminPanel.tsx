@@ -7,9 +7,9 @@ import { Users, FolderOpen, Zap, DollarSign, BarChart3, CheckCircle, XCircle, Ba
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
 
-const tabs = ['Users', 'Projects', 'Missions', 'Fund Releases', 'Revenue'] as const;
+const tabs = ['Users', 'Projects', 'Missions', 'Fund Releases', 'Withdrawals', 'Revenue'] as const;
 type Tab = typeof tabs[number];
-const tabIcons: Record<Tab, any> = { Users, Projects: FolderOpen, Missions: Zap, 'Fund Releases': Banknote, Revenue: BarChart3 };
+const tabIcons: Record<Tab, any> = { Users, Projects: FolderOpen, Missions: Zap, 'Fund Releases': Banknote, Withdrawals: Wallet, Revenue: BarChart3 };
 
 const AdminPanel = () => {
   const { t } = useLanguage();
