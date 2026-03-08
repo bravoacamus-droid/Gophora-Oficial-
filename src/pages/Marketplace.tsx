@@ -49,7 +49,7 @@ const Marketplace = () => {
       if (missionsError) throw missionsError;
 
       const projectIds = [...new Set((missionRows || []).map((m) => m.project_id))];
-      let projectMap = new Map<string, { title: string }>();
+      let projectMap = new Map<string, { title: string; resource_link: string | null }>();
 
       if (projectIds.length > 0) {
         const { data: projectRows, error: projectsError } = await supabase
