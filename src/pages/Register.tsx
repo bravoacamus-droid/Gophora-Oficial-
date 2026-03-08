@@ -1,13 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Rocket, Building2, Compass, Mail, ShieldCheck } from 'lucide-react';
+import { Rocket, Building2, Compass, Mail, ShieldCheck, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
 const Register = () => {
   const { t } = useLanguage();
@@ -21,8 +20,22 @@ const Register = () => {
   );
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'register' | 'verify'>('register');
-  const [otpCode, setOtpCode] = useState('');
   const [resending, setResending] = useState(false);
+
+  // Listen for auth state changes - user clicks email link and comes back verified
+  useEffect(() => {
+    if (step !== 'verify') return;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user?.email_confirmed_at) {
+        toast.success('¡Cuenta verificada exitosamente!');
+        const type = session.user.user_metadata?.account_type || accountType;
+        navigate(type === 'company' ? '/company' : '/explorer');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [step, accountType, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,38 +53,15 @@ const Register = () => {
         email,
         password,
         options: {
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: window.location.origin + '/login',
           data: { account_type: accountType },
         },
       });
       if (error) throw error;
-      toast.success('¡Código de verificación enviado a tu correo!');
+      toast.success('¡Correo de verificación enviado!');
       setStep('verify');
     } catch (err: any) {
       toast.error(err.message || 'Error al registrarse');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otpCode.length !== 6) {
-      toast.error('Ingresa el código de 6 dígitos');
-      return;
-    }
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: otpCode,
-        type: 'signup',
-      });
-      if (error) throw error;
-      toast.success('¡Cuenta verificada exitosamente!');
-      navigate(accountType === 'company' ? '/company' : '/explorer');
-    } catch (err: any) {
-      toast.error(err.message || 'Código inválido o expirado');
     } finally {
       setLoading(false);
     }
@@ -85,9 +75,9 @@ const Register = () => {
         email,
       });
       if (error) throw error;
-      toast.success('¡Código reenviado! Revisa tu correo');
+      toast.success('¡Correo reenviado! Revisa tu bandeja de entrada');
     } catch (err: any) {
-      toast.error(err.message || 'Error al reenviar código');
+      toast.error(err.message || 'Error al reenviar correo');
     } finally {
       setResending(false);
     }
@@ -164,58 +154,60 @@ const Register = () => {
             </p>
           </form>
         ) : (
-          <form onSubmit={handleVerify} className="space-y-6 rounded-xl border border-border/50 bg-card p-6">
-            <div className="text-center space-y-3">
+          <div className="space-y-6 rounded-xl border border-border/50 bg-card p-6">
+            <div className="text-center space-y-4">
               <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
                 <Mail className="h-8 w-8 text-primary" />
               </div>
-              <p className="text-sm text-muted-foreground font-body">
-                Enviamos un código de 6 dígitos a{' '}
-                <span className="text-foreground font-semibold">{email}</span>
-              </p>
+              <div className="space-y-2">
+                <p className="text-sm font-body text-foreground">
+                  Enviamos un enlace de verificación a:
+                </p>
+                <p className="text-primary font-heading font-semibold">{email}</p>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-heading font-semibold">Pasos para verificar:</span>
+                </div>
+                <ol className="text-sm text-muted-foreground font-body text-left space-y-1 list-decimal list-inside">
+                  <li>Abre tu correo electrónico</li>
+                  <li>Busca el correo de <span className="text-foreground font-semibold">GOPHORA</span></li>
+                  <li>Haz click en el enlace <span className="text-foreground font-semibold">"Confirm your mail"</span></li>
+                  <li>Vuelve aquí e inicia sesión</li>
+                </ol>
+              </div>
               <p className="text-xs text-muted-foreground font-body">
-                Revisa tu bandeja de entrada y la carpeta de spam
+                ⚠️ Si no lo ves, revisa tu carpeta de <span className="font-semibold">spam</span> o correo no deseado
               </p>
             </div>
 
-            <div className="flex justify-center">
-              <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
-                <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
-                </InputOTPGroup>
-              </InputOTP>
-            </div>
-
-            <Button type="submit" className="w-full font-heading tracking-wide gap-2" disabled={loading || otpCode.length !== 6}>
-              <ShieldCheck className="h-4 w-4" />
-              {loading ? 'Verificando...' : 'Verificar cuenta'}
-            </Button>
-
-            <div className="text-center space-y-2">
-              <button
-                type="button"
+            <div className="space-y-3">
+              <Button
+                variant="outline"
+                className="w-full font-heading tracking-wide gap-2"
                 onClick={handleResend}
                 disabled={resending}
-                className="text-sm text-primary hover:underline font-heading disabled:opacity-50"
               >
-                {resending ? 'Reenviando...' : '¿No recibiste el código? Reenviar'}
+                <RefreshCw className={`h-4 w-4 ${resending ? 'animate-spin' : ''}`} />
+                {resending ? 'Reenviando...' : '¿No recibiste el correo? Reenviar'}
+              </Button>
+
+              <Link to="/login" className="block">
+                <Button variant="default" className="w-full font-heading tracking-wide gap-2">
+                  Ya verifiqué mi correo → Iniciar sesión
+                </Button>
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => setStep('register')}
+                className="w-full text-xs text-muted-foreground hover:text-foreground font-body text-center"
+              >
+                ← Volver al registro
               </button>
-              <div>
-                <button
-                  type="button"
-                  onClick={() => { setStep('register'); setOtpCode(''); }}
-                  className="text-xs text-muted-foreground hover:text-foreground font-body"
-                >
-                  ← Volver al registro
-                </button>
-              </div>
             </div>
-          </form>
+          </div>
         )}
       </div>
     </div>
