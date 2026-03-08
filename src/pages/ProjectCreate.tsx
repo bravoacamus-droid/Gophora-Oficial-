@@ -25,8 +25,10 @@ interface Mission {
 }
 
 const ProjectCreate = () => {
+  const navigate = useNavigate();
   const { t } = useLanguage();
   const [analyzing, setAnalyzing] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [analyzed, setAnalyzed] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [budget, setBudget] = useState('');
