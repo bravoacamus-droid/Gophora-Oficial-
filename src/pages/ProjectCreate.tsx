@@ -87,6 +87,49 @@ const ProjectCreate = () => {
     setMissions(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handlePublish = async () => {
+    setPublishing(true);
+    try {
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .insert({
+          title: projectTitle,
+          description: projectDescription,
+          category,
+          priority,
+          budget: budgetNum,
+        })
+        .select()
+        .single();
+
+      if (projectError) throw projectError;
+
+      const missionsToInsert = missions.map(m => ({
+        project_id: project.id,
+        title: m.title,
+        description: m.description,
+        skill: m.skill,
+        hours: m.hours,
+        hourly_rate: m.hourlyRate,
+        reward: m.reward,
+      }));
+
+      const { error: missionsError } = await supabase
+        .from('missions')
+        .insert(missionsToInsert);
+
+      if (missionsError) throw missionsError;
+
+      toast.success(`${missions.length} missions published successfully!`);
+      navigate('/marketplace');
+    } catch (err: any) {
+      console.error('Publish failed:', err);
+      toast.error(err.message || 'Failed to publish missions.');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const totalTalentCost = missions.reduce((sum, m) => sum + m.reward, 0);
   const gophoraCommission = Math.round(totalTalentCost * COMMISSION_RATE);
   const totalCost = totalTalentCost + gophoraCommission;
