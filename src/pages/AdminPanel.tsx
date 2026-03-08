@@ -78,7 +78,7 @@ const AdminPanel = () => {
     URL.revokeObjectURL(url);
   };
 
-
+  const adminCall = useCallback(async (action: string, params: any = {}) => {
     const { data, error } = await supabase.functions.invoke('admin-actions', {
       body: { action, ...params },
     });
