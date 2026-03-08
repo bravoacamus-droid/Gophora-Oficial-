@@ -129,6 +129,23 @@ const AdminPanel = () => {
     }
   };
 
+  const handleProcessWithdrawal = async (withdrawalId: string, newStatus: 'approved' | 'rejected') => {
+    setProcessingId(withdrawalId);
+    try {
+      await adminCall('process_withdrawal', {
+        withdrawal_id: withdrawalId,
+        new_status: newStatus,
+        admin_note: withdrawalNotes[withdrawalId] || null,
+      });
+      toast.success(newStatus === 'approved' ? 'Retiro aprobado' : 'Retiro rechazado');
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const handleActivateUser = async (userId: string) => {
     try {
       await adminCall('activate_user', { user_id: userId });
