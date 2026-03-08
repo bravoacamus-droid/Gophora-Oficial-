@@ -301,6 +301,18 @@ serve(async (req) => {
           return jsonResponse({ error: 'application_id is required' }, 400);
         }
 
+        // Get the mission_id before updating
+        const { data: appData, error: appFetchError } = await supabase
+          .from('mission_applications')
+          .select('mission_id')
+          .eq('id', application_id)
+          .eq('status', 'completed')
+          .single();
+
+        if (appFetchError || !appData) {
+          return jsonResponse({ error: 'Application not found or not in completed status' }, 404);
+        }
+
         const { error } = await supabase
           .from('mission_applications')
           .update({ status: 'funds_released' })
@@ -308,6 +320,13 @@ serve(async (req) => {
           .eq('status', 'completed');
 
         if (error) throw error;
+
+        // Mark the mission as completed so it no longer appears in the marketplace
+        await supabase
+          .from('missions')
+          .update({ status: 'completed' })
+          .eq('id', appData.mission_id);
+
         result = { success: true };
         break;
       }
