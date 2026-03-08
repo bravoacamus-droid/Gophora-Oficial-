@@ -1,4 +1,5 @@
-import { Rocket, Zap, Users, BarChart3, ArrowRight, Target, Cpu, Globe } from 'lucide-react';
+import { Zap, Users, BarChart3, ArrowRight, Target, Cpu, Globe, Rocket } from 'lucide-react';
+import gophoraLogo from '@/assets/gophora-logo.png';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
