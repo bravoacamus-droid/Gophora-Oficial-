@@ -209,11 +209,13 @@ export type Database = {
           deadline: string | null
           description: string
           id: string
+          payment_screenshot_url: string | null
           payment_status: string
           priority: string
           resource_link: string | null
           status: string
           title: string
+          tx_hash: string | null
           user_id: string | null
         }
         Insert: {
@@ -223,11 +225,13 @@ export type Database = {
           deadline?: string | null
           description: string
           id?: string
+          payment_screenshot_url?: string | null
           payment_status?: string
           priority: string
           resource_link?: string | null
           status?: string
           title: string
+          tx_hash?: string | null
           user_id?: string | null
         }
         Update: {
@@ -237,11 +241,13 @@ export type Database = {
           deadline?: string | null
           description?: string
           id?: string
+          payment_screenshot_url?: string | null
           payment_status?: string
           priority?: string
           resource_link?: string | null
           status?: string
           title?: string
+          tx_hash?: string | null
           user_id?: string | null
         }
         Relationships: []
