@@ -130,15 +130,22 @@ const Marketplace = () => {
     }
   };
 
-  const parseDeliverables = (description: string | null): string[] => {
-    if (!description) return [];
-    // Try to extract bullet points or numbered items
-    const lines = description.split('\n').map(l => l.trim()).filter(Boolean);
+  const mt = (mission: MarketplaceMission, field: 'title' | 'description') => {
+    if (language === 'es') {
+      if (field === 'title') return mission.title_es || mission.title;
+      return mission.description_es || mission.description;
+    }
+    return field === 'title' ? mission.title : mission.description;
+  };
+
+  const parseDeliverables = (mission: MarketplaceMission): string[] => {
+    const desc = mt(mission, 'description');
+    if (!desc) return [];
+    const lines = desc.split('\n').map(l => l.trim()).filter(Boolean);
     const deliverables = lines.filter(l => 
       l.startsWith('-') || l.startsWith('•') || l.startsWith('*') || /^\d+[\.\)]/.test(l)
     ).map(l => l.replace(/^[-•*]\s*/, '').replace(/^\d+[\.\)]\s*/, ''));
-    // If no structured deliverables, return the full description as one item
-    return deliverables.length > 0 ? deliverables : [description];
+    return deliverables.length > 0 ? deliverables : [desc];
   };
 
   return (
