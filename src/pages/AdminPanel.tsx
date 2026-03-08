@@ -32,6 +32,33 @@ const AdminPanel = () => {
   const [releasingId, setReleasingId] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [withdrawalNotes, setWithdrawalNotes] = useState<Record<string, string>>({});
+  
+  // Filters for Withdrawals & Payouts
+  const [wFilterUser, setWFilterUser] = useState<string>('all');
+  const [wFilterDateFrom, setWFilterDateFrom] = useState<Date | undefined>();
+  const [wFilterDateTo, setWFilterDateTo] = useState<Date | undefined>();
+
+  // Get unique users from withdrawal requests for filter dropdown
+  const withdrawalUsers = Array.from(
+    new Map(withdrawalRequests.map((w: any) => [w.user_id, { id: w.user_id, email: w.explorerEmail, name: w.explorerName }])).values()
+  );
+
+  const filterWithdrawals = (items: any[]) => {
+    return items.filter((w: any) => {
+      if (wFilterUser !== 'all' && w.user_id !== wFilterUser) return false;
+      const wDate = new Date(w.created_at);
+      if (wFilterDateFrom && wDate < wFilterDateFrom) return false;
+      if (wFilterDateTo) {
+        const endOfDay = new Date(wFilterDateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (wDate > endOfDay) return false;
+      }
+      return true;
+    });
+  };
+
+  const hasActiveFilters = wFilterUser !== 'all' || wFilterDateFrom || wFilterDateTo;
+  const clearFilters = () => { setWFilterUser('all'); setWFilterDateFrom(undefined); setWFilterDateTo(undefined); };
 
   const adminCall = useCallback(async (action: string, params: any = {}) => {
     const { data, error } = await supabase.functions.invoke('admin-actions', {
