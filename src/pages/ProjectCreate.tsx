@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,8 +25,10 @@ interface Mission {
 }
 
 const ProjectCreate = () => {
+  const navigate = useNavigate();
   const { t } = useLanguage();
   const [analyzing, setAnalyzing] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [analyzed, setAnalyzed] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [budget, setBudget] = useState('');
@@ -82,6 +85,49 @@ const ProjectCreate = () => {
 
   const deleteMission = (index: number) => {
     setMissions(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handlePublish = async () => {
+    setPublishing(true);
+    try {
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .insert({
+          title: projectTitle,
+          description: projectDescription,
+          category,
+          priority,
+          budget: budgetNum,
+        })
+        .select()
+        .single();
+
+      if (projectError) throw projectError;
+
+      const missionsToInsert = missions.map(m => ({
+        project_id: project.id,
+        title: m.title,
+        description: m.description,
+        skill: m.skill,
+        hours: m.hours,
+        hourly_rate: m.hourlyRate,
+        reward: m.reward,
+      }));
+
+      const { error: missionsError } = await supabase
+        .from('missions')
+        .insert(missionsToInsert);
+
+      if (missionsError) throw missionsError;
+
+      toast.success(`${missions.length} missions published successfully!`);
+      navigate('/marketplace');
+    } catch (err: any) {
+      console.error('Publish failed:', err);
+      toast.error(err.message || 'Failed to publish missions.');
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const totalTalentCost = missions.reduce((sum, m) => sum + m.reward, 0);
@@ -287,8 +333,17 @@ const ProjectCreate = () => {
 
           <div className="flex gap-4">
             <Button variant="outline" onClick={() => setAnalyzed(false)} className="font-heading">Back to Edit</Button>
-            <Button variant="hero" className="flex-1 font-heading gap-2" disabled={overBudget}>
-              <Zap className="h-4 w-4" /> Publish {missions.length} Missions
+            <Button variant="hero" className="flex-1 font-heading gap-2" disabled={overBudget || publishing} onClick={handlePublish}>
+              {publishing ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  Publishing...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4" /> Publish {missions.length} Missions
+                </>
+              )}
             </Button>
           </div>
         </div>
