@@ -39,6 +39,24 @@ const Register = () => {
     return () => subscription.unsubscribe();
   }, [step, accountType, navigate]);
 
+  const checkUsername = async (value: string) => {
+    if (!value.trim() || value.length < 3) {
+      setUsernameError('El nombre de usuario debe tener al menos 3 caracteres');
+      return false;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(value)) {
+      setUsernameError('Solo letras, números y guión bajo');
+      return false;
+    }
+    const { data } = await supabase.from('profiles').select('id').eq('username', value.toLowerCase()).maybeSingle();
+    if (data) {
+      setUsernameError('Este nombre de usuario ya está en uso');
+      return false;
+    }
+    setUsernameError('');
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
@@ -49,6 +67,10 @@ const Register = () => {
       toast.error('La contraseña debe tener al menos 6 caracteres');
       return;
     }
+    if (accountType === 'explorer') {
+      const valid = await checkUsername(username);
+      if (!valid) return;
+    }
     setLoading(true);
     try {
       const { error } = await supabase.auth.signUp({
@@ -56,7 +78,7 @@ const Register = () => {
         password,
         options: {
           emailRedirectTo: (window.location.origin.includes('localhost') ? window.location.origin : 'https://gophora.lovable.app') + '/auth/callback',
-          data: { account_type: accountType },
+          data: { account_type: accountType, username: accountType === 'explorer' ? username.toLowerCase() : undefined },
         },
       });
       if (error) throw error;
