@@ -285,18 +285,24 @@ const ProjectCreate = () => {
           <div>
             <Label className="font-heading text-xs tracking-wider uppercase flex items-center gap-2">
               <Link2 className="h-4 w-4" />
-              {t('project.resource_link')}
+              {t('project.resource_link')} <span className="text-destructive">*</span>
             </Label>
             <Input
-              className="mt-1.5"
+              className={cn("mt-1.5", !resourceLink.trim() && "border-destructive/50")}
               type="url"
               placeholder={t('project.resource_link_placeholder')}
               value={resourceLink}
               onChange={e => setResourceLink(e.target.value)}
+              required
             />
             <p className="text-xs text-muted-foreground font-body mt-1.5 leading-relaxed">
               {t('project.resource_link_help')}
             </p>
+            {!resourceLink.trim() && (
+              <p className="text-xs text-destructive font-body mt-1 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> Obligatorio: Comparte un link con briefs, logos y materiales para los exploradores.
+              </p>
+            )}
           </div>
           <div>
             <Label className="font-heading text-xs tracking-wider uppercase">{t('project.files')}</Label>
