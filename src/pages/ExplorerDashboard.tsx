@@ -107,15 +107,22 @@ const ExplorerDashboard = () => {
 
       const mapped: ApplicationWithMission[] = apps.map((a) => {
         const mission = missionMap.get(a.mission_id);
+        const project = mission ? projectMap.get(mission.project_id) : undefined;
         return {
           id: a.id,
           status: a.status,
           created_at: a.created_at,
           mission_id: a.mission_id,
           missionTitle: mission?.title || 'Mission',
+          missionTitleEs: mission?.title_es || null,
+          missionDescription: mission?.description || null,
+          missionDescriptionEs: mission?.description_es || null,
           missionReward: Number(mission?.reward || 0),
           missionSkill: mission?.skill || '',
-          projectTitle: mission ? (projectMap.get(mission.project_id) || 'Project') : 'Project',
+          missionHours: Number(mission?.hours || 0),
+          missionHourlyRate: Number(mission?.hourly_rate || 0),
+          projectTitle: project?.title || 'Project',
+          projectResourceLink: project?.resource_link || null,
           delivery_url: a.delivery_url,
           delivered_at: a.delivered_at,
           reviewed_at: a.reviewed_at,
