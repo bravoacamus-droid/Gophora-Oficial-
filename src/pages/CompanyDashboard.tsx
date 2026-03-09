@@ -346,7 +346,7 @@ const CompanyDashboard = () => {
                       <div className="w-32 h-2 rounded-full bg-muted overflow-hidden">
                         <div className="h-full bg-primary rounded-full" style={{ width: `${pMissions.length > 0 ? (completed / pMissions.length) * 100 : 0}%` }} />
                       </div>
-                      <span className="text-sm font-heading font-semibold text-primary">${Number(project.budget).toLocaleString()}</span>
+                      <span className="text-sm font-heading font-semibold text-primary">${pMissions.reduce((s, m) => s + Number(m.reward), 0).toLocaleString()}</span>
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </div>
