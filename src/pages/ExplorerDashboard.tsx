@@ -29,9 +29,15 @@ interface ApplicationWithMission {
   created_at: string;
   mission_id: string;
   missionTitle: string;
+  missionTitleEs: string | null;
+  missionDescription: string | null;
+  missionDescriptionEs: string | null;
   missionReward: number;
   missionSkill: string;
+  missionHours: number;
+  missionHourlyRate: number;
   projectTitle: string;
+  projectResourceLink: string | null;
   delivery_url: string | null;
   delivered_at: string | null;
   reviewed_at: string | null;
