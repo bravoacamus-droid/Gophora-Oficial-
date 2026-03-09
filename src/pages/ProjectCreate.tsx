@@ -48,6 +48,7 @@ const ProjectCreate = () => {
   const [category, setCategory] = useState(categories[0]);
   const [priority, setPriority] = useState(priorities[1]);
   const [resourceLink, setResourceLink] = useState('');
+  const [videoLink, setVideoLink] = useState('');
   const [deadline, setDeadline] = useState('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
