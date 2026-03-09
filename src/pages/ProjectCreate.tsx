@@ -193,6 +193,7 @@ const ProjectCreate = () => {
           payment_status: 'paid',
           user_id: user?.id,
           resource_link: resourceLink || null,
+          video_link: videoLink || null,
           deadline: deadline || null,
           payment_screenshot_url: screenshotUrl,
           tx_hash: txHash || null,
