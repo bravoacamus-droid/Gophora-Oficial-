@@ -39,8 +39,11 @@ const Login = () => {
     }
     setResetLoading(true);
     try {
+      const siteUrl = window.location.origin.includes('localhost') 
+        ? window.location.origin 
+        : 'https://gophora.lovable.app';
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${siteUrl}/reset-password`,
       });
       if (error) throw error;
       toast.success('¡Enlace de recuperación enviado! Revisa tu correo');
