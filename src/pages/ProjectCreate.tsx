@@ -306,8 +306,9 @@ const ProjectCreate = () => {
             )}
           </div>
           <div>
-            <Label className="font-heading text-xs tracking-wider uppercase">{t('project.files')}</Label>
-            <label
+            <Label className="font-heading text-xs tracking-wider uppercase">
+              {t('project.files')} <span className="text-destructive">* (PDF requerido)</span>
+            </Label>
               className="mt-1.5 border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/30 transition-colors cursor-pointer block"
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
