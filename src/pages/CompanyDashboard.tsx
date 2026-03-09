@@ -209,8 +209,8 @@ const CompanyDashboard = () => {
   const activeProjects = projects.filter((p) => p.status === 'active');
   const completedMissions = missions.filter((m) => m.status === 'approved');
   const inProgressMissions = missions.filter((m) => m.status === 'open');
-  const totalBudget = projects.reduce((sum, p) => sum + Number(p.budget || 0), 0);
-  const usedBudget = completedMissions.reduce((sum, m) => sum + Number(m.reward || 0), 0);
+  const totalBudget = missions.reduce((sum, m) => sum + Number(m.reward || 0), 0);
+  const usedBudget = missions.filter(m => m.status === 'completed').reduce((sum, m) => sum + Number(m.reward || 0), 0);
   const balance = totalBudget - usedBudget;
 
   const pendingDeliveries = deliveries.filter((d) => d.status === 'delivered');
