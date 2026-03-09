@@ -19,6 +19,7 @@ import Marketplace from "@/pages/Marketplace";
 import ProjectCreate from "@/pages/ProjectCreate";
 import AdminPanel from "@/pages/AdminPanel";
 import AuthCallback from "@/pages/AuthCallback";
+import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
 
               <Route element={<ProtectedRoute />}>
                 <Route path="/company" element={<CompanyDashboard />} />
