@@ -197,7 +197,7 @@ const ProjectCreate = () => {
           deadline: deadline || null,
           payment_screenshot_url: screenshotUrl,
           tx_hash: txHash || null,
-        })
+        } as any)
         .select()
         .single();
 
