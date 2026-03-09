@@ -53,7 +53,7 @@ const Register = () => {
         email,
         password,
         options: {
-          emailRedirectTo: window.location.origin + '/auth/callback',
+          emailRedirectTo: (window.location.origin.includes('localhost') ? window.location.origin : 'https://gophora.lovable.app') + '/auth/callback',
           data: { account_type: accountType },
         },
       });
