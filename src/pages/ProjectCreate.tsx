@@ -309,20 +309,33 @@ const ProjectCreate = () => {
             <Label className="font-heading text-xs tracking-wider uppercase">
               {t('project.files')} <span className="text-destructive">* (PDF requerido)</span>
             </Label>
-              className="mt-1.5 border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/30 transition-colors cursor-pointer block"
+            <label
+              className={cn(
+                "mt-1.5 border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/30 transition-colors cursor-pointer block",
+                !hasPdfFile ? "border-destructive/50" : "border-border"
+              )}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
             >
-              <input type="file" multiple className="hidden" onChange={handleFileChange} />
+              <input type="file" multiple className="hidden" onChange={handleFileChange} accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip" />
               <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground font-body">Drag & drop files or click to browse</p>
+              <p className="text-sm text-muted-foreground font-body">Arrastra y suelta archivos o haz clic para seleccionar</p>
+              <p className="text-xs text-muted-foreground font-body mt-1">Incluye un PDF con las especificaciones del resultado esperado</p>
             </label>
+            {!hasPdfFile && (
+              <p className="text-xs text-destructive font-body mt-1.5 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> Obligatorio: Sube un documento PDF con el detalle exacto del resultado esperado.
+              </p>
+            )}
             {files.length > 0 && (
               <ul className="mt-3 space-y-2">
                 {files.map((f, i) => (
                   <li key={i} className="flex items-center justify-between text-sm bg-muted/50 rounded-md px-3 py-2">
-                    <span className="truncate font-body">{f.name}</span>
-                    <button type="button" onClick={() => removeFile(i)} className="text-destructive text-xs font-heading ml-2 shrink-0">Remove</button>
+                    <span className="truncate font-body flex items-center gap-2">
+                      {f.name.toLowerCase().endsWith('.pdf') && <CheckCircle className="h-3 w-3 text-green-500" />}
+                      {f.name}
+                    </span>
+                    <button type="button" onClick={() => removeFile(i)} className="text-destructive text-xs font-heading ml-2 shrink-0">Eliminar</button>
                   </li>
                 ))}
               </ul>
