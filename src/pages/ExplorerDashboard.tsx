@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Compass, Zap, CheckCircle, DollarSign, Star, Trophy, ExternalLink, Send } from 'lucide-react';
+import { Compass, Zap, CheckCircle, DollarSign, Star, Trophy, ExternalLink, Send, ChevronRight, Clock, FileText, LinkIcon } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import BalanceModule from '@/components/BalanceModule';
 import { toast } from 'sonner';
 import ExplorerOnboarding from '@/components/ExplorerOnboarding';
@@ -28,9 +29,15 @@ interface ApplicationWithMission {
   created_at: string;
   mission_id: string;
   missionTitle: string;
+  missionTitleEs: string | null;
+  missionDescription: string | null;
+  missionDescriptionEs: string | null;
   missionReward: number;
   missionSkill: string;
+  missionHours: number;
+  missionHourlyRate: number;
   projectTitle: string;
+  projectResourceLink: string | null;
   delivery_url: string | null;
   delivered_at: string | null;
   reviewed_at: string | null;
@@ -53,6 +60,7 @@ const ExplorerDashboard = () => {
   const [deliveryUrls, setDeliveryUrls] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+  const [selectedApp, setSelectedApp] = useState<ApplicationWithMission | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -81,34 +89,41 @@ const ExplorerDashboard = () => {
       const missionIds = [...new Set(apps.map((a) => a.mission_id))];
       const { data: missionRows } = await supabase
         .from('missions')
-        .select('id, title, reward, skill, project_id')
+        .select('id, title, title_es, description, description_es, reward, skill, project_id, hours, hourly_rate')
         .in('id', missionIds);
 
       const mRows = missionRows || [];
       const projectIds = [...new Set(mRows.map((m) => m.project_id))];
-      const projectMap = new Map<string, string>();
+      const projectMap = new Map<string, { title: string; resource_link: string | null }>();
 
       if (projectIds.length > 0) {
         const { data: projectRows } = await supabase
           .from('projects')
-          .select('id, title')
+          .select('id, title, resource_link')
           .in('id', projectIds);
-        (projectRows || []).forEach((p) => projectMap.set(p.id, p.title));
+        (projectRows || []).forEach((p) => projectMap.set(p.id, { title: p.title, resource_link: p.resource_link }));
       }
 
       const missionMap = new Map(mRows.map((m) => [m.id, m]));
 
       const mapped: ApplicationWithMission[] = apps.map((a) => {
         const mission = missionMap.get(a.mission_id);
+        const project = mission ? projectMap.get(mission.project_id) : undefined;
         return {
           id: a.id,
           status: a.status,
           created_at: a.created_at,
           mission_id: a.mission_id,
           missionTitle: mission?.title || 'Mission',
+          missionTitleEs: mission?.title_es || null,
+          missionDescription: mission?.description || null,
+          missionDescriptionEs: mission?.description_es || null,
           missionReward: Number(mission?.reward || 0),
           missionSkill: mission?.skill || '',
-          projectTitle: mission ? (projectMap.get(mission.project_id) || 'Project') : 'Project',
+          missionHours: Number(mission?.hours || 0),
+          missionHourlyRate: Number(mission?.hourly_rate || 0),
+          projectTitle: project?.title || 'Project',
+          projectResourceLink: project?.resource_link || null,
           delivery_url: a.delivery_url,
           delivered_at: a.delivered_at,
           reviewed_at: a.reviewed_at,
@@ -298,80 +313,195 @@ const ExplorerDashboard = () => {
                 </div>
               )}
               {applications.map((app) => (
-                <div key={app.id} className="p-4 md:p-6 space-y-3">
+                <div
+                  key={app.id}
+                  className="p-4 md:p-6 space-y-3 cursor-pointer hover:bg-muted/30 transition-colors"
+                  onClick={() => setSelectedApp(app)}
+                >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    <div>
-                      <h3 className="font-heading font-semibold">{app.missionTitle}</h3>
-                      <p className="text-sm text-muted-foreground font-body">{app.projectTitle}</p>
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <h3 className="font-heading font-semibold">{app.missionTitle}</h3>
+                        <p className="text-sm text-muted-foreground font-body">{app.projectTitle}</p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-4">
                       <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${statusColor(app.status)}`}>
                         {statusLabel(app.status)}
                       </span>
                       <span className="text-sm font-heading font-semibold text-primary">${app.missionReward.toLocaleString()}</span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </div>
-
-                  {/* Delivery section */}
-                  {(app.status === 'pending' || app.status === 'rejected') && (
-                    <div className="space-y-2">
-                      {app.status === 'rejected' && app.review_note && (
-                        <p className="text-sm text-destructive font-body italic">
-                          Motivo del rechazo: {app.review_note}
-                        </p>
-                      )}
-                      <div className="flex gap-2 items-center">
-                        <Input
-                          placeholder="https://link-a-tu-trabajo.com"
-                          value={deliveryUrls[app.id] || ''}
-                          onChange={(e) => setDeliveryUrls((prev) => ({ ...prev, [app.id]: e.target.value }))}
-                          className="flex-1 text-sm"
-                        />
-                        <Button
-                          size="sm"
-                          className="gap-1 font-heading text-xs"
-                          onClick={() => handleSubmitDelivery(app.id)}
-                          disabled={submittingId === app.id}
-                        >
-                          <Send className="h-3 w-3" />
-                          {submittingId === app.id ? 'Enviando...' : app.status === 'rejected' ? 'Reenviar' : 'Entregar'}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {app.status === 'delivered' && (
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-                        <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
-                        <span className="text-sm font-heading font-semibold text-yellow-500">En revisión</span>
-                      </div>
-                      {app.delivery_url && (
-                        <a href={app.delivery_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm text-primary hover:underline font-body truncate">
-                          <ExternalLink className="h-3 w-3" /> {app.delivery_url}
-                        </a>
-                      )}
-                    </div>
-                  )}
-
-                  {(app.status === 'completed' || app.status === 'funds_released') && app.delivery_url && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                      <a href={app.delivery_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-body truncate">
-                        {app.delivery_url}
-                      </a>
-                    </div>
-                  )}
-
-                  {app.review_note && app.status !== 'rejected' && (
-                    <p className="text-sm text-muted-foreground font-body italic">
-                      Nota de revisión: {app.review_note}
-                    </p>
-                  )}
                 </div>
               ))}
             </div>
           </div>
+
+          {/* Mission Detail Dialog */}
+          <Dialog open={!!selectedApp} onOpenChange={(open) => !open && setSelectedApp(null)}>
+            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+              {selectedApp && (
+                <>
+                  <DialogHeader>
+                    <DialogTitle className="font-heading text-xl">{selectedApp.missionTitle}</DialogTitle>
+                    {selectedApp.missionTitleEs && selectedApp.missionTitleEs !== selectedApp.missionTitle && (
+                      <p className="text-sm text-muted-foreground font-body">{selectedApp.missionTitleEs}</p>
+                    )}
+                  </DialogHeader>
+
+                  <div className="space-y-5">
+                    {/* Status & Reward */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className={`text-xs font-heading font-semibold px-3 py-1.5 rounded-full ${statusColor(selectedApp.status)}`}>
+                        {statusLabel(selectedApp.status)}
+                      </span>
+                      <span className="text-sm font-heading font-semibold text-primary">${selectedApp.missionReward.toLocaleString()}</span>
+                      <span className="text-xs text-muted-foreground font-body">
+                        {selectedApp.missionSkill}
+                      </span>
+                    </div>
+
+                    {/* Mission Details */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex items-center gap-2 p-3 rounded-lg border border-border/50 bg-muted/30">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground font-body">Horas estimadas</p>
+                          <p className="text-sm font-heading font-semibold">{selectedApp.missionHours}h</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 p-3 rounded-lg border border-border/50 bg-muted/30">
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground font-body">Tarifa por hora</p>
+                          <p className="text-sm font-heading font-semibold">${selectedApp.missionHourlyRate}/h</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Description */}
+                    {(selectedApp.missionDescription || selectedApp.missionDescriptionEs) && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <h3 className="font-heading font-semibold text-sm">Descripción de la misión</h3>
+                        </div>
+                        <div className="p-4 rounded-lg border border-border/50 bg-muted/20">
+                          <p className="text-sm font-body whitespace-pre-wrap leading-relaxed">
+                            {selectedApp.missionDescriptionEs || selectedApp.missionDescription}
+                          </p>
+                          {selectedApp.missionDescriptionEs && selectedApp.missionDescription && selectedApp.missionDescriptionEs !== selectedApp.missionDescription && (
+                            <details className="mt-3">
+                              <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">Ver en inglés</summary>
+                              <p className="text-sm font-body whitespace-pre-wrap leading-relaxed mt-2 text-muted-foreground">
+                                {selectedApp.missionDescription}
+                              </p>
+                            </details>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Project & Resources */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                        <h3 className="font-heading font-semibold text-sm">Proyecto y recursos</h3>
+                      </div>
+                      <div className="p-4 rounded-lg border border-border/50 bg-muted/20 space-y-2">
+                        <p className="text-sm font-body">
+                          <span className="text-muted-foreground">Proyecto:</span>{' '}
+                          <span className="font-semibold">{selectedApp.projectTitle}</span>
+                        </p>
+                        {selectedApp.projectResourceLink && (
+                          <a
+                            href={selectedApp.projectResourceLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-body"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Recursos del proyecto (brief, logos, materiales)
+                          </a>
+                        )}
+                        {!selectedApp.projectResourceLink && (
+                          <p className="text-xs text-muted-foreground font-body italic">
+                            No hay recursos adicionales disponibles para este proyecto.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Review note */}
+                    {selectedApp.review_note && (
+                      <div className="p-3 rounded-lg border border-border/50 bg-muted/20">
+                        <p className="text-xs text-muted-foreground font-body mb-1">Nota de revisión:</p>
+                        <p className="text-sm font-body italic">{selectedApp.review_note}</p>
+                      </div>
+                    )}
+
+                    {/* Delivery section inside dialog */}
+                    {(selectedApp.status === 'pending' || selectedApp.status === 'rejected') && (
+                      <div className="space-y-2 border-t border-border/50 pt-4">
+                        <h3 className="font-heading font-semibold text-sm">Entregar trabajo</h3>
+                        {selectedApp.status === 'rejected' && selectedApp.review_note && (
+                          <p className="text-sm text-destructive font-body italic">
+                            Motivo del rechazo: {selectedApp.review_note}
+                          </p>
+                        )}
+                        <div className="flex gap-2 items-center">
+                          <Input
+                            placeholder="https://link-a-tu-trabajo.com"
+                            value={deliveryUrls[selectedApp.id] || ''}
+                            onChange={(e) => setDeliveryUrls((prev) => ({ ...prev, [selectedApp.id]: e.target.value }))}
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex-1 text-sm"
+                          />
+                          <Button
+                            size="sm"
+                            className="gap-1 font-heading text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSubmitDelivery(selectedApp.id);
+                            }}
+                            disabled={submittingId === selectedApp.id}
+                          >
+                            <Send className="h-3 w-3" />
+                            {submittingId === selectedApp.id ? 'Enviando...' : selectedApp.status === 'rejected' ? 'Reenviar' : 'Entregar'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedApp.status === 'delivered' && (
+                      <div className="flex items-center gap-3 border-t border-border/50 pt-4">
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                          <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+                          <span className="text-sm font-heading font-semibold text-yellow-500">En revisión</span>
+                        </div>
+                        {selectedApp.delivery_url && (
+                          <a href={selectedApp.delivery_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm text-primary hover:underline font-body truncate">
+                            <ExternalLink className="h-3 w-3" /> {selectedApp.delivery_url}
+                          </a>
+                        )}
+                      </div>
+                    )}
+
+                    {(selectedApp.status === 'completed' || selectedApp.status === 'funds_released') && selectedApp.delivery_url && (
+                      <div className="flex items-center gap-2 text-sm border-t border-border/50 pt-4">
+                        <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                        <a href={selectedApp.delivery_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-body truncate">
+                          {selectedApp.delivery_url}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </div>
