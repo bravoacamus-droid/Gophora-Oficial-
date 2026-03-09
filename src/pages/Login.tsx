@@ -62,23 +62,44 @@ const Login = () => {
           </div>
           <h1 className="text-2xl font-heading font-bold">{t('auth.welcome_back')} GOPHORA</h1>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-border/50 bg-card p-6">
-          <div>
-            <Label htmlFor="email" className="font-heading text-xs tracking-wider uppercase">{t('auth.email')}</Label>
-            <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required className="mt-1.5" />
-          </div>
-          <div>
-            <Label htmlFor="password" className="font-heading text-xs tracking-wider uppercase">{t('auth.password')}</Label>
-            <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required className="mt-1.5" />
-          </div>
-          <Button type="submit" className="w-full font-heading tracking-wide" disabled={loading}>
-            {loading ? 'Signing in...' : t('auth.login')}
-          </Button>
-          <p className="text-center text-sm text-muted-foreground font-body">
-            {t('auth.no_account')}{' '}
-            <Link to="/register" className="text-primary hover:underline font-semibold">{t('nav.register')}</Link>
-          </p>
-        </form>
+        {resetMode ? (
+          <form onSubmit={handleResetPassword} className="space-y-4 rounded-xl border border-border/50 bg-card p-6">
+            <p className="text-sm text-muted-foreground font-body text-center">
+              Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.
+            </p>
+            <div>
+              <Label htmlFor="email" className="font-heading text-xs tracking-wider uppercase">{t('auth.email')}</Label>
+              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required className="mt-1.5" />
+            </div>
+            <Button type="submit" className="w-full font-heading tracking-wide" disabled={resetLoading}>
+              {resetLoading ? 'Enviando...' : 'Enviar enlace de recuperación'}
+            </Button>
+            <button type="button" onClick={() => setResetMode(false)} className="w-full text-xs text-muted-foreground hover:text-foreground font-body text-center">
+              ← Volver al inicio de sesión
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-border/50 bg-card p-6">
+            <div>
+              <Label htmlFor="email" className="font-heading text-xs tracking-wider uppercase">{t('auth.email')}</Label>
+              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required className="mt-1.5" />
+            </div>
+            <div>
+              <Label htmlFor="password" className="font-heading text-xs tracking-wider uppercase">{t('auth.password')}</Label>
+              <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required className="mt-1.5" />
+            </div>
+            <button type="button" onClick={() => setResetMode(true)} className="text-xs text-primary hover:underline font-body">
+              ¿Olvidaste tu contraseña?
+            </button>
+            <Button type="submit" className="w-full font-heading tracking-wide" disabled={loading}>
+              {loading ? 'Signing in...' : t('auth.login')}
+            </Button>
+            <p className="text-center text-sm text-muted-foreground font-body">
+              {t('auth.no_account')}{' '}
+              <Link to="/register" className="text-primary hover:underline font-semibold">{t('nav.register')}</Link>
+            </p>
+          </form>
+        )}
       </div>
     </div>
   );
