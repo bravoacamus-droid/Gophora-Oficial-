@@ -307,6 +307,22 @@ const ProjectCreate = () => {
             )}
           </div>
           <div>
+            <Label className="font-heading text-xs tracking-wider uppercase flex items-center gap-2">
+              <Video className="h-4 w-4" />
+              Video explicativo del proyecto
+            </Label>
+            <Input
+              className="mt-1.5"
+              type="url"
+              placeholder="https://www.youtube.com/watch?v=... o https://www.loom.com/share/..."
+              value={videoLink}
+              onChange={e => setVideoLink(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground font-body mt-1.5 leading-relaxed">
+              Opcional: Comparte un video (YouTube, Loom, Google Drive, etc.) explicando el resultado exacto que esperas de la ejecución de las misiones. Esto ayuda a los exploradores a comprender mejor los objetivos del proyecto.
+            </p>
+          </div>
+          <div>
             <Label className="font-heading text-xs tracking-wider uppercase">
               {t('project.files')} <span className="text-destructive">* (PDF requerido)</span>
             </Label>
