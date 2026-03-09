@@ -78,6 +78,8 @@ const CompanyDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [editingResourceLink, setEditingResourceLink] = useState<string>('');
+  const [savingResource, setSavingResource] = useState(false);
 
   // Dialogs
   const [selectedProject, setSelectedProject] = useState<ProjectRow | null>(null);
