@@ -60,6 +60,7 @@ const ExplorerDashboard = () => {
   const [deliveryUrls, setDeliveryUrls] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+  const [selectedApp, setSelectedApp] = useState<ApplicationWithMission | null>(null);
 
   useEffect(() => {
     if (!user) return;
