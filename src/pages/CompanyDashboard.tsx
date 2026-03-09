@@ -188,6 +188,24 @@ const CompanyDashboard = () => {
     }
   };
 
+  const handleUpdateResource = async (projectId: string) => {
+    setSavingResource(true);
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ resource_link: editingResourceLink })
+        .eq('id', projectId);
+      if (error) throw error;
+      toast.success('Recursos actualizados');
+      setSelectedProject((prev) => prev ? { ...prev, resource_link: editingResourceLink } : null);
+      setProjects((prev) => prev.map((p) => p.id === projectId ? { ...p, resource_link: editingResourceLink } : p));
+    } catch (err: any) {
+      toast.error(err.message || 'Error al actualizar');
+    } finally {
+      setSavingResource(false);
+    }
+  };
+
   const activeProjects = projects.filter((p) => p.status === 'active');
   const completedMissions = missions.filter((m) => m.status === 'approved');
   const inProgressMissions = missions.filter((m) => m.status === 'open');
