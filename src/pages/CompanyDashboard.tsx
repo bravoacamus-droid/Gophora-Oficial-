@@ -336,7 +336,7 @@ const CompanyDashboard = () => {
                   <div
                     key={project.id}
                     className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => setSelectedProject(project)}
+                    onClick={() => { setSelectedProject(project); setEditingResourceLink(project.resource_link || ''); }}
                   >
                     <div>
                       <h3 className="font-heading font-semibold">{project.title}</h3>
