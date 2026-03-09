@@ -164,6 +164,7 @@ export type Database = {
           social_links: Json | null
           talents: string[] | null
           updated_at: string
+          username: string | null
         }
         Insert: {
           account_type?: string
@@ -181,6 +182,7 @@ export type Database = {
           social_links?: Json | null
           talents?: string[] | null
           updated_at?: string
+          username?: string | null
         }
         Update: {
           account_type?: string
@@ -198,6 +200,7 @@ export type Database = {
           social_links?: Json | null
           talents?: string[] | null
           updated_at?: string
+          username?: string | null
         }
         Relationships: []
       }

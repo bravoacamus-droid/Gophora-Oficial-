@@ -13,6 +13,8 @@ const Register = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [usernameError, setUsernameError] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [accountType, setAccountType] = useState<'company' | 'explorer'>(
@@ -37,6 +39,24 @@ const Register = () => {
     return () => subscription.unsubscribe();
   }, [step, accountType, navigate]);
 
+  const checkUsername = async (value: string) => {
+    if (!value.trim() || value.length < 3) {
+      setUsernameError('El nombre de usuario debe tener al menos 3 caracteres');
+      return false;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(value)) {
+      setUsernameError('Solo letras, números y guión bajo');
+      return false;
+    }
+    const { data } = await supabase.from('profiles').select('id').eq('username', value.toLowerCase()).maybeSingle();
+    if (data) {
+      setUsernameError('Este nombre de usuario ya está en uso');
+      return false;
+    }
+    setUsernameError('');
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
@@ -47,6 +67,10 @@ const Register = () => {
       toast.error('La contraseña debe tener al menos 6 caracteres');
       return;
     }
+    if (accountType === 'explorer') {
+      const valid = await checkUsername(username);
+      if (!valid) return;
+    }
     setLoading(true);
     try {
       const { error } = await supabase.auth.signUp({
@@ -54,7 +78,7 @@ const Register = () => {
         password,
         options: {
           emailRedirectTo: (window.location.origin.includes('localhost') ? window.location.origin : 'https://gophora.lovable.app') + '/auth/callback',
-          data: { account_type: accountType },
+          data: { account_type: accountType, username: accountType === 'explorer' ? username.toLowerCase() : undefined },
         },
       });
       if (error) throw error;
@@ -133,6 +157,13 @@ const Register = () => {
                 </button>
               </div>
             </div>
+            {accountType === 'explorer' && (
+              <div>
+                <Label htmlFor="username" className="font-heading text-xs tracking-wider uppercase">Nombre de usuario</Label>
+                <Input id="username" type="text" value={username} onChange={e => { setUsername(e.target.value); setUsernameError(''); }} placeholder="ej: explorer_pro" required className="mt-1.5" />
+                {usernameError && <p className="text-xs text-destructive mt-1">{usernameError}</p>}
+              </div>
+            )}
             <div>
               <Label htmlFor="email" className="font-heading text-xs tracking-wider uppercase">{t('auth.email')}</Label>
               <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required className="mt-1.5" />
