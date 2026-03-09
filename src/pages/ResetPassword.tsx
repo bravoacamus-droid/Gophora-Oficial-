@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { Rocket, ShieldCheck } from 'lucide-react';
+import { Rocket, ShieldCheck, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ResetPassword = () => {
@@ -12,14 +12,35 @@ const ResetPassword = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isRecovery, setIsRecovery] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+  const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsRecovery(true);
+    // Listen for the PASSWORD_RECOVERY event which fires when
+    // Supabase processes the recovery token from the URL hash
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' && session) {
+        setSessionReady(true);
+        setInitializing(false);
+      } else if (event === 'SIGNED_IN' && session) {
+        // Sometimes the event comes as SIGNED_IN with a recovery type
+        setSessionReady(true);
+        setInitializing(false);
       }
     });
+
+    // Also check if there's already an active session (e.g. page refresh)
+    const checkExistingSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setSessionReady(true);
+      }
+      // Give Supabase time to process the URL hash tokens
+      setTimeout(() => setInitializing(false), 3000);
+    };
+
+    checkExistingSession();
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -38,6 +59,8 @@ const ResetPassword = () => {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       toast.success('¡Contraseña actualizada exitosamente!');
+      // Sign out so user logs in with new password
+      await supabase.auth.signOut();
       navigate('/login', { replace: true });
     } catch (err: any) {
       toast.error(err.message || 'Error al actualizar contraseña');
@@ -45,6 +68,40 @@ const ResetPassword = () => {
       setLoading(false);
     }
   };
+
+  if (initializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center gap-2 mb-4">
+            <Rocket className="h-8 w-8 text-primary animate-pulse" />
+            <span className="font-heading text-2xl font-bold tracking-wider">GOPHORA</span>
+          </div>
+          <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+          <p className="text-sm text-muted-foreground font-body">Verificando enlace de recuperación...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!sessionReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="w-full max-w-md text-center space-y-4">
+          <div className="inline-flex items-center gap-2 mb-4">
+            <Rocket className="h-8 w-8 text-primary" />
+            <span className="font-heading text-2xl font-bold tracking-wider">GOPHORA</span>
+          </div>
+          <p className="text-muted-foreground font-body">
+            El enlace de recuperación ha expirado o es inválido. Solicita uno nuevo desde el inicio de sesión.
+          </p>
+          <Button onClick={() => navigate('/login')} className="font-heading tracking-wide">
+            Ir a iniciar sesión
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
