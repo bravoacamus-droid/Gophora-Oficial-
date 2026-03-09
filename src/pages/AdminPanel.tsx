@@ -1,26 +1,36 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, FolderOpen, Zap, DollarSign, BarChart3, CheckCircle, XCircle, Ban, UserCheck, CreditCard, Banknote, ExternalLink, Wallet, Building2, Bitcoin, CalendarIcon, Search, X, Download, Image, ChevronDown, ChevronUp } from 'lucide-react';
-import { format } from 'date-fns';
+import {
+  Users, FolderOpen, Zap, DollarSign, BarChart3, CheckCircle, XCircle, Ban, UserCheck,
+  CreditCard, Banknote, ExternalLink, Wallet, Building2, Bitcoin, CalendarIcon, Search, X,
+  Download, Image, ChevronDown, ChevronUp, FileText, Clock, ArrowRight, Eye
+} from 'lucide-react';
+import { format, startOfDay, endOfDay, isToday, isYesterday } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 
-const tabs = ['Users', 'Projects', 'Missions', 'Fund Releases', 'Withdrawals', 'Payouts', 'Payments', 'Revenue'] as const;
+const tabs = ['Overview', 'Fund Releases', 'Withdrawals', 'Missions', 'Projects', 'Users', 'Payments', 'Revenue'] as const;
 type Tab = typeof tabs[number];
-const tabIcons: Record<Tab, any> = { Users, Projects: FolderOpen, Missions: Zap, 'Fund Releases': Banknote, Withdrawals: Wallet, Payouts: CheckCircle, Payments: CreditCard, Revenue: BarChart3 };
+const tabIcons: Record<Tab, any> = {
+  Overview: BarChart3, 'Fund Releases': Banknote, Withdrawals: Wallet,
+  Missions: Zap, Projects: FolderOpen, Users, Payments: CreditCard, Revenue: DollarSign
+};
 
 const AdminPanel = () => {
   const { t } = useLanguage();
   const { isAdmin, user, loading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>('Users');
+  const [activeTab, setActiveTab] = useState<Tab>('Overview');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
@@ -34,51 +44,88 @@ const AdminPanel = () => {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [withdrawalNotes, setWithdrawalNotes] = useState<Record<string, string>>({});
   const [expandedMission, setExpandedMission] = useState<string | null>(null);
-  
-  // Filters for Withdrawals & Payouts
+  const [selectedRelease, setSelectedRelease] = useState<any>(null);
+
+  // Withdrawal filters
   const [wFilterUser, setWFilterUser] = useState<string>('all');
+  const [wFilterMethod, setWFilterMethod] = useState<string>('all');
+  const [wFilterStatus, setWFilterStatus] = useState<string>('all');
   const [wFilterDateFrom, setWFilterDateFrom] = useState<Date | undefined>();
   const [wFilterDateTo, setWFilterDateTo] = useState<Date | undefined>();
 
-  // Get unique users from withdrawal requests for filter dropdown
   const withdrawalUsers = Array.from(
     new Map(withdrawalRequests.map((w: any) => [w.user_id, { id: w.user_id, email: w.explorerEmail, name: w.explorerName }])).values()
   );
 
-  const filterWithdrawals = (items: any[]) => {
+  const filterWithdrawals = useCallback((items: any[]) => {
     return items.filter((w: any) => {
       if (wFilterUser !== 'all' && w.user_id !== wFilterUser) return false;
+      if (wFilterMethod !== 'all' && w.method !== wFilterMethod) return false;
+      if (wFilterStatus !== 'all' && w.status !== wFilterStatus) return false;
       const wDate = new Date(w.created_at);
-      if (wFilterDateFrom && wDate < wFilterDateFrom) return false;
-      if (wFilterDateTo) {
-        const endOfDay = new Date(wFilterDateTo);
-        endOfDay.setHours(23, 59, 59, 999);
-        if (wDate > endOfDay) return false;
-      }
+      if (wFilterDateFrom && wDate < startOfDay(wFilterDateFrom)) return false;
+      if (wFilterDateTo && wDate > endOfDay(wFilterDateTo)) return false;
       return true;
     });
-  };
+  }, [wFilterUser, wFilterMethod, wFilterStatus, wFilterDateFrom, wFilterDateTo]);
 
-  const hasActiveFilters = wFilterUser !== 'all' || wFilterDateFrom || wFilterDateTo;
-  const clearFilters = () => { setWFilterUser('all'); setWFilterDateFrom(undefined); setWFilterDateTo(undefined); };
+  const hasActiveFilters = wFilterUser !== 'all' || wFilterMethod !== 'all' || wFilterStatus !== 'all' || wFilterDateFrom || wFilterDateTo;
+  const clearFilters = () => { setWFilterUser('all'); setWFilterMethod('all'); setWFilterStatus('all'); setWFilterDateFrom(undefined); setWFilterDateTo(undefined); };
 
-  const exportPayoutsCsv = () => {
-    const data = filterWithdrawals(withdrawalRequests.filter((w: any) => w.status === 'approved'));
-    if (data.length === 0) { toast.error('No hay datos para exportar'); return; }
-    const headers = ['Explorer Email','Explorer Nombre','Monto','Método','Banco','Cuenta','Titular','Red Crypto','Wallet','QR URL','Fecha Solicitud','Fecha Pago','Nota Admin'];
-    const rows = data.map((w: any) => [
-      w.explorerEmail, w.explorerName || '', Number(w.amount), w.method === 'bank' ? 'Banco' : 'Crypto',
+  // Daily report generation
+  const generateDailyReport = (methodFilter: 'all' | 'bank' | 'crypto' = 'all') => {
+    const today = new Date();
+    const filtered = withdrawalRequests.filter((w: any) => {
+      if (methodFilter !== 'all' && w.method !== methodFilter) return false;
+      return true;
+    });
+
+    if (filtered.length === 0) { toast.error('No hay datos para exportar'); return; }
+
+    const methodLabel = methodFilter === 'bank' ? 'Banco' : methodFilter === 'crypto' ? 'Crypto' : 'Todos';
+    const headers = ['Estado', 'Explorer Email', 'Nombre', 'Monto', 'Método',
+      'Banco', 'Cuenta', 'Titular', 'Red Crypto', 'Wallet', 'QR URL',
+      'Fecha Solicitud', 'Fecha Procesado', 'Nota Admin'];
+
+    const rows = filtered.map((w: any) => [
+      w.status, w.explorerEmail, w.explorerName || '', Number(w.amount),
+      w.method === 'bank' ? 'Banco' : 'Crypto',
       w.bank_name || '', w.bank_account || '', w.bank_holder || '',
       w.crypto_network || '', w.crypto_address || '', w.qr_image_url || '',
-      new Date(w.created_at).toLocaleDateString(), w.processed_at ? new Date(w.processed_at).toLocaleDateString() : '',
+      new Date(w.created_at).toLocaleDateString(),
+      w.processed_at ? new Date(w.processed_at).toLocaleDateString() : '',
       w.admin_note || '',
     ]);
+
     const csv = [headers, ...rows].map(r => r.map((v: any) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `payouts_${format(new Date(), 'yyyy-MM-dd')}.csv`; a.click();
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reporte_retiros_${methodLabel}_${format(today, 'yyyy-MM-dd')}.csv`;
+    a.click();
     URL.revokeObjectURL(url);
+    toast.success(`Reporte de retiros (${methodLabel}) descargado`);
   };
+
+  // Withdrawal daily summary
+  const withdrawalSummary = useMemo(() => {
+    const pending = withdrawalRequests.filter((w: any) => w.status === 'pending');
+    const pendingBank = pending.filter((w: any) => w.method === 'bank');
+    const pendingCrypto = pending.filter((w: any) => w.method === 'crypto');
+    const approved = withdrawalRequests.filter((w: any) => w.status === 'approved');
+
+    return {
+      totalPending: pending.length,
+      pendingAmount: pending.reduce((s: number, w: any) => s + Number(w.amount), 0),
+      bankPending: pendingBank.length,
+      bankAmount: pendingBank.reduce((s: number, w: any) => s + Number(w.amount), 0),
+      cryptoPending: pendingCrypto.length,
+      cryptoAmount: pendingCrypto.reduce((s: number, w: any) => s + Number(w.amount), 0),
+      totalApproved: approved.length,
+      approvedAmount: approved.reduce((s: number, w: any) => s + Number(w.amount), 0),
+    };
+  }, [withdrawalRequests]);
 
   const adminCall = useCallback(async (action: string, params: any = {}) => {
     const { data, error } = await supabase.functions.invoke('admin-actions', {
@@ -93,178 +140,136 @@ const AdminPanel = () => {
     setLoading(true);
     try {
       const [statsData, usersData, projectsData, missionsData, releasesData, withdrawalsData, paymentsData] = await Promise.all([
-        adminCall('get_stats'),
-        adminCall('get_users'),
-        adminCall('get_projects'),
-        adminCall('get_missions'),
-        adminCall('get_pending_releases'),
-        adminCall('get_withdrawals'),
-        adminCall('get_payment_history'),
+        adminCall('get_stats'), adminCall('get_users'), adminCall('get_projects'),
+        adminCall('get_missions'), adminCall('get_pending_releases'),
+        adminCall('get_withdrawals'), adminCall('get_payment_history'),
       ]);
-      setStats(statsData);
-      setUsers(usersData);
-      setProjects(projectsData);
-      setMissions(missionsData);
-      setPendingReleases(releasesData || []);
-      setWithdrawalRequests(withdrawalsData || []);
-      setPaymentHistory(paymentsData || []);
+      setStats(statsData); setUsers(usersData); setProjects(projectsData);
+      setMissions(missionsData); setPendingReleases(releasesData || []);
+      setWithdrawalRequests(withdrawalsData || []); setPaymentHistory(paymentsData || []);
     } catch (err: any) {
       console.error('Admin load error:', err);
       toast.error(err.message || 'Failed to load admin data');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [adminCall]);
 
-  useEffect(() => {
-    if (isAdmin) loadData();
-  }, [isAdmin, loadData]);
+  useEffect(() => { if (isAdmin) loadData(); }, [isAdmin, loadData]);
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center"><div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /></div>;
   }
-
-  if (!isAdmin) {
-    return <Navigate to="/" replace />;
-  }
+  if (!isAdmin) return <Navigate to="/" replace />;
 
   const handlePaymentStatus = async (projectId: string, status: string) => {
-    try {
-      await adminCall('update_payment_status', { project_id: projectId, payment_status: status });
-      toast.success(`Payment marked as ${status}`);
-      loadData();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
+    try { await adminCall('update_payment_status', { project_id: projectId, payment_status: status }); toast.success(`Payment marked as ${status}`); loadData(); } catch (err: any) { toast.error(err.message); }
   };
-
   const handleApproveMission = async (missionId: string) => {
-    try {
-      await adminCall('approve_mission', { mission_id: missionId });
-      toast.success('Mission approved');
-      loadData();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
+    try { await adminCall('approve_mission', { mission_id: missionId }); toast.success('Mission approved'); loadData(); } catch (err: any) { toast.error(err.message); }
   };
-
   const handleRejectMission = async (missionId: string) => {
-    try {
-      await adminCall('reject_mission', { mission_id: missionId });
-      toast.success('Mission rejected');
-      loadData();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
+    try { await adminCall('reject_mission', { mission_id: missionId }); toast.success('Mission rejected'); loadData(); } catch (err: any) { toast.error(err.message); }
   };
-
   const handleReleaseFunds = async (applicationId: string) => {
     setReleasingId(applicationId);
-    try {
-      await adminCall('release_funds', { application_id: applicationId });
-      toast.success('Fondos liberados exitosamente');
-      loadData();
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setReleasingId(null);
-    }
+    try { await adminCall('release_funds', { application_id: applicationId }); toast.success('Fondos liberados exitosamente'); setSelectedRelease(null); loadData(); } catch (err: any) { toast.error(err.message); } finally { setReleasingId(null); }
   };
-
   const handleSuspendUser = async (userId: string) => {
-    try {
-      await adminCall('suspend_user', { user_id: userId });
-      toast.success('User suspended');
-      loadData();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
+    try { await adminCall('suspend_user', { user_id: userId }); toast.success('User suspended'); loadData(); } catch (err: any) { toast.error(err.message); }
   };
-
+  const handleActivateUser = async (userId: string) => {
+    try { await adminCall('activate_user', { user_id: userId }); toast.success('User activated'); loadData(); } catch (err: any) { toast.error(err.message); }
+  };
   const handleProcessWithdrawal = async (withdrawalId: string, newStatus: 'approved' | 'rejected') => {
     setProcessingId(withdrawalId);
     try {
-      await adminCall('process_withdrawal', {
-        withdrawal_id: withdrawalId,
-        new_status: newStatus,
-        admin_note: withdrawalNotes[withdrawalId] || null,
-      });
-      toast.success(newStatus === 'approved' ? 'Retiro aprobado' : 'Retiro rechazado');
-      loadData();
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleActivateUser = async (userId: string) => {
-    try {
-      await adminCall('activate_user', { user_id: userId });
-      toast.success('User activated');
-      loadData();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
+      await adminCall('process_withdrawal', { withdrawal_id: withdrawalId, new_status: newStatus, admin_note: withdrawalNotes[withdrawalId] || null });
+      toast.success(newStatus === 'approved' ? 'Retiro aprobado' : 'Retiro rechazado'); loadData();
+    } catch (err: any) { toast.error(err.message); } finally { setProcessingId(null); }
   };
 
   const statusBadge = (status: string) => {
     const colors: Record<string, string> = {
-      open: 'bg-blue-500/10 text-blue-500',
-      approved: 'bg-green-500/10 text-green-500',
-      rejected: 'bg-destructive/10 text-destructive',
-      paid: 'bg-green-500/10 text-green-500',
-      unpaid: 'bg-yellow-500/10 text-yellow-500',
-      pending: 'bg-yellow-500/10 text-yellow-500',
-      active: 'bg-green-500/10 text-green-500',
+      open: 'bg-blue-500/10 text-blue-500', approved: 'bg-green-500/10 text-green-500',
+      rejected: 'bg-destructive/10 text-destructive', paid: 'bg-green-500/10 text-green-500',
+      unpaid: 'bg-yellow-500/10 text-yellow-500', pending: 'bg-yellow-500/10 text-yellow-500',
+      active: 'bg-green-500/10 text-green-500', completed: 'bg-green-500/10 text-green-500',
+      funds_released: 'bg-green-500/10 text-green-500',
     };
-    return (
-      <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${colors[status] || 'bg-muted text-muted-foreground'}`}>
-        {status.toUpperCase()}
-      </span>
-    );
+    return <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${colors[status] || 'bg-muted text-muted-foreground'}`}>{status.toUpperCase()}</span>;
   };
 
-  return (
-    <div className="container py-8 max-w-6xl">
-      <h1 className="text-2xl md:text-3xl font-heading font-bold mb-8">{t('admin.title')}</h1>
-
-      {/* Stats */}
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-          {[
-            { label: 'Users', value: stats.totalUsers, icon: Users },
-            { label: 'Projects', value: stats.totalProjects, icon: FolderOpen },
-            { label: 'Missions', value: stats.totalMissions, icon: Zap },
-            { label: 'Paid Budget', value: `$${stats.paidBudget?.toLocaleString()}`, icon: DollarSign },
-            { label: 'Commission', value: `$${stats.commission?.toLocaleString()}`, icon: BarChart3 },
-          ].map((stat, i) => (
-            <div key={i} className="rounded-xl border border-border/50 bg-card p-4 text-center">
-              <stat.icon className="h-5 w-5 text-primary mx-auto mb-2" />
-              <div className="text-xl font-heading font-bold">{stat.value}</div>
-              <div className="text-xs text-muted-foreground font-body">{stat.label}</div>
-            </div>
-          ))}
-        </div>
+  const FilterBar = () => (
+    <div className="p-4 border-b border-border/50 bg-muted/30 flex flex-wrap items-center gap-3">
+      <Search className="h-4 w-4 text-muted-foreground" />
+      <Select value={wFilterUser} onValueChange={setWFilterUser}>
+        <SelectTrigger className="w-[180px] text-sm"><SelectValue placeholder="Todos los usuarios" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos los usuarios</SelectItem>
+          {withdrawalUsers.map(u => <SelectItem key={u.id} value={u.id}>{u.email}{u.name ? ` (${u.name})` : ''}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={wFilterMethod} onValueChange={setWFilterMethod}>
+        <SelectTrigger className="w-[130px] text-sm"><SelectValue placeholder="Método" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos</SelectItem>
+          <SelectItem value="bank">Banco</SelectItem>
+          <SelectItem value="crypto">Crypto</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select value={wFilterStatus} onValueChange={setWFilterStatus}>
+        <SelectTrigger className="w-[130px] text-sm"><SelectValue placeholder="Estado" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos</SelectItem>
+          <SelectItem value="pending">Pendiente</SelectItem>
+          <SelectItem value="approved">Aprobado</SelectItem>
+          <SelectItem value="rejected">Rechazado</SelectItem>
+        </SelectContent>
+      </Select>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className={cn("gap-2 text-xs font-heading", !wFilterDateFrom && "text-muted-foreground")}>
+            <CalendarIcon className="h-3 w-3" />{wFilterDateFrom ? format(wFilterDateFrom, 'dd/MM/yyyy') : 'Desde'}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar mode="single" selected={wFilterDateFrom} onSelect={setWFilterDateFrom} initialFocus className="p-3 pointer-events-auto" />
+        </PopoverContent>
+      </Popover>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className={cn("gap-2 text-xs font-heading", !wFilterDateTo && "text-muted-foreground")}>
+            <CalendarIcon className="h-3 w-3" />{wFilterDateTo ? format(wFilterDateTo, 'dd/MM/yyyy') : 'Hasta'}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar mode="single" selected={wFilterDateTo} onSelect={setWFilterDateTo} initialFocus className="p-3 pointer-events-auto" />
+        </PopoverContent>
+      </Popover>
+      {hasActiveFilters && (
+        <Button variant="ghost" size="sm" className="gap-1 text-xs font-heading text-muted-foreground" onClick={clearFilters}><X className="h-3 w-3" /> Limpiar</Button>
       )}
+    </div>
+  );
+
+  return (
+    <div className="container py-8 max-w-7xl">
+      <h1 className="text-2xl md:text-3xl font-heading font-bold mb-8">{t('admin.title')}</h1>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
         {tabs.map(tab => {
           const Icon = tabIcons[tab];
+          const count = tab === 'Fund Releases' ? pendingReleases.length :
+                        tab === 'Withdrawals' ? withdrawalRequests.filter((w: any) => w.status === 'pending').length : 0;
           return (
-            <Button
-              key={tab}
-              variant={activeTab === tab ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setActiveTab(tab)}
-              className="font-heading text-xs gap-2 whitespace-nowrap"
-            >
+            <Button key={tab} variant={activeTab === tab ? 'default' : 'outline'} size="sm"
+              onClick={() => setActiveTab(tab)} className="font-heading text-xs gap-2 whitespace-nowrap relative">
               <Icon className="h-3 w-3" /> {tab}
+              {count > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
+                  {count}
+                </span>
+              )}
             </Button>
           );
         })}
@@ -275,566 +280,428 @@ const AdminPanel = () => {
           <div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
         </div>
       ) : (
-        <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
-          {/* USERS TAB */}
-          {activeTab === 'Users' && (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border/50 bg-muted/50">
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Email</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Name</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Type</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Joined</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((u) => (
-                    <tr key={u.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
-                      <td className="p-4 text-sm font-body">{u.email}</td>
-                      <td className="p-4 text-sm font-body">{u.full_name || '—'}</td>
-                      <td className="p-4">{statusBadge(u.account_type)}</td>
-                      <td className="p-4 text-sm text-muted-foreground font-body">{new Date(u.created_at).toLocaleDateString()}</td>
-                      <td className="p-4">
-                        {u.id !== user?.id && (
-                          <div className="flex gap-2">
-                            <Button variant="ghost" size="sm" className="text-xs font-heading text-destructive gap-1" onClick={() => handleSuspendUser(u.id)}>
-                              <Ban className="h-3 w-3" /> Suspend
-                            </Button>
-                            <Button variant="ghost" size="sm" className="text-xs font-heading text-green-500 gap-1" onClick={() => handleActivateUser(u.id)}>
-                              <UserCheck className="h-3 w-3" /> Activate
-                            </Button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {users.length === 0 && (
-                    <tr><td colSpan={5} className="p-8 text-center text-muted-foreground font-body">No users yet</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* PROJECTS TAB */}
-          {activeTab === 'Projects' && (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border/50 bg-muted/50">
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Project</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Owner</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Budget</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Payment</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Status</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {projects.map((p) => (
-                    <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
-                      <td className="p-4">
-                        <div className="text-sm font-heading font-semibold">{p.title}</div>
-                        <div className="text-xs text-muted-foreground font-body mt-1">{p.category} • {p.priority}</div>
-                      </td>
-                      <td className="p-4 text-sm font-body">{p.profiles?.email || '—'}</td>
-                      <td className="p-4 text-sm font-heading font-semibold text-primary">${Number(p.budget).toLocaleString()}</td>
-                      <td className="p-4">{statusBadge(p.payment_status)}</td>
-                      <td className="p-4">{statusBadge(p.status)}</td>
-                      <td className="p-4">
-                        <div className="flex gap-2">
-                          {p.payment_status !== 'paid' && (
-                            <Button variant="ghost" size="sm" className="text-xs font-heading text-green-500 gap-1" onClick={() => handlePaymentStatus(p.id, 'paid')}>
-                              <CreditCard className="h-3 w-3" /> Mark Paid
-                            </Button>
-                          )}
-                          {p.payment_status === 'paid' && (
-                            <Button variant="ghost" size="sm" className="text-xs font-heading text-yellow-500 gap-1" onClick={() => handlePaymentStatus(p.id, 'unpaid')}>
-                              <CreditCard className="h-3 w-3" /> Mark Unpaid
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {projects.length === 0 && (
-                    <tr><td colSpan={6} className="p-8 text-center text-muted-foreground font-body">No projects yet</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* MISSIONS TAB */}
-          {activeTab === 'Missions' && (
-            <div className="overflow-x-auto">
-              <div className="flex items-center gap-3 mb-4 p-2">
-                <span className="text-xs font-heading uppercase tracking-wider text-muted-foreground">Filter:</span>
-                <div className="flex gap-2">
-                  {[
-                    { value: 'active', label: 'Active', desc: 'open + approved' },
-                    { value: 'completed', label: 'Completed', desc: 'delivered & paid' },
-                    { value: 'rejected', label: 'Rejected', desc: '' },
-                    { value: 'all', label: 'All', desc: '' },
-                  ].map((f) => (
-                    <Button
-                      key={f.value}
-                      variant={missionFilter === f.value ? 'default' : 'outline'}
-                      size="sm"
-                      className="text-xs font-heading"
-                      onClick={() => setMissionFilter(f.value)}
-                    >
-                      {f.label}
-                    </Button>
-                  ))}
-                </div>
+        <>
+          {/* ── OVERVIEW TAB ── */}
+          {activeTab === 'Overview' && stats && (
+            <div className="space-y-6">
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {[
+                  { label: 'Usuarios', value: stats.totalUsers, icon: Users },
+                  { label: 'Proyectos', value: stats.totalProjects, icon: FolderOpen },
+                  { label: 'Misiones', value: stats.totalMissions, icon: Zap },
+                  { label: 'Budget Pagado', value: `$${stats.paidBudget?.toLocaleString()}`, icon: DollarSign },
+                  { label: 'Comisión', value: `$${stats.commission?.toLocaleString()}`, icon: BarChart3 },
+                ].map((stat, i) => (
+                  <div key={i} className="rounded-xl border border-border/50 bg-card p-4 text-center">
+                    <stat.icon className="h-5 w-5 text-primary mx-auto mb-2" />
+                    <div className="text-xl font-heading font-bold">{stat.value}</div>
+                    <div className="text-xs text-muted-foreground font-body">{stat.label}</div>
+                  </div>
+                ))}
               </div>
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border/50 bg-muted/50">
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Mission</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Project</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Skill</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Reward</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Payment</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Status</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {missions
-                    .filter((m) => {
-                      if (missionFilter === 'active') return ['open', 'approved'].includes(m.status);
-                      if (missionFilter === 'completed') return m.status === 'completed';
-                      if (missionFilter === 'rejected') return m.status === 'rejected';
-                      return true;
-                    })
-                    .map((m) => (
-                    <>
-                      <tr
-                        key={m.id}
-                        className="border-b border-border/50 last:border-0 hover:bg-muted/30 cursor-pointer"
-                        onClick={() => setExpandedMission(expandedMission === m.id ? null : m.id)}
-                      >
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            {expandedMission === m.id ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
-                            <div>
-                              <div className="text-sm font-heading font-semibold">{m.title}</div>
-                              <div className="text-xs text-muted-foreground font-body mt-1">{m.hours}h @ ${m.hourly_rate}/hr</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-4 text-sm font-body">{m.projects?.title || '—'}</td>
-                        <td className="p-4">
-                          <span className="text-xs font-heading font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary">{m.skill}</span>
-                        </td>
-                        <td className="p-4 text-sm font-heading font-semibold text-primary">${Number(m.reward).toLocaleString()}</td>
-                        <td className="p-4">{statusBadge(m.projects?.payment_status || 'unpaid')}</td>
-                        <td className="p-4">{statusBadge(m.status)}</td>
-                        <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                          {m.status === 'open' && (
-                            <div className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-xs font-heading text-green-500 gap-1"
-                                onClick={() => handleApproveMission(m.id)}
-                                disabled={m.projects?.payment_status !== 'paid'}
-                                title={m.projects?.payment_status !== 'paid' ? 'Project must be paid first' : 'Approve mission'}
-                              >
-                                <CheckCircle className="h-3 w-3" /> Approve
-                              </Button>
-                              <Button variant="ghost" size="sm" className="text-xs font-heading text-destructive gap-1" onClick={() => handleRejectMission(m.id)}>
-                                <XCircle className="h-3 w-3" /> Reject
-                              </Button>
-                            </div>
-                          )}
-                          {m.status === 'approved' && <span className="text-xs text-green-500 font-heading">✓ Approved</span>}
-                          {m.status === 'rejected' && <span className="text-xs text-destructive font-heading">✗ Rejected</span>}
-                          {m.status === 'completed' && <span className="text-xs text-muted-foreground font-heading">✓ Completed</span>}
-                        </td>
-                      </tr>
-                      {expandedMission === m.id && (
-                        <tr key={`${m.id}-detail`} className="border-b border-border/50 bg-muted/20">
-                          <td colSpan={7} className="p-6">
-                            <div className="space-y-4">
-                              <h4 className="font-heading font-bold text-sm uppercase tracking-wider flex items-center gap-2">
-                                <Image className="h-4 w-4" /> Prueba de Pago del Proyecto
-                              </h4>
-                              {m.projects?.payment_screenshot_url ? (
-                                <div className="space-y-3">
-                                  <a href={m.projects.payment_screenshot_url} target="_blank" rel="noopener noreferrer" className="block">
-                                    <img
-                                      src={m.projects.payment_screenshot_url}
-                                      alt="Comprobante de pago"
-                                      className="max-w-md max-h-80 rounded-lg border border-border/50 object-contain hover:opacity-90 transition-opacity"
-                                    />
-                                  </a>
-                                  <p className="text-xs text-muted-foreground font-body">Click en la imagen para verla en tamaño completo</p>
-                                </div>
-                              ) : (
-                                <p className="text-sm text-muted-foreground font-body italic">No se proporcionó captura de pago</p>
-                              )}
-                              {m.projects?.tx_hash && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-muted-foreground font-heading uppercase">TX Hash:</span>
-                                  <code className="font-mono text-xs text-primary bg-primary/5 px-2 py-1 rounded">{m.projects.tx_hash}</code>
-                                </div>
-                              )}
-                              {m.description && (
-                                <div>
-                                  <span className="text-xs text-muted-foreground font-heading uppercase">Descripción:</span>
-                                  <p className="text-sm font-body mt-1">{m.description}</p>
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </>
-                  ))}
-                  {missions.length === 0 && (
-                    <tr><td colSpan={7} className="p-8 text-center text-muted-foreground font-body">No missions yet</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
 
-          {/* FUND RELEASES TAB */}
-          {activeTab === 'Fund Releases' && (
-            <div className="divide-y divide-border/50">
-              {pendingReleases.length === 0 && (
-                <div className="p-8 text-center text-muted-foreground font-body">No hay entregas aprobadas pendientes de liberación de fondos</div>
-              )}
-              {pendingReleases.map((r: any) => (
-                <div key={r.id} className="p-4 md:p-6 space-y-3">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    <div>
-                      <h3 className="font-heading font-semibold">{r.missionTitle}</h3>
-                      <p className="text-sm text-muted-foreground font-body">
-                        {r.projectTitle} • Explorer: {r.explorerName || r.explorerEmail}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-heading font-semibold text-primary">${r.missionReward?.toLocaleString()}</span>
-                      <span className="text-xs font-heading font-semibold px-2 py-1 rounded-full bg-green-500/10 text-green-500">
-                        APROBADA POR EMPRESA
+              {/* Action Cards */}
+              <div className="grid md:grid-cols-3 gap-4">
+                {/* Pending Releases */}
+                <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-5 cursor-pointer hover:border-yellow-500/50 transition-colors"
+                  onClick={() => setActiveTab('Fund Releases')}>
+                  <div className="flex items-center justify-between mb-3">
+                    <Banknote className="h-6 w-6 text-yellow-500" />
+                    <span className="text-2xl font-heading font-bold text-yellow-500">{pendingReleases.length}</span>
+                  </div>
+                  <h3 className="font-heading font-semibold text-sm">Fondos por Liberar</h3>
+                  <p className="text-xs text-muted-foreground font-body mt-1">Entregas aprobadas pendientes de pago</p>
+                </div>
+
+                {/* Pending Withdrawals */}
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => setActiveTab('Withdrawals')}>
+                  <div className="flex items-center justify-between mb-3">
+                    <Wallet className="h-6 w-6 text-primary" />
+                    <span className="text-2xl font-heading font-bold text-primary">{withdrawalSummary.totalPending}</span>
+                  </div>
+                  <h3 className="font-heading font-semibold text-sm">Retiros Pendientes</h3>
+                  <p className="text-xs text-muted-foreground font-body mt-1">
+                    ${withdrawalSummary.pendingAmount.toLocaleString()} por procesar
+                  </p>
+                </div>
+
+                {/* Withdrawal Summary */}
+                <div className="rounded-xl border border-border/50 bg-card p-5">
+                  <h3 className="font-heading font-semibold text-sm mb-3 flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-muted-foreground" /> Resumen de Retiros
+                  </h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2 text-muted-foreground font-body">
+                        <Building2 className="h-3 w-3" /> Banco
                       </span>
+                      <span className="font-heading font-semibold">{withdrawalSummary.bankPending} · ${withdrawalSummary.bankAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2 text-muted-foreground font-body">
+                        <Bitcoin className="h-3 w-3" /> Crypto
+                      </span>
+                      <span className="font-heading font-semibold">{withdrawalSummary.cryptoPending} · ${withdrawalSummary.cryptoAmount.toLocaleString()}</span>
+                    </div>
+                    <hr className="border-border/50" />
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground font-body">Total aprobado</span>
+                      <span className="font-heading font-semibold text-green-500">${withdrawalSummary.approvedAmount.toLocaleString()}</span>
                     </div>
                   </div>
-                  {r.delivery_url && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                      <a href={r.delivery_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-body truncate">
-                        {r.delivery_url}
+                </div>
+              </div>
+
+              {/* Quick Report Buttons */}
+              <div className="rounded-xl border border-border/50 bg-card p-5">
+                <h3 className="font-heading font-semibold text-sm mb-4 flex items-center gap-2">
+                  <Download className="h-4 w-4" /> Generar Reportes
+                </h3>
+                <div className="flex flex-wrap gap-3">
+                  <Button variant="outline" size="sm" className="gap-2 text-xs font-heading" onClick={() => generateDailyReport('all')}>
+                    <Download className="h-3 w-3" /> Reporte Completo
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-2 text-xs font-heading" onClick={() => generateDailyReport('bank')}>
+                    <Building2 className="h-3 w-3" /> Reporte Banco
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-2 text-xs font-heading" onClick={() => generateDailyReport('crypto')}>
+                    <Bitcoin className="h-3 w-3" /> Reporte Crypto
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── FUND RELEASES TAB ── */}
+          {activeTab === 'Fund Releases' && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-border/50 bg-card">
+                <div className="p-4 border-b border-border/50 bg-muted/30 flex items-center justify-between">
+                  <h2 className="font-heading font-semibold text-sm flex items-center gap-2">
+                    <Banknote className="h-4 w-4 text-primary" /> Entregas aprobadas — pendientes de liberar fondos
+                  </h2>
+                  <Badge variant="secondary" className="font-heading">{pendingReleases.length} pendientes</Badge>
+                </div>
+                {pendingReleases.length === 0 ? (
+                  <div className="p-12 text-center text-muted-foreground font-body">
+                    <CheckCircle className="h-10 w-10 mx-auto mb-3 text-green-500/30" />
+                    No hay entregas pendientes de liberación
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-border/50 bg-muted/50">
+                          <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Misión</th>
+                          <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Proyecto</th>
+                          <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Explorer</th>
+                          <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Monto</th>
+                          <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Entrega</th>
+                          <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pendingReleases.map((r: any) => (
+                          <tr key={r.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                            <td className="p-4">
+                              <div className="text-sm font-heading font-semibold">{r.missionTitle}</div>
+                            </td>
+                            <td className="p-4 text-sm font-body text-muted-foreground">{r.projectTitle}</td>
+                            <td className="p-4">
+                              <div className="text-sm font-body">{r.explorerName || r.explorerEmail}</div>
+                              {r.explorerName && <div className="text-xs text-muted-foreground">{r.explorerEmail}</div>}
+                            </td>
+                            <td className="p-4 text-sm font-heading font-bold text-primary">${r.missionReward?.toLocaleString()}</td>
+                            <td className="p-4">
+                              {r.delivery_url && (
+                                <a href={r.delivery_url} target="_blank" rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-body">
+                                  <ExternalLink className="h-3 w-3" /> Ver entrega
+                                </a>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="outline" className="gap-1 font-heading text-xs"
+                                  onClick={() => setSelectedRelease(r)}>
+                                  <Eye className="h-3 w-3" /> Detalle
+                                </Button>
+                                <Button size="sm" className="gap-1 font-heading text-xs"
+                                  onClick={() => handleReleaseFunds(r.id)} disabled={releasingId === r.id}>
+                                  <Banknote className="h-3 w-3" /> {releasingId === r.id ? 'Liberando...' : 'Liberar'}
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Release Detail Modal */}
+          <Dialog open={!!selectedRelease} onOpenChange={() => setSelectedRelease(null)}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="font-heading">Detalle de Entrega</DialogTitle>
+              </DialogHeader>
+              {selectedRelease && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><p className="text-xs text-muted-foreground font-heading uppercase">Misión</p><p className="text-sm font-body font-semibold">{selectedRelease.missionTitle}</p></div>
+                    <div><p className="text-xs text-muted-foreground font-heading uppercase">Proyecto</p><p className="text-sm font-body">{selectedRelease.projectTitle}</p></div>
+                    <div><p className="text-xs text-muted-foreground font-heading uppercase">Explorer</p><p className="text-sm font-body">{selectedRelease.explorerName || selectedRelease.explorerEmail}</p></div>
+                    <div><p className="text-xs text-muted-foreground font-heading uppercase">Monto</p><p className="text-sm font-heading font-bold text-primary">${selectedRelease.missionReward?.toLocaleString()}</p></div>
+                  </div>
+                  {selectedRelease.delivery_url && (
+                    <div>
+                      <p className="text-xs text-muted-foreground font-heading uppercase mb-1">URL de Entrega</p>
+                      <a href={selectedRelease.delivery_url} target="_blank" rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline font-body break-all flex items-center gap-1">
+                        <ExternalLink className="h-3 w-3 shrink-0" /> {selectedRelease.delivery_url}
                       </a>
                     </div>
                   )}
-                  {r.review_note && (
-                    <p className="text-sm text-muted-foreground font-body italic">Nota: {r.review_note}</p>
+                  {selectedRelease.review_note && (
+                    <div>
+                      <p className="text-xs text-muted-foreground font-heading uppercase mb-1">Nota de Revisión</p>
+                      <p className="text-sm font-body italic">{selectedRelease.review_note}</p>
+                    </div>
                   )}
-                  <Button
-                    size="sm"
-                    className="gap-1 font-heading text-xs"
-                    onClick={() => handleReleaseFunds(r.id)}
-                    disabled={releasingId === r.id}
-                  >
-                    <Banknote className="h-3 w-3" />
-                    {releasingId === r.id ? 'Liberando...' : 'Liberar fondos'}
+                  <Button className="w-full gap-2 font-heading" onClick={() => handleReleaseFunds(selectedRelease.id)}
+                    disabled={releasingId === selectedRelease.id}>
+                    <Banknote className="h-4 w-4" /> {releasingId === selectedRelease.id ? 'Liberando fondos...' : 'Confirmar Liberación de Fondos'}
                   </Button>
                 </div>
-              ))}
-            </div>
-          )}
+              )}
+            </DialogContent>
+          </Dialog>
 
-          {/* WITHDRAWALS TAB */}
+          {/* ── WITHDRAWALS TAB ── */}
           {activeTab === 'Withdrawals' && (
-            <div>
-              {/* Filter Bar */}
-              <div className="p-4 border-b border-border/50 bg-muted/30 flex flex-wrap items-center gap-3">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <Select value={wFilterUser} onValueChange={setWFilterUser}>
-                  <SelectTrigger className="w-[200px] text-sm">
-                    <SelectValue placeholder="Todos los usuarios" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los usuarios</SelectItem>
-                    {withdrawalUsers.map(u => (
-                      <SelectItem key={u.id} value={u.id}>{u.email}{u.name ? ` (${u.name})` : ''}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className={cn("gap-2 text-xs font-heading", !wFilterDateFrom && "text-muted-foreground")}>
-                      <CalendarIcon className="h-3 w-3" />
-                      {wFilterDateFrom ? format(wFilterDateFrom, 'dd/MM/yyyy') : 'Desde'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={wFilterDateFrom} onSelect={setWFilterDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
-                  </PopoverContent>
-                </Popover>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className={cn("gap-2 text-xs font-heading", !wFilterDateTo && "text-muted-foreground")}>
-                      <CalendarIcon className="h-3 w-3" />
-                      {wFilterDateTo ? format(wFilterDateTo, 'dd/MM/yyyy') : 'Hasta'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={wFilterDateTo} onSelect={setWFilterDateTo} initialFocus className={cn("p-3 pointer-events-auto")} />
-                  </PopoverContent>
-                </Popover>
-                {hasActiveFilters && (
-                  <Button variant="ghost" size="sm" className="gap-1 text-xs font-heading text-muted-foreground" onClick={clearFilters}>
-                    <X className="h-3 w-3" /> Limpiar
-                  </Button>
-                )}
+            <div className="space-y-4">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4 text-center">
+                  <p className="text-xs text-muted-foreground font-heading uppercase">Pendientes</p>
+                  <p className="text-2xl font-heading font-bold text-yellow-500">{withdrawalSummary.totalPending}</p>
+                  <p className="text-xs text-muted-foreground font-body">${withdrawalSummary.pendingAmount.toLocaleString()}</p>
+                </div>
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-center">
+                  <p className="text-xs text-muted-foreground font-heading uppercase">Banco Pendiente</p>
+                  <p className="text-2xl font-heading font-bold">{withdrawalSummary.bankPending}</p>
+                  <p className="text-xs text-muted-foreground font-body">${withdrawalSummary.bankAmount.toLocaleString()}</p>
+                </div>
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-center">
+                  <p className="text-xs text-muted-foreground font-heading uppercase">Crypto Pendiente</p>
+                  <p className="text-2xl font-heading font-bold">{withdrawalSummary.cryptoPending}</p>
+                  <p className="text-xs text-muted-foreground font-body">${withdrawalSummary.cryptoAmount.toLocaleString()}</p>
+                </div>
+                <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-4 text-center">
+                  <p className="text-xs text-muted-foreground font-heading uppercase">Total Aprobado</p>
+                  <p className="text-2xl font-heading font-bold text-green-500">{withdrawalSummary.totalApproved}</p>
+                  <p className="text-xs text-muted-foreground font-body">${withdrawalSummary.approvedAmount.toLocaleString()}</p>
+                </div>
               </div>
-              {(() => {
-                const filtered = filterWithdrawals(withdrawalRequests);
-                const totalAmount = filtered.reduce((sum: number, w: any) => sum + Number(w.amount), 0);
-                return (
-                  <div className="flex items-center gap-6 px-4 py-3 bg-muted/30 border-b border-border/50">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-body text-muted-foreground">Monto total:</span>
-                      <span className="text-sm font-heading font-bold text-primary">${totalAmount.toLocaleString()}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Wallet className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-body text-muted-foreground">Retiros:</span>
-                      <span className="text-sm font-heading font-bold">{filtered.length}</span>
-                    </div>
-                  </div>
-                );
-              })()}
-              <div className="divide-y divide-border/50">
-                {filterWithdrawals(withdrawalRequests).length === 0 && (
-                  <div className="p-8 text-center text-muted-foreground font-body">No hay solicitudes de retiro</div>
-                )}
-                {filterWithdrawals(withdrawalRequests).map((w: any) => {
-                  const isPending = w.status === 'pending';
-                  return (
-                    <div key={w.id} className="p-4 md:p-6 space-y-3">
-                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
-                        <div className="flex items-start gap-4">
-                          <div className={`p-2 rounded-lg ${w.method === 'bank' ? 'bg-primary/10' : 'bg-accent/50'}`}>
-                            {w.method === 'bank' ? <Building2 className="h-4 w-4 text-primary" /> : <Bitcoin className="h-4 w-4 text-primary" />}
-                          </div>
-                          <div className="space-y-1">
-                            <p className="font-heading font-semibold text-sm">
-                              ${Number(w.amount).toLocaleString()} — {w.explorerEmail}
-                            </p>
-                            {w.explorerName && <p className="text-xs text-muted-foreground font-body">{w.explorerName}</p>}
-                            
-                            <div className="rounded-lg border border-border/50 bg-muted/30 p-3 mt-2 space-y-1">
-                              <p className="text-xs font-heading font-semibold uppercase tracking-wider text-muted-foreground">
-                                {w.method === 'bank' ? 'Datos bancarios' : 'Datos crypto'}
-                              </p>
-                              {w.method === 'bank' ? (
-                                <>
-                                  <p className="text-sm font-body"><span className="text-muted-foreground">Banco:</span> {w.bank_name || '—'}</p>
-                                  <p className="text-sm font-body"><span className="text-muted-foreground">Cuenta:</span> {w.bank_account || '—'}</p>
-                                  <p className="text-sm font-body"><span className="text-muted-foreground">Titular:</span> {w.bank_holder || '—'}</p>
-                                </>
-                              ) : (
-                                <>
-                                  <p className="text-sm font-body"><span className="text-muted-foreground">Red:</span> {w.crypto_network || '—'}</p>
-                                  <p className="text-sm font-body"><span className="text-muted-foreground">Dirección:</span> <span className="break-all">{w.crypto_address || '—'}</span></p>
-                                </>
-                              )}
+
+              {/* Report Buttons */}
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" className="gap-2 text-xs font-heading" onClick={() => generateDailyReport('all')}>
+                  <Download className="h-3 w-3" /> Reporte Completo
+                </Button>
+                <Button variant="outline" size="sm" className="gap-2 text-xs font-heading" onClick={() => generateDailyReport('bank')}>
+                  <Building2 className="h-3 w-3" /> Solo Banco
+                </Button>
+                <Button variant="outline" size="sm" className="gap-2 text-xs font-heading" onClick={() => generateDailyReport('crypto')}>
+                  <Bitcoin className="h-3 w-3" /> Solo Crypto
+                </Button>
+              </div>
+
+              <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+                <FilterBar />
+                <div className="divide-y divide-border/50">
+                  {filterWithdrawals(withdrawalRequests).length === 0 && (
+                    <div className="p-8 text-center text-muted-foreground font-body">No hay solicitudes de retiro</div>
+                  )}
+                  {filterWithdrawals(withdrawalRequests).map((w: any) => {
+                    const isPending = w.status === 'pending';
+                    return (
+                      <div key={w.id} className="p-4 md:p-6 space-y-3">
+                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                          <div className="flex items-start gap-4">
+                            <div className={`p-2 rounded-lg ${w.method === 'bank' ? 'bg-primary/10' : 'bg-accent/50'}`}>
+                              {w.method === 'bank' ? <Building2 className="h-4 w-4 text-primary" /> : <Bitcoin className="h-4 w-4 text-primary" />}
                             </div>
-
-                            <p className="text-xs text-muted-foreground font-body">{new Date(w.created_at).toLocaleString()}</p>
+                            <div className="space-y-1">
+                              <p className="font-heading font-semibold text-sm">${Number(w.amount).toLocaleString()} — {w.explorerEmail}</p>
+                              {w.explorerName && <p className="text-xs text-muted-foreground font-body">{w.explorerName}</p>}
+                              <div className="rounded-lg border border-border/50 bg-muted/30 p-3 mt-2 space-y-1">
+                                <p className="text-xs font-heading font-semibold uppercase tracking-wider text-muted-foreground">
+                                  {w.method === 'bank' ? 'Datos bancarios' : 'Datos crypto'}
+                                </p>
+                                {w.method === 'bank' ? (
+                                  <>
+                                    <p className="text-sm font-body"><span className="text-muted-foreground">Banco:</span> {w.bank_name || '—'}</p>
+                                    <p className="text-sm font-body"><span className="text-muted-foreground">Cuenta:</span> {w.bank_account || '—'}</p>
+                                    <p className="text-sm font-body"><span className="text-muted-foreground">Titular:</span> {w.bank_holder || '—'}</p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <p className="text-sm font-body"><span className="text-muted-foreground">Red:</span> {w.crypto_network || '—'}</p>
+                                    <p className="text-sm font-body"><span className="text-muted-foreground">Dirección:</span> <span className="break-all">{w.crypto_address || '—'}</span></p>
+                                  </>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground font-body">{new Date(w.created_at).toLocaleString()}</p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            {statusBadge(w.status)}
+                            {w.qr_image_url && (
+                              <a href={w.qr_image_url} target="_blank" rel="noopener noreferrer">
+                                <img src={w.qr_image_url} alt="QR Code" className="h-24 w-24 rounded-lg border border-border/50 object-cover hover:opacity-80 transition-opacity" />
+                              </a>
+                            )}
                           </div>
                         </div>
-
-                        <div className="flex flex-col items-end gap-2">
-                          <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${
-                            w.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
-                            w.status === 'approved' ? 'bg-green-500/10 text-green-500' :
-                            'bg-destructive/10 text-destructive'
-                          }`}>
-                            {w.status.toUpperCase()}
-                          </span>
-                          {w.qr_image_url && (
-                            <a href={w.qr_image_url} target="_blank" rel="noopener noreferrer">
-                              <img src={w.qr_image_url} alt="QR Code" className="h-24 w-24 rounded-lg border border-border/50 object-cover hover:opacity-80 transition-opacity" />
-                            </a>
-                          )}
-                        </div>
+                        {isPending && (
+                          <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                            <Input placeholder="Nota (opcional)" value={withdrawalNotes[w.id] || ''}
+                              onChange={(e) => setWithdrawalNotes(prev => ({ ...prev, [w.id]: e.target.value }))} className="flex-1 text-sm" />
+                            <div className="flex gap-2">
+                              <Button size="sm" className="gap-1 font-heading text-xs" onClick={() => handleProcessWithdrawal(w.id, 'approved')} disabled={processingId === w.id}>
+                                <CheckCircle className="h-3 w-3" /> Aprobar
+                              </Button>
+                              <Button size="sm" variant="outline" className="gap-1 font-heading text-xs text-destructive border-destructive/30"
+                                onClick={() => handleProcessWithdrawal(w.id, 'rejected')} disabled={processingId === w.id}>
+                                <XCircle className="h-3 w-3" /> Rechazar
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        {w.admin_note && <p className="text-sm text-muted-foreground font-body italic">Nota: {w.admin_note}</p>}
                       </div>
-
-                      {isPending && (
-                        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-                          <Input
-                            placeholder="Nota (opcional)"
-                            value={withdrawalNotes[w.id] || ''}
-                            onChange={(e) => setWithdrawalNotes(prev => ({ ...prev, [w.id]: e.target.value }))}
-                            className="flex-1 text-sm"
-                          />
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              className="gap-1 font-heading text-xs"
-                              onClick={() => handleProcessWithdrawal(w.id, 'approved')}
-                              disabled={processingId === w.id}
-                            >
-                              <CheckCircle className="h-3 w-3" /> Aprobar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="gap-1 font-heading text-xs text-destructive border-destructive/30"
-                              onClick={() => handleProcessWithdrawal(w.id, 'rejected')}
-                              disabled={processingId === w.id}
-                            >
-                              <XCircle className="h-3 w-3" /> Rechazar
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
-                      {w.admin_note && (
-                        <p className="text-sm text-muted-foreground font-body italic">Nota: {w.admin_note}</p>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
 
-          {/* PAYOUTS TAB - Successful withdrawals */}
-          {activeTab === 'Payouts' && (
-            <div>
-              {/* Filter Bar */}
-              <div className="p-4 border-b border-border/50 bg-muted/30 flex flex-wrap items-center gap-3">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <Select value={wFilterUser} onValueChange={setWFilterUser}>
-                  <SelectTrigger className="w-[200px] text-sm">
-                    <SelectValue placeholder="Todos los usuarios" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los usuarios</SelectItem>
-                    {withdrawalUsers.map(u => (
-                      <SelectItem key={u.id} value={u.id}>{u.email}{u.name ? ` (${u.name})` : ''}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className={cn("gap-2 text-xs font-heading", !wFilterDateFrom && "text-muted-foreground")}>
-                      <CalendarIcon className="h-3 w-3" />
-                      {wFilterDateFrom ? format(wFilterDateFrom, 'dd/MM/yyyy') : 'Desde'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={wFilterDateFrom} onSelect={setWFilterDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
-                  </PopoverContent>
-                </Popover>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className={cn("gap-2 text-xs font-heading", !wFilterDateTo && "text-muted-foreground")}>
-                      <CalendarIcon className="h-3 w-3" />
-                      {wFilterDateTo ? format(wFilterDateTo, 'dd/MM/yyyy') : 'Hasta'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={wFilterDateTo} onSelect={setWFilterDateTo} initialFocus className={cn("p-3 pointer-events-auto")} />
-                  </PopoverContent>
-                </Popover>
-                {hasActiveFilters && (
-                  <Button variant="ghost" size="sm" className="gap-1 text-xs font-heading text-muted-foreground" onClick={clearFilters}>
-                    <X className="h-3 w-3" /> Limpiar
-                  </Button>
-                )}
-                <div className="ml-auto">
-                  <Button variant="outline" size="sm" className="gap-2 text-xs font-heading" onClick={exportPayoutsCsv}>
-                    <Download className="h-3 w-3" /> Exportar CSV
-                  </Button>
-                </div>
+          {/* ── MISSIONS TAB ── */}
+          {activeTab === 'Missions' && (
+            <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+              <div className="flex items-center gap-3 p-4 border-b border-border/50 bg-muted/30">
+                <span className="text-xs font-heading uppercase tracking-wider text-muted-foreground">Filtro:</span>
+                {[
+                  { value: 'active', label: 'Activas' },
+                  { value: 'completed', label: 'Completadas' },
+                  { value: 'rejected', label: 'Rechazadas' },
+                  { value: 'all', label: 'Todas' },
+                ].map(f => (
+                  <Button key={f.value} variant={missionFilter === f.value ? 'default' : 'outline'} size="sm"
+                    className="text-xs font-heading" onClick={() => setMissionFilter(f.value)}>{f.label}</Button>
+                ))}
               </div>
-              {(() => {
-                const filtered = filterWithdrawals(withdrawalRequests.filter((w: any) => w.status === 'approved'));
-                const totalAmount = filtered.reduce((sum: number, w: any) => sum + Number(w.amount), 0);
-                return (
-                  <div className="flex items-center gap-6 px-4 py-3 bg-muted/30 border-b border-border/50">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-body text-muted-foreground">Total pagado:</span>
-                      <span className="text-sm font-heading font-bold text-primary">${totalAmount.toLocaleString()}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span className="text-sm font-body text-muted-foreground">Retiros:</span>
-                      <span className="text-sm font-heading font-bold">{filtered.length}</span>
-                    </div>
-                  </div>
-                );
-              })()}
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border/50 bg-muted/50">
-                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Explorer</th>
-                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Monto</th>
-                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Método</th>
-                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Detalles de pago</th>
-                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">QR</th>
-                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Fecha solicitud</th>
-                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Fecha pago</th>
-                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Nota</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Misión</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Proyecto</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Skill</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Recompensa</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Pago</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Estado</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filterWithdrawals(withdrawalRequests.filter((w: any) => w.status === 'approved')).map((w: any) => (
-                      <tr key={w.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
-                        <td className="p-4">
-                          <div className="text-sm font-heading font-semibold">{w.explorerEmail}</div>
-                          {w.explorerName && <div className="text-xs text-muted-foreground font-body">{w.explorerName}</div>}
-                        </td>
-                        <td className="p-4 text-sm font-heading font-semibold text-primary">${Number(w.amount).toLocaleString()}</td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            {w.method === 'bank' ? <Building2 className="h-3 w-3 text-muted-foreground" /> : <Bitcoin className="h-3 w-3 text-muted-foreground" />}
-                            <span className="text-sm font-body">{w.method === 'bank' ? 'Banco' : 'Crypto'}</span>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          {w.method === 'bank' ? (
-                            <div className="space-y-0.5">
-                              <p className="text-xs font-body"><span className="text-muted-foreground">Banco:</span> {w.bank_name || '—'}</p>
-                              <p className="text-xs font-body"><span className="text-muted-foreground">Cuenta:</span> {w.bank_account || '—'}</p>
-                              <p className="text-xs font-body"><span className="text-muted-foreground">Titular:</span> {w.bank_holder || '—'}</p>
-                            </div>
-                          ) : (
-                            <div className="space-y-0.5">
-                              <p className="text-xs font-body"><span className="text-muted-foreground">Red:</span> {w.crypto_network || '—'}</p>
-                              <p className="text-xs font-body"><span className="text-muted-foreground">Wallet:</span> <span className="break-all">{w.crypto_address || '—'}</span></p>
-                            </div>
+                    {missions
+                      .filter(m => {
+                        if (missionFilter === 'active') return ['open', 'approved'].includes(m.status);
+                        if (missionFilter === 'completed') return m.status === 'completed';
+                        if (missionFilter === 'rejected') return m.status === 'rejected';
+                        return true;
+                      })
+                      .map(m => (
+                        <>
+                          <tr key={m.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 cursor-pointer"
+                            onClick={() => setExpandedMission(expandedMission === m.id ? null : m.id)}>
+                            <td className="p-4">
+                              <div className="flex items-center gap-2">
+                                {expandedMission === m.id ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
+                                <div>
+                                  <div className="text-sm font-heading font-semibold">{m.title}</div>
+                                  <div className="text-xs text-muted-foreground font-body mt-1">{m.hours}h @ ${m.hourly_rate}/hr</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4 text-sm font-body">{m.projects?.title || '—'}</td>
+                            <td className="p-4"><span className="text-xs font-heading font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary">{m.skill}</span></td>
+                            <td className="p-4 text-sm font-heading font-semibold text-primary">${Number(m.reward).toLocaleString()}</td>
+                            <td className="p-4">{statusBadge(m.projects?.payment_status || 'unpaid')}</td>
+                            <td className="p-4">{statusBadge(m.status)}</td>
+                            <td className="p-4" onClick={e => e.stopPropagation()}>
+                              {m.status === 'open' && (
+                                <div className="flex gap-2">
+                                  <Button variant="ghost" size="sm" className="text-xs font-heading text-green-500 gap-1"
+                                    onClick={() => handleApproveMission(m.id)} disabled={m.projects?.payment_status !== 'paid'}
+                                    title={m.projects?.payment_status !== 'paid' ? 'El proyecto debe estar pagado' : 'Aprobar misión'}>
+                                    <CheckCircle className="h-3 w-3" /> Aprobar
+                                  </Button>
+                                  <Button variant="ghost" size="sm" className="text-xs font-heading text-destructive gap-1" onClick={() => handleRejectMission(m.id)}>
+                                    <XCircle className="h-3 w-3" /> Rechazar
+                                  </Button>
+                                </div>
+                              )}
+                              {m.status === 'approved' && <span className="text-xs text-green-500 font-heading">✓ Aprobada</span>}
+                              {m.status === 'rejected' && <span className="text-xs text-destructive font-heading">✗ Rechazada</span>}
+                              {m.status === 'completed' && <span className="text-xs text-muted-foreground font-heading">✓ Completada</span>}
+                            </td>
+                          </tr>
+                          {expandedMission === m.id && (
+                            <tr key={`${m.id}-detail`} className="border-b border-border/50 bg-muted/20">
+                              <td colSpan={7} className="p-6">
+                                <div className="space-y-4">
+                                  <h4 className="font-heading font-bold text-sm uppercase tracking-wider flex items-center gap-2">
+                                    <Image className="h-4 w-4" /> Prueba de Pago del Proyecto
+                                  </h4>
+                                  {m.projects?.payment_screenshot_url ? (
+                                    <div className="space-y-3">
+                                      <a href={m.projects.payment_screenshot_url} target="_blank" rel="noopener noreferrer" className="block">
+                                        <img src={m.projects.payment_screenshot_url} alt="Comprobante de pago"
+                                          className="max-w-md max-h-80 rounded-lg border border-border/50 object-contain hover:opacity-90 transition-opacity" />
+                                      </a>
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground font-body italic">No se proporcionó captura de pago</p>
+                                  )}
+                                  {m.projects?.tx_hash && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground font-heading uppercase">TX Hash:</span>
+                                      <code className="font-mono text-xs text-primary bg-primary/5 px-2 py-1 rounded">{m.projects.tx_hash}</code>
+                                    </div>
+                                  )}
+                                  {m.description && (
+                                    <div>
+                                      <span className="text-xs text-muted-foreground font-heading uppercase">Descripción:</span>
+                                      <p className="text-sm font-body mt-1">{m.description}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
                           )}
-                        </td>
-                        <td className="p-4">
-                          {w.qr_image_url ? (
-                            <a href={w.qr_image_url} target="_blank" rel="noopener noreferrer">
-                              <img src={w.qr_image_url} alt="QR" className="h-12 w-12 rounded border border-border/50 object-cover hover:opacity-80 transition-opacity" />
-                            </a>
-                          ) : <span className="text-xs text-muted-foreground">—</span>}
-                        </td>
-                        <td className="p-4 text-xs text-muted-foreground font-body">{new Date(w.created_at).toLocaleDateString()}</td>
-                        <td className="p-4 text-xs text-muted-foreground font-body">{w.processed_at ? new Date(w.processed_at).toLocaleDateString() : '—'}</td>
-                        <td className="p-4 text-xs text-muted-foreground font-body italic">{w.admin_note || '—'}</td>
-                      </tr>
-                    ))}
-                    {filterWithdrawals(withdrawalRequests.filter((w: any) => w.status === 'approved')).length === 0 && (
-                      <tr><td colSpan={8} className="p-8 text-center text-muted-foreground font-body">No hay retiros realizados con éxito</td></tr>
+                        </>
+                      ))}
+                    {missions.length === 0 && (
+                      <tr><td colSpan={7} className="p-8 text-center text-muted-foreground font-body">No hay misiones</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -842,69 +709,165 @@ const AdminPanel = () => {
             </div>
           )}
 
-          {activeTab === 'Payments' && (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border/50 bg-muted/50">
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Misión</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Proyecto</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Explorer</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Monto</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Entregado</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Revisado</th>
-                    <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paymentHistory.map((p: any) => (
-                    <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
-                      <td className="p-4 text-sm font-heading font-semibold">{p.missionTitle}</td>
-                      <td className="p-4 text-sm font-body">{p.projectTitle}</td>
-                      <td className="p-4">
-                        <div className="text-sm font-body">{p.explorerEmail}</div>
-                        {p.explorerName && <div className="text-xs text-muted-foreground">{p.explorerName}</div>}
-                      </td>
-                      <td className="p-4 text-sm font-heading font-semibold text-primary">${Number(p.missionReward).toLocaleString()}</td>
-                      <td className="p-4 text-xs text-muted-foreground font-body">{p.delivered_at ? new Date(p.delivered_at).toLocaleDateString() : '—'}</td>
-                      <td className="p-4 text-xs text-muted-foreground font-body">{p.reviewed_at ? new Date(p.reviewed_at).toLocaleDateString() : '—'}</td>
-                      <td className="p-4">
-                        <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${
-                          p.status === 'funds_released' ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary'
-                        }`}>
-                          {p.status === 'funds_released' ? 'PAGADO' : p.status.toUpperCase()}
-                        </span>
-                      </td>
+          {/* ── PROJECTS TAB ── */}
+          {activeTab === 'Projects' && (
+            <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border/50 bg-muted/50">
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Proyecto</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Propietario</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Budget</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Pago</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Estado</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Acciones</th>
                     </tr>
-                  ))}
-                  {paymentHistory.length === 0 && (
-                    <tr><td colSpan={7} className="p-8 text-center text-muted-foreground font-body">No hay pagos registrados</td></tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {projects.map(p => (
+                      <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                        <td className="p-4">
+                          <div className="text-sm font-heading font-semibold">{p.title}</div>
+                          <div className="text-xs text-muted-foreground font-body mt-1">{p.category} • {p.priority}</div>
+                        </td>
+                        <td className="p-4 text-sm font-body">{p.profiles?.email || '—'}</td>
+                        <td className="p-4 text-sm font-heading font-semibold text-primary">${Number(p.budget).toLocaleString()}</td>
+                        <td className="p-4">{statusBadge(p.payment_status)}</td>
+                        <td className="p-4">{statusBadge(p.status)}</td>
+                        <td className="p-4">
+                          <div className="flex gap-2">
+                            {p.payment_status !== 'paid' && (
+                              <Button variant="ghost" size="sm" className="text-xs font-heading text-green-500 gap-1" onClick={() => handlePaymentStatus(p.id, 'paid')}>
+                                <CreditCard className="h-3 w-3" /> Marcar Pagado
+                              </Button>
+                            )}
+                            {p.payment_status === 'paid' && (
+                              <Button variant="ghost" size="sm" className="text-xs font-heading text-yellow-500 gap-1" onClick={() => handlePaymentStatus(p.id, 'unpaid')}>
+                                <CreditCard className="h-3 w-3" /> Marcar No Pagado
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {projects.length === 0 && (
+                      <tr><td colSpan={6} className="p-8 text-center text-muted-foreground font-body">No hay proyectos</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
-          {/* REVENUE TAB */}
+          {/* ── USERS TAB ── */}
+          {activeTab === 'Users' && (
+            <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border/50 bg-muted/50">
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Email</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Nombre</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Tipo</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Registro</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map(u => (
+                      <tr key={u.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                        <td className="p-4 text-sm font-body">{u.email}</td>
+                        <td className="p-4 text-sm font-body">{u.full_name || '—'}</td>
+                        <td className="p-4">{statusBadge(u.account_type)}</td>
+                        <td className="p-4 text-sm text-muted-foreground font-body">{new Date(u.created_at).toLocaleDateString()}</td>
+                        <td className="p-4">
+                          {u.id !== user?.id && (
+                            <div className="flex gap-2">
+                              <Button variant="ghost" size="sm" className="text-xs font-heading text-destructive gap-1" onClick={() => handleSuspendUser(u.id)}>
+                                <Ban className="h-3 w-3" /> Suspender
+                              </Button>
+                              <Button variant="ghost" size="sm" className="text-xs font-heading text-green-500 gap-1" onClick={() => handleActivateUser(u.id)}>
+                                <UserCheck className="h-3 w-3" /> Activar
+                              </Button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {users.length === 0 && (
+                      <tr><td colSpan={5} className="p-8 text-center text-muted-foreground font-body">No hay usuarios</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── PAYMENTS TAB ── */}
+          {activeTab === 'Payments' && (
+            <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border/50 bg-muted/50">
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Misión</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Proyecto</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Explorer</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Monto</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Entregado</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Revisado</th>
+                      <th className="text-left p-4 font-heading text-xs tracking-wider uppercase">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentHistory.map((p: any) => (
+                      <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                        <td className="p-4 text-sm font-heading font-semibold">{p.missionTitle}</td>
+                        <td className="p-4 text-sm font-body">{p.projectTitle}</td>
+                        <td className="p-4">
+                          <div className="text-sm font-body">{p.explorerEmail}</div>
+                          {p.explorerName && <div className="text-xs text-muted-foreground">{p.explorerName}</div>}
+                        </td>
+                        <td className="p-4 text-sm font-heading font-semibold text-primary">${Number(p.missionReward).toLocaleString()}</td>
+                        <td className="p-4 text-xs text-muted-foreground font-body">{p.delivered_at ? new Date(p.delivered_at).toLocaleDateString() : '—'}</td>
+                        <td className="p-4 text-xs text-muted-foreground font-body">{p.reviewed_at ? new Date(p.reviewed_at).toLocaleDateString() : '—'}</td>
+                        <td className="p-4">
+                          <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${
+                            p.status === 'funds_released' ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary'
+                          }`}>{p.status === 'funds_released' ? 'PAGADO' : p.status.toUpperCase()}</span>
+                        </td>
+                      </tr>
+                    ))}
+                    {paymentHistory.length === 0 && (
+                      <tr><td colSpan={7} className="p-8 text-center text-muted-foreground font-body">No hay pagos registrados</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── REVENUE TAB ── */}
           {activeTab === 'Revenue' && stats && (
-            <div className="p-6">
+            <div className="rounded-xl border border-border/50 bg-card p-6">
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="rounded-lg border border-border/50 p-4">
-                  <p className="text-xs text-muted-foreground font-heading uppercase tracking-wider">Total Budget (All Projects)</p>
+                  <p className="text-xs text-muted-foreground font-heading uppercase tracking-wider">Budget Total</p>
                   <p className="text-2xl font-heading font-bold mt-1">${stats.totalBudget?.toLocaleString()}</p>
                 </div>
                 <div className="rounded-lg border border-border/50 p-4">
-                  <p className="text-xs text-muted-foreground font-heading uppercase tracking-wider">Paid Budget</p>
+                  <p className="text-xs text-muted-foreground font-heading uppercase tracking-wider">Budget Pagado</p>
                   <p className="text-2xl font-heading font-bold text-green-500 mt-1">${stats.paidBudget?.toLocaleString()}</p>
                 </div>
                 <div className="rounded-lg border border-border/50 p-4">
-                  <p className="text-xs text-muted-foreground font-heading uppercase tracking-wider">GOPHORA Commission (10%)</p>
+                  <p className="text-xs text-muted-foreground font-heading uppercase tracking-wider">Comisión GOPHORA (10%)</p>
                   <p className="text-2xl font-heading font-bold text-primary mt-1">${stats.commission?.toLocaleString()}</p>
                 </div>
               </div>
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

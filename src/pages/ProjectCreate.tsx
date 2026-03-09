@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Cpu, Upload, Zap, DollarSign, Clock, AlertTriangle, Link2, CheckCircle, Sparkles, ArrowLeft, Wallet, Copy, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 const categories = ['Marketing', 'Web Development', 'Design', 'Data', 'Research', 'Operations'];
 const priorities = ['Low', 'Medium', 'High', 'Critical'];
@@ -66,8 +67,29 @@ const ProjectCreate = () => {
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const hasPdfFile = files.some(f => f.name.toLowerCase().endsWith('.pdf'));
+
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate resource link is provided
+    if (!resourceLink.trim()) {
+      toast.error(
+        'Se requiere un link de recursos del proyecto (Google Drive, Dropbox, etc.) con briefs, logos, paleta de colores y materiales necesarios para que los exploradores ejecuten el trabajo correctamente.',
+        { duration: 8000 }
+      );
+      return;
+    }
+
+    // Validate at least one PDF file is uploaded
+    if (!hasPdfFile) {
+      toast.error(
+        'Se requiere un documento PDF con el detalle exacto del resultado esperado de la ejecución del proyecto. Por favor sube un PDF con las especificaciones, entregables y criterios de aceptación.',
+        { duration: 8000 }
+      );
+      return;
+    }
+
     setAnalyzing(true);
 
     try {
@@ -264,36 +286,56 @@ const ProjectCreate = () => {
           <div>
             <Label className="font-heading text-xs tracking-wider uppercase flex items-center gap-2">
               <Link2 className="h-4 w-4" />
-              {t('project.resource_link')}
+              {t('project.resource_link')} <span className="text-destructive">*</span>
             </Label>
             <Input
-              className="mt-1.5"
+              className={cn("mt-1.5", !resourceLink.trim() && "border-destructive/50")}
               type="url"
               placeholder={t('project.resource_link_placeholder')}
               value={resourceLink}
               onChange={e => setResourceLink(e.target.value)}
+              required
             />
             <p className="text-xs text-muted-foreground font-body mt-1.5 leading-relaxed">
               {t('project.resource_link_help')}
             </p>
+            {!resourceLink.trim() && (
+              <p className="text-xs text-destructive font-body mt-1 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> Obligatorio: Comparte un link con briefs, logos y materiales para los exploradores.
+              </p>
+            )}
           </div>
           <div>
-            <Label className="font-heading text-xs tracking-wider uppercase">{t('project.files')}</Label>
+            <Label className="font-heading text-xs tracking-wider uppercase">
+              {t('project.files')} <span className="text-destructive">* (PDF requerido)</span>
+            </Label>
             <label
-              className="mt-1.5 border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/30 transition-colors cursor-pointer block"
+              className={cn(
+                "mt-1.5 border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/30 transition-colors cursor-pointer block",
+                !hasPdfFile ? "border-destructive/50" : "border-border"
+              )}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
             >
-              <input type="file" multiple className="hidden" onChange={handleFileChange} />
+              <input type="file" multiple className="hidden" onChange={handleFileChange} accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip" />
               <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground font-body">Drag & drop files or click to browse</p>
+              <p className="text-sm text-muted-foreground font-body">Arrastra y suelta archivos o haz clic para seleccionar</p>
+              <p className="text-xs text-muted-foreground font-body mt-1">Incluye un PDF con las especificaciones del resultado esperado</p>
             </label>
+            {!hasPdfFile && (
+              <p className="text-xs text-destructive font-body mt-1.5 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> Obligatorio: Sube un documento PDF con el detalle exacto del resultado esperado.
+              </p>
+            )}
             {files.length > 0 && (
               <ul className="mt-3 space-y-2">
                 {files.map((f, i) => (
                   <li key={i} className="flex items-center justify-between text-sm bg-muted/50 rounded-md px-3 py-2">
-                    <span className="truncate font-body">{f.name}</span>
-                    <button type="button" onClick={() => removeFile(i)} className="text-destructive text-xs font-heading ml-2 shrink-0">Remove</button>
+                    <span className="truncate font-body flex items-center gap-2">
+                      {f.name.toLowerCase().endsWith('.pdf') && <CheckCircle className="h-3 w-3 text-green-500" />}
+                      {f.name}
+                    </span>
+                    <button type="button" onClick={() => removeFile(i)} className="text-destructive text-xs font-heading ml-2 shrink-0">Eliminar</button>
                   </li>
                 ))}
               </ul>
