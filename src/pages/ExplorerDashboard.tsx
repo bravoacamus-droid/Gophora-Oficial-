@@ -88,19 +88,19 @@ const ExplorerDashboard = () => {
       const missionIds = [...new Set(apps.map((a) => a.mission_id))];
       const { data: missionRows } = await supabase
         .from('missions')
-        .select('id, title, reward, skill, project_id')
+        .select('id, title, title_es, description, description_es, reward, skill, project_id, hours, hourly_rate')
         .in('id', missionIds);
 
       const mRows = missionRows || [];
       const projectIds = [...new Set(mRows.map((m) => m.project_id))];
-      const projectMap = new Map<string, string>();
+      const projectMap = new Map<string, { title: string; resource_link: string | null }>();
 
       if (projectIds.length > 0) {
         const { data: projectRows } = await supabase
           .from('projects')
-          .select('id, title')
+          .select('id, title, resource_link')
           .in('id', projectIds);
-        (projectRows || []).forEach((p) => projectMap.set(p.id, p.title));
+        (projectRows || []).forEach((p) => projectMap.set(p.id, { title: p.title, resource_link: p.resource_link }));
       }
 
       const missionMap = new Map(mRows.map((m) => [m.id, m]));
