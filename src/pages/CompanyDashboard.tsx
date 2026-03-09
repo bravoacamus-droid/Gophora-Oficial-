@@ -367,6 +367,8 @@ const CompanyDashboard = () => {
             const pendingM = pMissions.filter((m) => m.status === 'open').length;
             const uniqueExplorers = new Set(pApps.filter((a) => ['accepted', 'delivered', 'completed'].includes(a.status)).map((a) => a.user_id));
             const pUsed = pMissions.filter((m) => m.status === 'approved').reduce((s, m) => s + Number(m.reward), 0);
+            const totalMissionsReward = pMissions.reduce((s, m) => s + Number(m.reward), 0);
+            const budgetMatch = totalMissionsReward === Number(selectedProject.budget);
 
             return (
               <>
@@ -378,11 +380,20 @@ const CompanyDashboard = () => {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-lg border border-border/50 p-3">
-                      <span className="text-xs text-muted-foreground font-body">Presupuesto</span>
+                      <span className="text-xs text-muted-foreground font-body">Presupuesto aprobado</span>
                       <p className="font-heading font-bold text-lg">${Number(selectedProject.budget).toLocaleString()}</p>
                     </div>
+                    <div className={`rounded-lg border p-3 ${budgetMatch ? 'border-primary/30 bg-primary/5' : 'border-destructive/30 bg-destructive/5'}`}>
+                      <span className="text-xs text-muted-foreground font-body">Total misiones</span>
+                      <p className={`font-heading font-bold text-lg ${budgetMatch ? 'text-primary' : 'text-destructive'}`}>${totalMissionsReward.toLocaleString()}</p>
+                      {!budgetMatch && (
+                        <p className="text-xs text-destructive mt-1">
+                          {totalMissionsReward > Number(selectedProject.budget) ? `Excede por $${(totalMissionsReward - Number(selectedProject.budget)).toLocaleString()}` : `Faltan $${(Number(selectedProject.budget) - totalMissionsReward).toLocaleString()}`}
+                        </p>
+                      )}
+                    </div>
                     <div className="rounded-lg border border-border/50 p-3">
-                      <span className="text-xs text-muted-foreground font-body">Usado</span>
+                      <span className="text-xs text-muted-foreground font-body">Usado (completadas)</span>
                       <p className="font-heading font-bold text-lg">${pUsed.toLocaleString()}</p>
                     </div>
                     <div className="rounded-lg border border-border/50 p-3">
@@ -397,20 +408,38 @@ const CompanyDashboard = () => {
                       <span className="text-xs text-muted-foreground font-body">Exploradores</span>
                       <p className="font-heading font-bold text-lg">{uniqueExplorers.size}</p>
                     </div>
-                    <div className="rounded-lg border border-border/50 p-3">
-                      <span className="text-xs text-muted-foreground font-body">Estado pago</span>
-                      <p className="font-heading font-bold text-lg capitalize">{selectedProject.payment_status}</p>
+                  </div>
+
+                  {/* Resource link section with edit */}
+                  <div className="rounded-lg border border-border/50 p-4 space-y-3">
+                    <h3 className="font-heading font-semibold text-sm flex items-center gap-2">
+                      <ExternalLink className="h-4 w-4 text-primary" /> Recursos del proyecto
+                    </h3>
+                    {selectedProject.resource_link && (
+                      <a href={selectedProject.resource_link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline font-body block truncate">
+                        {selectedProject.resource_link}
+                      </a>
+                    )}
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Nuevo link de recursos (Google Drive, Dropbox, etc.)"
+                        value={editingResourceLink}
+                        onChange={(e) => setEditingResourceLink(e.target.value)}
+                        className="flex-1 text-sm"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => handleUpdateResource(selectedProject.id)}
+                        disabled={savingResource || !editingResourceLink.trim()}
+                        className="font-heading text-xs"
+                      >
+                        {savingResource ? 'Guardando...' : 'Actualizar'}
+                      </Button>
                     </div>
                   </div>
 
-                  {selectedProject.resource_link && (
-                    <a href={selectedProject.resource_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
-                      <ExternalLink className="h-4 w-4" /> Recursos del proyecto
-                    </a>
-                  )}
-
                   <div>
-                    <h3 className="font-heading font-semibold text-sm mb-2">Misiones</h3>
+                    <h3 className="font-heading font-semibold text-sm mb-2">Misiones ({pMissions.length}) — Total: ${totalMissionsReward.toLocaleString()}</h3>
                     <div className="space-y-2">
                       {pMissions.map((m) => {
                         const mApps = pApps.filter((a) => a.mission_id === m.id);
