@@ -157,6 +157,13 @@ const Register = () => {
                 </button>
               </div>
             </div>
+            {accountType === 'explorer' && (
+              <div>
+                <Label htmlFor="username" className="font-heading text-xs tracking-wider uppercase">Nombre de usuario</Label>
+                <Input id="username" type="text" value={username} onChange={e => { setUsername(e.target.value); setUsernameError(''); }} placeholder="ej: explorer_pro" required className="mt-1.5" />
+                {usernameError && <p className="text-xs text-destructive mt-1">{usernameError}</p>}
+              </div>
+            )}
             <div>
               <Label htmlFor="email" className="font-heading text-xs tracking-wider uppercase">{t('auth.email')}</Label>
               <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required className="mt-1.5" />
