@@ -220,6 +220,7 @@ export type Database = {
           title: string
           tx_hash: string | null
           user_id: string | null
+          video_link: string | null
         }
         Insert: {
           budget?: number
@@ -236,6 +237,7 @@ export type Database = {
           title: string
           tx_hash?: string | null
           user_id?: string | null
+          video_link?: string | null
         }
         Update: {
           budget?: number
@@ -252,6 +254,7 @@ export type Database = {
           title?: string
           tx_hash?: string | null
           user_id?: string | null
+          video_link?: string | null
         }
         Relationships: []
       }

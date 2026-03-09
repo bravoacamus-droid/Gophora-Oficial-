@@ -1,0 +1,1 @@
+ALTER TABLE public.projects ADD COLUMN video_link text DEFAULT NULL;

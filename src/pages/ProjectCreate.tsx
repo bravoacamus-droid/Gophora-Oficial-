@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Cpu, Upload, Zap, DollarSign, Clock, AlertTriangle, Link2, CheckCircle, Sparkles, ArrowLeft, Wallet, Copy, ExternalLink } from 'lucide-react';
+import { Cpu, Upload, Zap, DollarSign, Clock, AlertTriangle, Link2, CheckCircle, Sparkles, ArrowLeft, Wallet, Copy, ExternalLink, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -48,6 +48,7 @@ const ProjectCreate = () => {
   const [category, setCategory] = useState(categories[0]);
   const [priority, setPriority] = useState(priorities[1]);
   const [resourceLink, setResourceLink] = useState('');
+  const [videoLink, setVideoLink] = useState('');
   const [deadline, setDeadline] = useState('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -192,10 +193,11 @@ const ProjectCreate = () => {
           payment_status: 'paid',
           user_id: user?.id,
           resource_link: resourceLink || null,
+          video_link: videoLink || null,
           deadline: deadline || null,
           payment_screenshot_url: screenshotUrl,
           tx_hash: txHash || null,
-        })
+        } as any)
         .select()
         .single();
 
@@ -304,6 +306,22 @@ const ProjectCreate = () => {
                 <AlertTriangle className="h-3 w-3" /> Obligatorio: Comparte un link con briefs, logos y materiales para los exploradores.
               </p>
             )}
+          </div>
+          <div>
+            <Label className="font-heading text-xs tracking-wider uppercase flex items-center gap-2">
+              <Video className="h-4 w-4" />
+              Video explicativo del proyecto
+            </Label>
+            <Input
+              className="mt-1.5"
+              type="url"
+              placeholder="https://www.youtube.com/watch?v=... o https://www.loom.com/share/..."
+              value={videoLink}
+              onChange={e => setVideoLink(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground font-body mt-1.5 leading-relaxed">
+              Opcional: Comparte un video (YouTube, Loom, Google Drive, etc.) explicando el resultado exacto que esperas de la ejecución de las misiones. Esto ayuda a los exploradores a comprender mejor los objetivos del proyecto.
+            </p>
           </div>
           <div>
             <Label className="font-heading text-xs tracking-wider uppercase">
