@@ -66,8 +66,29 @@ const ProjectCreate = () => {
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const hasPdfFile = files.some(f => f.name.toLowerCase().endsWith('.pdf'));
+
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate resource link is provided
+    if (!resourceLink.trim()) {
+      toast.error(
+        'Se requiere un link de recursos del proyecto (Google Drive, Dropbox, etc.) con briefs, logos, paleta de colores y materiales necesarios para que los exploradores ejecuten el trabajo correctamente.',
+        { duration: 8000 }
+      );
+      return;
+    }
+
+    // Validate at least one PDF file is uploaded
+    if (!hasPdfFile) {
+      toast.error(
+        'Se requiere un documento PDF con el detalle exacto del resultado esperado de la ejecución del proyecto. Por favor sube un PDF con las especificaciones, entregables y criterios de aceptación.',
+        { duration: 8000 }
+      );
+      return;
+    }
+
     setAnalyzing(true);
 
     try {
