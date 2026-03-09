@@ -381,7 +381,7 @@ const CompanyDashboard = () => {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-lg border border-border/50 p-3">
                       <span className="text-xs text-muted-foreground font-body">Presupuesto aprobado</span>
-                      <p className="font-heading font-bold text-lg">${Number(selectedProject.budget).toLocaleString()}</p>
+                      <p className="font-heading font-bold text-lg">${totalMissionsReward.toLocaleString()}</p>
                     </div>
                     <div className={`rounded-lg border p-3 ${budgetMatch ? 'border-primary/30 bg-primary/5' : 'border-destructive/30 bg-destructive/5'}`}>
                       <span className="text-xs text-muted-foreground font-body">Total misiones</span>
