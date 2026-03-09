@@ -21,9 +21,10 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      navigate('/company');
+      const accountType = data.user?.user_metadata?.account_type || 'company';
+      navigate(accountType === 'explorer' ? '/explorer' : '/company');
     } catch (err: any) {
       toast.error(err.message || 'Login failed');
     } finally {
