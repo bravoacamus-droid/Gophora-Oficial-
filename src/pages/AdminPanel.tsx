@@ -201,6 +201,30 @@ const AdminPanel = () => {
     } catch (err: any) { toast.error(err.message); } finally { setProcessingId(null); }
   };
 
+  const handleAddCourse = async () => {
+    try {
+      await adminCall('create_course', {
+        ...newCourse,
+        skills_learned: newCourse.skills_learned.split(',').map((s: string) => s.trim()).filter(Boolean),
+        duration_minutes: Number(newCourse.duration_minutes),
+        sort_order: Number(newCourse.sort_order),
+      });
+      toast.success('Curso agregado');
+      setShowAddCourse(false);
+      setNewCourse({ title: '', title_es: '', description: '', description_es: '', platform: '', external_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', category: 'general', tool: '', path_id: '', sort_order: 0 });
+      loadData();
+    } catch (err: any) { toast.error(err.message); }
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+    if (!confirm('¿Eliminar este curso? Se borrará también el progreso de los exploradores.')) return;
+    try {
+      await adminCall('delete_course', { course_id: courseId });
+      toast.success('Curso eliminado');
+      loadData();
+    } catch (err: any) { toast.error(err.message); }
+  };
+
   const statusBadge = (status: string) => {
     const colors: Record<string, string> = {
       open: 'bg-blue-500/10 text-blue-500', approved: 'bg-green-500/10 text-green-500',
