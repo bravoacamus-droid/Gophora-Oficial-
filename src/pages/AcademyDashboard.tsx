@@ -779,17 +779,20 @@ function CourseRow({ course, isEs, completed, onToggle, onOpen, loading }: {
   );
 }
 
-function CourseCard({ course, isEs, completed, onToggle, loading }: {
-  course: AcademyCourse; isEs: boolean; completed: boolean; onToggle: () => void; loading: boolean;
+function CourseCard({ course, isEs, completed, onToggle, onOpen, loading }: {
+  course: AcademyCourse; isEs: boolean; completed: boolean; onToggle: () => void; onOpen: () => void; loading: boolean;
 }) {
   return (
-    <Card className={`hover:border-primary/30 transition-all ${completed ? 'border-primary/20 bg-primary/5' : ''}`}>
+    <Card
+      className={`hover:border-primary/30 transition-all cursor-pointer ${completed ? 'border-primary/20 bg-primary/5' : ''}`}
+      onClick={onOpen}
+    >
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-2">
           <h4 className="font-heading font-bold text-sm">
             {isEs ? course.title_es || course.title : course.title}
           </h4>
-          <button onClick={onToggle} disabled={loading}>
+          <button onClick={(e) => { e.stopPropagation(); onToggle(); }} disabled={loading}>
             {completed ? <CheckCircle2 className="h-5 w-5 text-primary" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
           </button>
         </div>
@@ -808,14 +811,10 @@ function CourseCard({ course, isEs, completed, onToggle, loading }: {
             <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
           ))}
         </div>
-        {course.external_url && (
-          <Button size="sm" className="w-full text-xs" asChild>
-            <a href={course.external_url} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-3 w-3 mr-1" />
-              {isEs ? 'Iniciar Curso' : 'Start Course'}
-            </a>
-          </Button>
-        )}
+        <Button size="sm" className="w-full text-xs" onClick={(e) => { e.stopPropagation(); onOpen(); }}>
+          <BookOpen className="h-3 w-3 mr-1" />
+          {isEs ? 'Ver Curso' : 'View Course'}
+        </Button>
       </CardContent>
     </Card>
   );
