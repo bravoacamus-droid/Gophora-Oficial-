@@ -15,7 +15,7 @@ import {
   BookOpen, Search, ExternalLink, CheckCircle2, Circle, Clock,
   Wrench, Share2, MessageSquare, TrendingUp, Target, Award,
   GraduationCap, Flame, Shield, Bot, Image, Video, PenTool,
-  FileText, GitBranch, Workflow
+  FileText, GitBranch, Workflow, Globe
 } from 'lucide-react';
 import {
   useAcademyPaths, useAcademyCourses, useAcademyTools,
@@ -23,6 +23,7 @@ import {
   useCreateSharedPrompt, getExplorerLevel, EXPLORER_LEVELS,
   type AcademyCourse
 } from '@/hooks/useAcademy';
+import CourseExam from '@/components/CourseExam';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -64,8 +65,10 @@ const AcademyDashboard = () => {
   const [courseSearch, setCourseSearch] = useState('');
   const [courseFilter, setCourseFilter] = useState('all');
   const [toolFilter, setToolFilter] = useState('all');
+  const [courseLangFilter, setCourseLangFilter] = useState<'all' | 'en' | 'es'>('all');
   const [newPrompt, setNewPrompt] = useState({ title: '', content: '', category: 'general' });
   const [selectedCourse, setSelectedCourse] = useState<AcademyCourse | null>(null);
+  const [showExam, setShowExam] = useState(false);
 
   const completedIds = new Set(progress.filter(p => p.completed).map(p => p.course_id));
   const completedCount = completedIds.size;
@@ -82,23 +85,22 @@ const AcademyDashboard = () => {
       (c.title_es || '').toLowerCase().includes(courseSearch.toLowerCase());
     const matchFilter = courseFilter === 'all' ||
       c.skill_level === courseFilter ||
-      c.category === courseFilter ||
-      c.language === courseFilter;
-    return matchSearch && matchFilter;
+      c.category === courseFilter;
+    const matchLang = courseLangFilter === 'all' || c.language === courseLangFilter;
+    return matchSearch && matchFilter && matchLang;
   });
 
   const filteredTools = tools.filter(t =>
     toolFilter === 'all' || t.category === toolFilter
   );
 
-  const handleToggleCourse = (courseId: string) => {
-    const isCompleted = completedIds.has(courseId);
+  const handleExamPass = (courseId: string) => {
     toggleCompletion.mutate(
-      { courseId, completed: !isCompleted },
+      { courseId, completed: true },
       {
-        onSuccess: () => toast.success(isCompleted
-          ? (isEs ? 'Curso desmarcado' : 'Course unmarked')
-          : (isEs ? '¡Curso completado! 🎉' : 'Course completed! 🎉')),
+        onSuccess: () => {
+          toast.success(isEs ? '¡Examen aprobado! Curso completado 🎉' : 'Exam passed! Course completed 🎉');
+        },
       }
     );
   };
@@ -114,6 +116,36 @@ const AcademyDashboard = () => {
   };
 
   const toolCategories = [...new Set(tools.map(t => t.category))];
+
+  // Language toggle component
+  const LanguageToggle = ({ value, onChange }: { value: 'all' | 'en' | 'es'; onChange: (v: 'all' | 'en' | 'es') => void }) => (
+    <div className="flex items-center gap-1 rounded-lg border border-border p-1 bg-muted/50">
+      <button
+        onClick={() => onChange('all')}
+        className={`px-3 py-1.5 rounded-md text-xs font-heading font-semibold transition-all flex items-center gap-1 ${
+          value === 'all' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        <Globe className="h-3 w-3" /> {isEs ? 'Todos' : 'All'}
+      </button>
+      <button
+        onClick={() => onChange('en')}
+        className={`px-3 py-1.5 rounded-md text-xs font-heading font-semibold transition-all ${
+          value === 'en' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        🇺🇸 English
+      </button>
+      <button
+        onClick={() => onChange('es')}
+        className={`px-3 py-1.5 rounded-md text-xs font-heading font-semibold transition-all ${
+          value === 'es' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        🇪🇸 Español
+      </button>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background pt-20 pb-12">
@@ -205,7 +237,7 @@ const AcademyDashboard = () => {
               />
               <StatCard
                 icon={<CheckCircle2 className="h-5 w-5 text-emerald-500" />}
-                label={isEs ? 'Cursos completados' : 'Courses Completed'}
+                label={isEs ? 'Exámenes aprobados' : 'Exams Passed'}
                 value={`${completedCount}/${courses.length}`}
               />
               <StatCard
@@ -278,7 +310,7 @@ const AcademyDashboard = () => {
                             {isEs ? path.title_es || path.title : path.title}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {pathCompleted}/{pathCourses.length} {isEs ? 'cursos' : 'courses'}
+                            {pathCompleted}/{pathCourses.length} {isEs ? 'aprobados' : 'passed'}
                           </p>
                         </div>
                       </div>
@@ -292,8 +324,14 @@ const AcademyDashboard = () => {
 
           {/* 2. LEARNING PATHS */}
           <TabsContent value="paths" className="mt-6 space-y-6">
+            <div className="flex justify-end mb-2">
+              <LanguageToggle value={courseLangFilter} onChange={setCourseLangFilter} />
+            </div>
             {paths.map(path => {
-              const pathCourses = courses.filter(c => c.path_id === path.id);
+              const pathCourses = courses
+                .filter(c => c.path_id === path.id)
+                .filter(c => courseLangFilter === 'all' || c.language === courseLangFilter);
+              if (pathCourses.length === 0) return null;
               return (
                 <Card key={path.id}>
                   <CardHeader className="pb-3">
@@ -319,9 +357,7 @@ const AcademyDashboard = () => {
                           course={course}
                           isEs={isEs}
                           completed={completedIds.has(course.id)}
-                          onToggle={() => handleToggleCourse(course.id)}
                           onOpen={() => setSelectedCourse(course)}
-                          loading={toggleCompletion.isPending}
                         />
                       ))}
                     </div>
@@ -333,7 +369,7 @@ const AcademyDashboard = () => {
 
           {/* 3. COURSE LIBRARY */}
           <TabsContent value="courses" className="mt-6">
-            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -348,14 +384,17 @@ const AcademyDashboard = () => {
                   <SelectValue placeholder="Filter" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{isEs ? 'Todos' : 'All'}</SelectItem>
+                  <SelectItem value="all">{isEs ? 'Todos los niveles' : 'All Levels'}</SelectItem>
                   <SelectItem value="beginner">{isEs ? 'Principiante' : 'Beginner'}</SelectItem>
                   <SelectItem value="intermediate">{isEs ? 'Intermedio' : 'Intermediate'}</SelectItem>
                   <SelectItem value="advanced">{isEs ? 'Avanzado' : 'Advanced'}</SelectItem>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="es">Español</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Language Toggle */}
+            <div className="flex justify-center mb-6">
+              <LanguageToggle value={courseLangFilter} onChange={setCourseLangFilter} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -365,9 +404,7 @@ const AcademyDashboard = () => {
                   course={course}
                   isEs={isEs}
                   completed={completedIds.has(course.id)}
-                  onToggle={() => handleToggleCourse(course.id)}
                   onOpen={() => setSelectedCourse(course)}
-                  loading={toggleCompletion.isPending}
                 />
               ))}
             </div>
@@ -494,7 +531,7 @@ const AcademyDashboard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               <StatCard
                 icon={<CheckCircle2 className="h-5 w-5 text-emerald-500" />}
-                label={isEs ? 'Cursos completados' : 'Courses Completed'}
+                label={isEs ? 'Exámenes aprobados' : 'Exams Passed'}
                 value={`${completedCount}`}
               />
               <StatCard
@@ -514,7 +551,6 @@ const AcademyDashboard = () => {
               />
             </div>
 
-            {/* Productivity Score Visual */}
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle className="font-heading text-lg">
@@ -543,7 +579,6 @@ const AcademyDashboard = () => {
               </CardContent>
             </Card>
 
-            {/* Skills List */}
             <Card>
               <CardHeader>
                 <CardTitle className="font-heading text-lg">
@@ -559,7 +594,7 @@ const AcademyDashboard = () => {
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    {isEs ? 'Completa cursos para desbloquear habilidades.' : 'Complete courses to unlock skills.'}
+                    {isEs ? 'Aprueba exámenes para desbloquear habilidades.' : 'Pass exams to unlock skills.'}
                   </p>
                 )}
               </CardContent>
@@ -569,7 +604,6 @@ const AcademyDashboard = () => {
           {/* 7. COMMUNITY */}
           <TabsContent value="community" className="mt-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Share Prompt */}
               <Card>
                 <CardHeader>
                   <CardTitle className="font-heading text-lg flex items-center gap-2">
@@ -608,7 +642,6 @@ const AcademyDashboard = () => {
                 </CardContent>
               </Card>
 
-              {/* Shared Prompts */}
               <Card>
                 <CardHeader>
                   <CardTitle className="font-heading text-lg flex items-center gap-2">
@@ -642,7 +675,7 @@ const AcademyDashboard = () => {
       </div>
 
       {/* Course Detail Dialog */}
-      <Dialog open={!!selectedCourse} onOpenChange={() => setSelectedCourse(null)}>
+      <Dialog open={!!selectedCourse && !showExam} onOpenChange={(open) => { if (!open) setSelectedCourse(null); }}>
         <DialogContent className="max-w-lg">
           {selectedCourse && (() => {
             const sc = selectedCourse;
@@ -666,6 +699,7 @@ const AcademyDashboard = () => {
                     <Badge variant="outline" className="flex items-center gap-1">
                       <Clock className="h-3 w-3" /> {sc.duration_minutes} min
                     </Badge>
+                    <Badge variant="outline">{sc.language === 'es' ? '🇪🇸 Español' : '🇺🇸 English'}</Badge>
                     {sc.tool && <Badge>{sc.tool}</Badge>}
                   </div>
 
@@ -694,25 +728,36 @@ const AcademyDashboard = () => {
                     </div>
                   </div>
 
+                  {isComp ? (
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-center">
+                      <CheckCircle2 className="h-6 w-6 text-primary mx-auto mb-1" />
+                      <p className="font-heading font-bold text-sm text-primary">
+                        {isEs ? '✅ Examen aprobado — Curso completado' : '✅ Exam passed — Course completed'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {isEs
+                          ? '📝 Para completar este curso, primero estúdialo y luego aprueba el examen.'
+                          : '📝 To complete this course, first study it and then pass the exam.'}
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex gap-2">
-                    <Button
-                      variant={isComp ? 'outline' : 'default'}
-                      className="flex-1"
-                      onClick={() => handleToggleCourse(sc.id)}
-                      disabled={toggleCompletion.isPending}
-                    >
-                      {isComp ? (
-                        <><CheckCircle2 className="h-4 w-4 mr-2" /> {isEs ? 'Completado ✓' : 'Completed ✓'}</>
-                      ) : (
-                        <><Circle className="h-4 w-4 mr-2" /> {isEs ? 'Marcar como completado' : 'Mark as completed'}</>
-                      )}
-                    </Button>
                     {sc.external_url && (
-                      <Button variant="default" className="flex-1" asChild>
+                      <Button variant="outline" className="flex-1" asChild>
                         <a href={sc.external_url} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="h-4 w-4 mr-2" />
                           {isEs ? 'Ir al Curso' : 'Go to Course'}
                         </a>
+                      </Button>
+                    )}
+                    {!isComp && (
+                      <Button className="flex-1" onClick={() => setShowExam(true)}>
+                        <GraduationCap className="h-4 w-4 mr-2" />
+                        {isEs ? 'Tomar Prueba' : 'Take Exam'}
                       </Button>
                     )}
                   </div>
@@ -720,6 +765,32 @@ const AcademyDashboard = () => {
               </>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Exam Dialog */}
+      <Dialog open={showExam && !!selectedCourse} onOpenChange={(open) => { if (!open) { setShowExam(false); } }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          {selectedCourse && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-heading text-lg flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5 text-primary" />
+                  {isEs ? 'Examen: ' : 'Exam: '}
+                  {isEs ? selectedCourse.title_es || selectedCourse.title : selectedCourse.title}
+                </DialogTitle>
+              </DialogHeader>
+              <CourseExam
+                course={selectedCourse}
+                isEs={isEs}
+                onPass={() => handleExamPass(selectedCourse.id)}
+                onClose={() => {
+                  setShowExam(false);
+                  setSelectedCourse(null);
+                }}
+              />
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
@@ -743,8 +814,8 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-function CourseRow({ course, isEs, completed, onToggle, onOpen, loading }: {
-  course: AcademyCourse; isEs: boolean; completed: boolean; onToggle: () => void; onOpen: () => void; loading: boolean;
+function CourseRow({ course, isEs, completed, onOpen }: {
+  course: AcademyCourse; isEs: boolean; completed: boolean; onOpen: () => void;
 }) {
   return (
     <div
@@ -753,11 +824,11 @@ function CourseRow({ course, isEs, completed, onToggle, onOpen, loading }: {
       }`}
       onClick={onOpen}
     >
-      <button onClick={(e) => { e.stopPropagation(); onToggle(); }} disabled={loading} className="shrink-0">
+      <div className="shrink-0">
         {completed ? <CheckCircle2 className="h-5 w-5 text-primary" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
-      </button>
+      </div>
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-heading font-semibold ${completed ? 'line-through text-muted-foreground' : ''}`}>
+        <p className={`text-sm font-heading font-semibold ${completed ? 'text-primary' : ''}`}>
           {isEs ? course.title_es || course.title : course.title}
         </p>
         <div className="flex items-center gap-2 mt-0.5">
@@ -766,21 +837,25 @@ function CourseRow({ course, isEs, completed, onToggle, onOpen, loading }: {
             <Clock className="h-3 w-3" /> {course.duration_minutes}min
           </span>
           <Badge variant="secondary" className="text-[10px] capitalize">{course.skill_level}</Badge>
+          <Badge variant="outline" className="text-[10px]">{course.language === 'es' ? '🇪🇸' : '🇺🇸'}</Badge>
         </div>
       </div>
-      {course.external_url && (
-        <Button variant="ghost" size="icon" className="shrink-0" asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-          <a href={course.external_url} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="h-4 w-4" />
-          </a>
+      {completed ? (
+        <Badge className="shrink-0 text-[10px]">
+          <CheckCircle2 className="h-3 w-3 mr-1" /> {isEs ? 'Aprobado' : 'Passed'}
+        </Badge>
+      ) : (
+        <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={(e) => { e.stopPropagation(); onOpen(); }}>
+          <GraduationCap className="h-3 w-3 mr-1" />
+          {isEs ? 'Tomar Prueba' : 'Take Exam'}
         </Button>
       )}
     </div>
   );
 }
 
-function CourseCard({ course, isEs, completed, onToggle, onOpen, loading }: {
-  course: AcademyCourse; isEs: boolean; completed: boolean; onToggle: () => void; onOpen: () => void; loading: boolean;
+function CourseCard({ course, isEs, completed, onOpen }: {
+  course: AcademyCourse; isEs: boolean; completed: boolean; onOpen: () => void;
 }) {
   return (
     <Card
@@ -789,32 +864,41 @@ function CourseCard({ course, isEs, completed, onToggle, onOpen, loading }: {
     >
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-2">
-          <h4 className="font-heading font-bold text-sm">
+          <h4 className="font-heading font-bold text-sm flex-1">
             {isEs ? course.title_es || course.title : course.title}
           </h4>
-          <button onClick={(e) => { e.stopPropagation(); onToggle(); }} disabled={loading}>
-            {completed ? <CheckCircle2 className="h-5 w-5 text-primary" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
-          </button>
+          {completed ? (
+            <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+          ) : (
+            <Circle className="h-5 w-5 text-muted-foreground shrink-0" />
+          )}
         </div>
-        <p className="text-xs text-muted-foreground mb-3">
+        <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
           {isEs ? course.description_es || course.description : course.description}
         </p>
         <div className="flex flex-wrap gap-1 mb-3">
           <Badge variant="outline" className="text-[10px]">{course.platform}</Badge>
           <Badge variant="secondary" className="text-[10px] capitalize">{course.skill_level}</Badge>
+          <Badge variant="outline" className="text-[10px]">{course.language === 'es' ? '🇪🇸 ES' : '🇺🇸 EN'}</Badge>
           <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
             <Clock className="h-3 w-3" /> {course.duration_minutes}min
           </span>
         </div>
         <div className="flex flex-wrap gap-1 mb-3">
-          {(course.skills_learned || []).map(s => (
+          {(course.skills_learned || []).slice(0, 3).map(s => (
             <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
           ))}
         </div>
-        <Button size="sm" className="w-full text-xs" onClick={(e) => { e.stopPropagation(); onOpen(); }}>
-          <BookOpen className="h-3 w-3 mr-1" />
-          {isEs ? 'Ver Curso' : 'View Course'}
-        </Button>
+        {completed ? (
+          <div className="flex items-center justify-center gap-1 text-xs text-primary font-heading font-semibold">
+            <CheckCircle2 className="h-3.5 w-3.5" /> {isEs ? 'Examen Aprobado' : 'Exam Passed'}
+          </div>
+        ) : (
+          <Button size="sm" className="w-full text-xs">
+            <GraduationCap className="h-3 w-3 mr-1" />
+            {isEs ? 'Ver Curso y Tomar Prueba' : 'View Course & Take Exam'}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
