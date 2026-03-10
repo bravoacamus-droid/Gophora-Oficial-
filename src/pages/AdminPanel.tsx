@@ -48,6 +48,16 @@ const AdminPanel = () => {
   const [expandedMission, setExpandedMission] = useState<string | null>(null);
   const [selectedRelease, setSelectedRelease] = useState<any>(null);
 
+  // Courses management state
+  const [adminCourses, setAdminCourses] = useState<any[]>([]);
+  const [academyPaths, setAcademyPaths] = useState<any[]>([]);
+  const [showAddCourse, setShowAddCourse] = useState(false);
+  const [newCourse, setNewCourse] = useState({
+    title: '', title_es: '', description: '', description_es: '', platform: '',
+    external_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en',
+    skills_learned: '', category: 'general', tool: '', path_id: '', sort_order: 0,
+  });
+
   // Withdrawal filters
   const [wFilterUser, setWFilterUser] = useState<string>('all');
   const [wFilterMethod, setWFilterMethod] = useState<string>('all');
