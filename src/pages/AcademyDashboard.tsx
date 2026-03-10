@@ -162,7 +162,7 @@ const AcademyDashboard = () => {
               <div className="flex items-center gap-3 mb-2">
                 <Rocket className="h-8 w-8 text-primary" />
                 <h1 className="text-3xl md:text-4xl font-heading font-bold tracking-tight">
-                  Gophora AI Academy
+                  Gophora Dream Academy
                 </h1>
               </div>
               <p className="text-muted-foreground max-w-xl">
