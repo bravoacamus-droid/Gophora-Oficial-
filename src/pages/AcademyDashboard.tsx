@@ -366,6 +366,7 @@ const AcademyDashboard = () => {
                   isEs={isEs}
                   completed={completedIds.has(course.id)}
                   onToggle={() => handleToggleCourse(course.id)}
+                  onOpen={() => setSelectedCourse(course)}
                   loading={toggleCompletion.isPending}
                 />
               ))}
