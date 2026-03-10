@@ -71,16 +71,19 @@ export function getExplorerLevel(completedCourses: number) {
   return { ...current, progressToNext: Math.min(progressToNext, 100), nextLevel };
 }
 
+// Helper to bypass TypeScript checks for new tables not yet in generated types
+const db = supabase as any;
+
 export function useAcademyPaths() {
   return useQuery({
     queryKey: ['academy-paths'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('academy_paths')
         .select('*')
         .order('sort_order');
       if (error) throw error;
-      return data as AcademyPath[];
+      return (data || []) as AcademyPath[];
     },
   });
 }
@@ -89,12 +92,12 @@ export function useAcademyCourses() {
   return useQuery({
     queryKey: ['academy-courses'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('academy_courses')
         .select('*')
         .order('sort_order');
       if (error) throw error;
-      return data as AcademyCourse[];
+      return (data || []) as AcademyCourse[];
     },
   });
 }
@@ -103,11 +106,11 @@ export function useAcademyTools() {
   return useQuery({
     queryKey: ['academy-tools'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('academy_tools')
         .select('*');
       if (error) throw error;
-      return data as AcademyTool[];
+      return (data || []) as AcademyTool[];
     },
   });
 }
@@ -118,12 +121,12 @@ export function useCourseProgress() {
     queryKey: ['course-progress', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('explorer_course_progress')
         .select('*')
         .eq('user_id', user.id);
       if (error) throw error;
-      return data as CourseProgress[];
+      return (data || []) as CourseProgress[];
     },
     enabled: !!user,
   });
@@ -137,7 +140,7 @@ export function useToggleCourseCompletion() {
     mutationFn: async ({ courseId, completed }: { courseId: string; completed: boolean }) => {
       if (!user) throw new Error('Not authenticated');
       if (completed) {
-        const { error } = await supabase
+        const { error } = await db
           .from('explorer_course_progress')
           .upsert({
             user_id: user.id,
@@ -147,7 +150,7 @@ export function useToggleCourseCompletion() {
           }, { onConflict: 'user_id,course_id' });
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { error } = await db
           .from('explorer_course_progress')
           .delete()
           .eq('user_id', user.id)
@@ -165,13 +168,13 @@ export function useSharedPrompts() {
   return useQuery({
     queryKey: ['shared-prompts'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('academy_shared_prompts')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(50);
       if (error) throw error;
-      return data as any[];
+      return (data || []) as any[];
     },
   });
 }
@@ -183,7 +186,7 @@ export function useCreateSharedPrompt() {
   return useMutation({
     mutationFn: async ({ title, content, category }: { title: string; content: string; category: string }) => {
       if (!user) throw new Error('Not authenticated');
-      const { error } = await supabase
+      const { error } = await db
         .from('academy_shared_prompts')
         .insert({ user_id: user.id, title, content, category });
       if (error) throw error;

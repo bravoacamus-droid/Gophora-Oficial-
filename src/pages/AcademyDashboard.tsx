@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Brain, Zap, Code, Palette, Briefcase, Rocket, Trophy, Star,
   BookOpen, Search, ExternalLink, CheckCircle2, Circle, Clock,
@@ -64,6 +65,7 @@ const AcademyDashboard = () => {
   const [courseFilter, setCourseFilter] = useState('all');
   const [toolFilter, setToolFilter] = useState('all');
   const [newPrompt, setNewPrompt] = useState({ title: '', content: '', category: 'general' });
+  const [selectedCourse, setSelectedCourse] = useState<AcademyCourse | null>(null);
 
   const completedIds = new Set(progress.filter(p => p.completed).map(p => p.course_id));
   const completedCount = completedIds.size;
@@ -318,6 +320,7 @@ const AcademyDashboard = () => {
                           isEs={isEs}
                           completed={completedIds.has(course.id)}
                           onToggle={() => handleToggleCourse(course.id)}
+                          onOpen={() => setSelectedCourse(course)}
                           loading={toggleCompletion.isPending}
                         />
                       ))}
@@ -363,6 +366,7 @@ const AcademyDashboard = () => {
                   isEs={isEs}
                   completed={completedIds.has(course.id)}
                   onToggle={() => handleToggleCourse(course.id)}
+                  onOpen={() => setSelectedCourse(course)}
                   loading={toggleCompletion.isPending}
                 />
               ))}
@@ -636,6 +640,88 @@ const AcademyDashboard = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Course Detail Dialog */}
+      <Dialog open={!!selectedCourse} onOpenChange={() => setSelectedCourse(null)}>
+        <DialogContent className="max-w-lg">
+          {selectedCourse && (() => {
+            const sc = selectedCourse;
+            const isComp = completedIds.has(sc.id);
+            const parentPath = paths.find(p => p.id === sc.path_id);
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="font-heading text-xl">
+                    {isEs ? sc.title_es || sc.title : sc.title}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    {isEs ? sc.description_es || sc.description : sc.description}
+                  </p>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline">{sc.platform}</Badge>
+                    <Badge variant="secondary" className="capitalize">{sc.skill_level}</Badge>
+                    <Badge variant="outline" className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" /> {sc.duration_minutes} min
+                    </Badge>
+                    {sc.tool && <Badge>{sc.tool}</Badge>}
+                  </div>
+
+                  {parentPath && (
+                    <div className="rounded-lg border p-3">
+                      <p className="text-xs text-muted-foreground font-heading uppercase tracking-wider mb-1">
+                        {isEs ? 'Ruta de aprendizaje' : 'Learning Path'}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        {iconMap[parentPath.icon] || <BookOpen className="h-4 w-4" />}
+                        <span className="font-heading font-semibold text-sm">
+                          {isEs ? parentPath.title_es || parentPath.title : parentPath.title}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-xs font-heading font-semibold mb-2">
+                      {isEs ? 'Habilidades que aprenderás:' : 'Skills you will learn:'}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {(sc.skills_learned || []).map(s => (
+                        <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant={isComp ? 'outline' : 'default'}
+                      className="flex-1"
+                      onClick={() => handleToggleCourse(sc.id)}
+                      disabled={toggleCompletion.isPending}
+                    >
+                      {isComp ? (
+                        <><CheckCircle2 className="h-4 w-4 mr-2" /> {isEs ? 'Completado ✓' : 'Completed ✓'}</>
+                      ) : (
+                        <><Circle className="h-4 w-4 mr-2" /> {isEs ? 'Marcar como completado' : 'Mark as completed'}</>
+                      )}
+                    </Button>
+                    {sc.external_url && (
+                      <Button variant="default" className="flex-1" asChild>
+                        <a href={sc.external_url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          {isEs ? 'Ir al Curso' : 'Go to Course'}
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -657,14 +743,17 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-function CourseRow({ course, isEs, completed, onToggle, loading }: {
-  course: AcademyCourse; isEs: boolean; completed: boolean; onToggle: () => void; loading: boolean;
+function CourseRow({ course, isEs, completed, onToggle, onOpen, loading }: {
+  course: AcademyCourse; isEs: boolean; completed: boolean; onToggle: () => void; onOpen: () => void; loading: boolean;
 }) {
   return (
-    <div className={`flex items-center gap-3 rounded-lg border p-3 transition-all ${
-      completed ? 'border-primary/20 bg-primary/5' : 'hover:border-border'
-    }`}>
-      <button onClick={onToggle} disabled={loading} className="shrink-0">
+    <div
+      className={`flex items-center gap-3 rounded-lg border p-3 transition-all cursor-pointer ${
+        completed ? 'border-primary/20 bg-primary/5' : 'hover:border-primary/30'
+      }`}
+      onClick={onOpen}
+    >
+      <button onClick={(e) => { e.stopPropagation(); onToggle(); }} disabled={loading} className="shrink-0">
         {completed ? <CheckCircle2 className="h-5 w-5 text-primary" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
       </button>
       <div className="flex-1 min-w-0">
@@ -680,7 +769,7 @@ function CourseRow({ course, isEs, completed, onToggle, loading }: {
         </div>
       </div>
       {course.external_url && (
-        <Button variant="ghost" size="icon" className="shrink-0" asChild>
+        <Button variant="ghost" size="icon" className="shrink-0" asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
           <a href={course.external_url} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="h-4 w-4" />
           </a>
@@ -690,17 +779,20 @@ function CourseRow({ course, isEs, completed, onToggle, loading }: {
   );
 }
 
-function CourseCard({ course, isEs, completed, onToggle, loading }: {
-  course: AcademyCourse; isEs: boolean; completed: boolean; onToggle: () => void; loading: boolean;
+function CourseCard({ course, isEs, completed, onToggle, onOpen, loading }: {
+  course: AcademyCourse; isEs: boolean; completed: boolean; onToggle: () => void; onOpen: () => void; loading: boolean;
 }) {
   return (
-    <Card className={`hover:border-primary/30 transition-all ${completed ? 'border-primary/20 bg-primary/5' : ''}`}>
+    <Card
+      className={`hover:border-primary/30 transition-all cursor-pointer ${completed ? 'border-primary/20 bg-primary/5' : ''}`}
+      onClick={onOpen}
+    >
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-2">
           <h4 className="font-heading font-bold text-sm">
             {isEs ? course.title_es || course.title : course.title}
           </h4>
-          <button onClick={onToggle} disabled={loading}>
+          <button onClick={(e) => { e.stopPropagation(); onToggle(); }} disabled={loading}>
             {completed ? <CheckCircle2 className="h-5 w-5 text-primary" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
           </button>
         </div>
@@ -719,14 +811,10 @@ function CourseCard({ course, isEs, completed, onToggle, loading }: {
             <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
           ))}
         </div>
-        {course.external_url && (
-          <Button size="sm" className="w-full text-xs" asChild>
-            <a href={course.external_url} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-3 w-3 mr-1" />
-              {isEs ? 'Iniciar Curso' : 'Start Course'}
-            </a>
-          </Button>
-        )}
+        <Button size="sm" className="w-full text-xs" onClick={(e) => { e.stopPropagation(); onOpen(); }}>
+          <BookOpen className="h-3 w-3 mr-1" />
+          {isEs ? 'Ver Curso' : 'View Course'}
+        </Button>
       </CardContent>
     </Card>
   );
