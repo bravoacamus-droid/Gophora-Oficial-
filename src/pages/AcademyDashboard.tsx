@@ -65,6 +65,7 @@ const AcademyDashboard = () => {
   const [courseFilter, setCourseFilter] = useState('all');
   const [toolFilter, setToolFilter] = useState('all');
   const [newPrompt, setNewPrompt] = useState({ title: '', content: '', category: 'general' });
+  const [selectedCourse, setSelectedCourse] = useState<AcademyCourse | null>(null);
 
   const completedIds = new Set(progress.filter(p => p.completed).map(p => p.course_id));
   const completedCount = completedIds.size;
