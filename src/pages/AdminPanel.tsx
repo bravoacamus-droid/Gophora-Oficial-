@@ -20,11 +20,13 @@ import { Navigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 
-const tabs = ['Overview', 'Fund Releases', 'Withdrawals', 'Missions', 'Projects', 'Users', 'Payments', 'Revenue'] as const;
+import { Textarea } from '@/components/ui/textarea';
+
+const tabs = ['Overview', 'Fund Releases', 'Withdrawals', 'Missions', 'Projects', 'Users', 'Payments', 'Revenue', 'Courses'] as const;
 type Tab = typeof tabs[number];
 const tabIcons: Record<Tab, any> = {
   Overview: BarChart3, 'Fund Releases': Banknote, Withdrawals: Wallet,
-  Missions: Zap, Projects: FolderOpen, Users, Payments: CreditCard, Revenue: DollarSign
+  Missions: Zap, Projects: FolderOpen, Users, Payments: CreditCard, Revenue: DollarSign, Courses: GraduationCap
 };
 
 const AdminPanel = () => {
