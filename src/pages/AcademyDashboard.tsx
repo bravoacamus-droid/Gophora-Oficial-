@@ -743,14 +743,17 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-function CourseRow({ course, isEs, completed, onToggle, loading }: {
-  course: AcademyCourse; isEs: boolean; completed: boolean; onToggle: () => void; loading: boolean;
+function CourseRow({ course, isEs, completed, onToggle, onOpen, loading }: {
+  course: AcademyCourse; isEs: boolean; completed: boolean; onToggle: () => void; onOpen: () => void; loading: boolean;
 }) {
   return (
-    <div className={`flex items-center gap-3 rounded-lg border p-3 transition-all ${
-      completed ? 'border-primary/20 bg-primary/5' : 'hover:border-border'
-    }`}>
-      <button onClick={onToggle} disabled={loading} className="shrink-0">
+    <div
+      className={`flex items-center gap-3 rounded-lg border p-3 transition-all cursor-pointer ${
+        completed ? 'border-primary/20 bg-primary/5' : 'hover:border-primary/30'
+      }`}
+      onClick={onOpen}
+    >
+      <button onClick={(e) => { e.stopPropagation(); onToggle(); }} disabled={loading} className="shrink-0">
         {completed ? <CheckCircle2 className="h-5 w-5 text-primary" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
       </button>
       <div className="flex-1 min-w-0">
@@ -766,7 +769,7 @@ function CourseRow({ course, isEs, completed, onToggle, loading }: {
         </div>
       </div>
       {course.external_url && (
-        <Button variant="ghost" size="icon" className="shrink-0" asChild>
+        <Button variant="ghost" size="icon" className="shrink-0" asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
           <a href={course.external_url} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="h-4 w-4" />
           </a>
