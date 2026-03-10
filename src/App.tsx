@@ -18,6 +18,7 @@ import ExplorerDashboard from "@/pages/ExplorerDashboard";
 import Marketplace from "@/pages/Marketplace";
 import ProjectCreate from "@/pages/ProjectCreate";
 import AdminPanel from "@/pages/AdminPanel";
+import AcademyDashboard from "@/pages/AcademyDashboard";
 import AuthCallback from "@/pages/AuthCallback";
 import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "./pages/NotFound";
