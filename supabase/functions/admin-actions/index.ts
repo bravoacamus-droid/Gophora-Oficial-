@@ -452,6 +452,62 @@ serve(async (req) => {
         break;
       }
 
+      case 'get_academy_courses': {
+        const { data, error } = await supabase
+          .from('academy_courses')
+          .select('*')
+          .order('sort_order');
+        if (error) throw error;
+
+        const { data: pathsData } = await supabase
+          .from('academy_paths')
+          .select('id, title');
+        const pathMap = new Map((pathsData || []).map((p: any) => [p.id, p.title]));
+
+        result = (data || []).map((c: any) => ({
+          ...c,
+          path_title: pathMap.get(c.path_id) || 'Unknown',
+        }));
+        break;
+      }
+
+      case 'get_academy_paths': {
+        const { data, error } = await supabase
+          .from('academy_paths')
+          .select('id, title')
+          .order('sort_order');
+        if (error) throw error;
+        result = data || [];
+        break;
+      }
+
+      case 'create_course': {
+        const { title, title_es, description, description_es, platform, external_url, duration_minutes, skill_level, language: lang, skills_learned, category, tool: courseTool, path_id, sort_order } = params;
+        if (!title || !path_id) {
+          return jsonResponse({ error: 'title and path_id are required' }, 400);
+        }
+        const { error } = await supabase.from('academy_courses').insert({
+          title, title_es: title_es || null, description: description || null, description_es: description_es || null,
+          platform: platform || 'YouTube', external_url: external_url || null,
+          duration_minutes: duration_minutes || 30, skill_level: skill_level || 'beginner',
+          language: lang || 'en', skills_learned: skills_learned || [], category: category || 'general',
+          tool: courseTool || null, path_id, sort_order: sort_order || 0,
+        });
+        if (error) throw error;
+        result = { success: true };
+        break;
+      }
+
+      case 'delete_course': {
+        const { course_id } = params;
+        if (!course_id) return jsonResponse({ error: 'course_id is required' }, 400);
+        await supabase.from('explorer_course_progress').delete().eq('course_id', course_id);
+        const { error } = await supabase.from('academy_courses').delete().eq('id', course_id);
+        if (error) throw error;
+        result = { success: true };
+        break;
+      }
+
       default:
         return jsonResponse({ error: 'Unknown action' }, 400);
     }
