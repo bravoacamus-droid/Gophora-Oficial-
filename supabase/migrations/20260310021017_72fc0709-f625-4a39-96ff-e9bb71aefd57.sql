@@ -1,0 +1,20 @@
+
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=2ePf9rue1Ao' WHERE title = 'Introduction to AI';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=_ZvnD1ChJIA' WHERE title = 'Prompt Engineering Mastery';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=jHv63Uvk5VA' WHERE title = 'Working with ChatGPT & Claude';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=VTOh1oWRXZs' WHERE title = 'Workflow Automation Basics';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=sal78ACtGTc' WHERE title = 'AI Agents';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=pU-bVeL61XQ' WHERE title = 'No-Code Automation';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=ik6ZqBB6gVk' WHERE title = 'API Automation with AI';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=sdHmCMqz3ow' WHERE title = 'Claude Code Fundamentals';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=UgEBwaaZZHI' WHERE title = 'Building Tools with AI';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=Fi3AJZZregI' WHERE title = 'AI Copilots for Development';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=jGJfbsYMiRE' WHERE title = 'AI Assisted Coding';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=HlBnMGW2jMo' WHERE title = 'AI Image Generation';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=6sDsHcEFIXw' WHERE title = 'AI Video Generation';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=yCsmY1fljsE' WHERE title = 'AI Design Tools';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=BYY8GHDjV1g' WHERE title = 'AI Content Creation';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=eMpSDKuJPbY' WHERE title = 'AI Marketing Workflows';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=MYAEHIMx1TI' WHERE title = 'AI Research';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=dR27wVtGXSA' WHERE title = 'AI Document Automation';
+UPDATE public.academy_courses SET external_url = 'https://www.youtube.com/watch?v=BQwIkRaEuag' WHERE title = 'AI Productivity Systems';
