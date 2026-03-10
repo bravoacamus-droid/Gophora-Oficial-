@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   Users, FolderOpen, Zap, DollarSign, BarChart3, CheckCircle, XCircle, Ban, UserCheck,
   CreditCard, Banknote, ExternalLink, Wallet, Building2, Bitcoin, CalendarIcon, Search, X,
-  Download, Image, ChevronDown, ChevronUp, FileText, Clock, ArrowRight, Eye
+  Download, Image, ChevronDown, ChevronUp, FileText, Clock, ArrowRight, Eye, GraduationCap, Plus, Trash2
 } from 'lucide-react';
 import { format, startOfDay, endOfDay, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -20,11 +20,13 @@ import { Navigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 
-const tabs = ['Overview', 'Fund Releases', 'Withdrawals', 'Missions', 'Projects', 'Users', 'Payments', 'Revenue'] as const;
+import { Textarea } from '@/components/ui/textarea';
+
+const tabs = ['Overview', 'Fund Releases', 'Withdrawals', 'Missions', 'Projects', 'Users', 'Payments', 'Revenue', 'Courses'] as const;
 type Tab = typeof tabs[number];
 const tabIcons: Record<Tab, any> = {
   Overview: BarChart3, 'Fund Releases': Banknote, Withdrawals: Wallet,
-  Missions: Zap, Projects: FolderOpen, Users, Payments: CreditCard, Revenue: DollarSign
+  Missions: Zap, Projects: FolderOpen, Users, Payments: CreditCard, Revenue: DollarSign, Courses: GraduationCap
 };
 
 const AdminPanel = () => {
@@ -45,6 +47,16 @@ const AdminPanel = () => {
   const [withdrawalNotes, setWithdrawalNotes] = useState<Record<string, string>>({});
   const [expandedMission, setExpandedMission] = useState<string | null>(null);
   const [selectedRelease, setSelectedRelease] = useState<any>(null);
+
+  // Courses management state
+  const [adminCourses, setAdminCourses] = useState<any[]>([]);
+  const [academyPaths, setAcademyPaths] = useState<any[]>([]);
+  const [showAddCourse, setShowAddCourse] = useState(false);
+  const [newCourse, setNewCourse] = useState({
+    title: '', title_es: '', description: '', description_es: '', platform: '',
+    external_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en',
+    skills_learned: '', category: 'general', tool: '', path_id: '', sort_order: 0,
+  });
 
   // Withdrawal filters
   const [wFilterUser, setWFilterUser] = useState<string>('all');
@@ -139,14 +151,16 @@ const AdminPanel = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [statsData, usersData, projectsData, missionsData, releasesData, withdrawalsData, paymentsData] = await Promise.all([
+      const [statsData, usersData, projectsData, missionsData, releasesData, withdrawalsData, paymentsData, coursesData, pathsData] = await Promise.all([
         adminCall('get_stats'), adminCall('get_users'), adminCall('get_projects'),
         adminCall('get_missions'), adminCall('get_pending_releases'),
         adminCall('get_withdrawals'), adminCall('get_payment_history'),
+        adminCall('get_academy_courses'), adminCall('get_academy_paths'),
       ]);
       setStats(statsData); setUsers(usersData); setProjects(projectsData);
       setMissions(missionsData); setPendingReleases(releasesData || []);
       setWithdrawalRequests(withdrawalsData || []); setPaymentHistory(paymentsData || []);
+      setAdminCourses(coursesData || []); setAcademyPaths(pathsData || []);
     } catch (err: any) {
       console.error('Admin load error:', err);
       toast.error(err.message || 'Failed to load admin data');
@@ -185,6 +199,30 @@ const AdminPanel = () => {
       await adminCall('process_withdrawal', { withdrawal_id: withdrawalId, new_status: newStatus, admin_note: withdrawalNotes[withdrawalId] || null });
       toast.success(newStatus === 'approved' ? 'Retiro aprobado' : 'Retiro rechazado'); loadData();
     } catch (err: any) { toast.error(err.message); } finally { setProcessingId(null); }
+  };
+
+  const handleAddCourse = async () => {
+    try {
+      await adminCall('create_course', {
+        ...newCourse,
+        skills_learned: newCourse.skills_learned.split(',').map((s: string) => s.trim()).filter(Boolean),
+        duration_minutes: Number(newCourse.duration_minutes),
+        sort_order: Number(newCourse.sort_order),
+      });
+      toast.success('Curso agregado');
+      setShowAddCourse(false);
+      setNewCourse({ title: '', title_es: '', description: '', description_es: '', platform: '', external_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', category: 'general', tool: '', path_id: '', sort_order: 0 });
+      loadData();
+    } catch (err: any) { toast.error(err.message); }
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+    if (!confirm('¿Eliminar este curso? Se borrará también el progreso de los exploradores.')) return;
+    try {
+      await adminCall('delete_course', { course_id: courseId });
+      toast.success('Curso eliminado');
+      loadData();
+    } catch (err: any) { toast.error(err.message); }
   };
 
   const statusBadge = (status: string) => {
@@ -863,6 +901,161 @@ const AdminPanel = () => {
                 <div className="rounded-lg border border-border/50 p-4">
                   <p className="text-xs text-muted-foreground font-heading uppercase tracking-wider">Comisión GOPHORA (10%)</p>
                   <p className="text-2xl font-heading font-bold text-primary mt-1">${stats.commission?.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── COURSES TAB ── */}
+          {activeTab === 'Courses' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-heading font-bold flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5 text-primary" /> Dream Academy — Cursos ({adminCourses.length})
+                </h2>
+                <Button onClick={() => setShowAddCourse(true)} className="gap-2">
+                  <Plus className="h-4 w-4" /> Agregar Curso
+                </Button>
+              </div>
+
+              {/* Add Course Form */}
+              {showAddCourse && (
+                <div className="rounded-xl border border-primary/30 bg-card p-6 space-y-4">
+                  <h3 className="font-heading font-bold text-lg">Nuevo Curso</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-heading font-semibold text-muted-foreground">Título (EN) *</label>
+                      <Input value={newCourse.title} onChange={e => setNewCourse(c => ({ ...c, title: e.target.value }))} placeholder="Course title" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-heading font-semibold text-muted-foreground">Título (ES)</label>
+                      <Input value={newCourse.title_es} onChange={e => setNewCourse(c => ({ ...c, title_es: e.target.value }))} placeholder="Título del curso" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-heading font-semibold text-muted-foreground">Descripción (EN)</label>
+                      <Textarea value={newCourse.description} onChange={e => setNewCourse(c => ({ ...c, description: e.target.value }))} placeholder="Course description" rows={2} />
+                    </div>
+                    <div>
+                      <label className="text-xs font-heading font-semibold text-muted-foreground">Descripción (ES)</label>
+                      <Textarea value={newCourse.description_es} onChange={e => setNewCourse(c => ({ ...c, description_es: e.target.value }))} placeholder="Descripción del curso" rows={2} />
+                    </div>
+                    <div>
+                      <label className="text-xs font-heading font-semibold text-muted-foreground">Plataforma</label>
+                      <Input value={newCourse.platform} onChange={e => setNewCourse(c => ({ ...c, platform: e.target.value }))} placeholder="YouTube, Coursera, etc." />
+                    </div>
+                    <div>
+                      <label className="text-xs font-heading font-semibold text-muted-foreground">URL del Curso *</label>
+                      <Input value={newCourse.external_url} onChange={e => setNewCourse(c => ({ ...c, external_url: e.target.value }))} placeholder="https://..." />
+                    </div>
+                    <div>
+                      <label className="text-xs font-heading font-semibold text-muted-foreground">Ruta de Aprendizaje *</label>
+                      <Select value={newCourse.path_id} onValueChange={v => setNewCourse(c => ({ ...c, path_id: v }))}>
+                        <SelectTrigger><SelectValue placeholder="Seleccionar ruta" /></SelectTrigger>
+                        <SelectContent>
+                          {academyPaths.map((p: any) => (
+                            <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-heading font-semibold text-muted-foreground">Idioma</label>
+                      <Select value={newCourse.language} onValueChange={v => setNewCourse(c => ({ ...c, language: v }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="en">🇺🇸 English</SelectItem>
+                          <SelectItem value="es">🇪🇸 Español</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-heading font-semibold text-muted-foreground">Nivel</label>
+                      <Select value={newCourse.skill_level} onValueChange={v => setNewCourse(c => ({ ...c, skill_level: v }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="beginner">Beginner</SelectItem>
+                          <SelectItem value="intermediate">Intermediate</SelectItem>
+                          <SelectItem value="advanced">Advanced</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-heading font-semibold text-muted-foreground">Categoría</label>
+                      <Select value={newCourse.category} onValueChange={v => setNewCourse(c => ({ ...c, category: v }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ai-foundations">AI Foundations</SelectItem>
+                          <SelectItem value="automation">Automation</SelectItem>
+                          <SelectItem value="development">Development</SelectItem>
+                          <SelectItem value="creative">Creative</SelectItem>
+                          <SelectItem value="business">Business</SelectItem>
+                          <SelectItem value="general">General</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-heading font-semibold text-muted-foreground">Duración (minutos)</label>
+                      <Input type="number" value={newCourse.duration_minutes} onChange={e => setNewCourse(c => ({ ...c, duration_minutes: Number(e.target.value) }))} />
+                    </div>
+                    <div>
+                      <label className="text-xs font-heading font-semibold text-muted-foreground">Skills (separadas por coma)</label>
+                      <Input value={newCourse.skills_learned} onChange={e => setNewCourse(c => ({ ...c, skills_learned: e.target.value }))} placeholder="Prompt Design, Automation, ..." />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" onClick={() => setShowAddCourse(false)}>Cancelar</Button>
+                    <Button onClick={handleAddCourse} disabled={!newCourse.title || !newCourse.path_id}>
+                      <Plus className="h-4 w-4 mr-1" /> Crear Curso
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Courses Table */}
+              <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border/50 bg-muted/30">
+                        <th className="p-3 text-left text-xs font-heading font-semibold text-muted-foreground">Curso</th>
+                        <th className="p-3 text-left text-xs font-heading font-semibold text-muted-foreground">Ruta</th>
+                        <th className="p-3 text-left text-xs font-heading font-semibold text-muted-foreground">Plataforma</th>
+                        <th className="p-3 text-left text-xs font-heading font-semibold text-muted-foreground">Idioma</th>
+                        <th className="p-3 text-left text-xs font-heading font-semibold text-muted-foreground">Nivel</th>
+                        <th className="p-3 text-left text-xs font-heading font-semibold text-muted-foreground">URL</th>
+                        <th className="p-3 text-left text-xs font-heading font-semibold text-muted-foreground">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adminCourses.map((course: any) => (
+                        <tr key={course.id} className="border-b border-border/30 hover:bg-muted/20">
+                          <td className="p-3">
+                            <p className="text-sm font-heading font-semibold">{course.title}</p>
+                            {course.title_es && <p className="text-xs text-muted-foreground">{course.title_es}</p>}
+                          </td>
+                          <td className="p-3 text-xs text-muted-foreground">{course.path_title}</td>
+                          <td className="p-3 text-xs">{course.platform}</td>
+                          <td className="p-3 text-xs">{course.language === 'es' ? '🇪🇸' : '🇺🇸'}</td>
+                          <td className="p-3 text-xs capitalize">{course.skill_level}</td>
+                          <td className="p-3">
+                            {course.external_url ? (
+                              <a href={course.external_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                                <ExternalLink className="h-3 w-3" /> Abrir
+                              </a>
+                            ) : '—'}
+                          </td>
+                          <td className="p-3">
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteCourse(course.id)} className="text-destructive hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                      {adminCourses.length === 0 && (
+                        <tr><td colSpan={7} className="p-8 text-center text-muted-foreground font-body">No hay cursos</td></tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
