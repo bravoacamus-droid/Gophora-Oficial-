@@ -14,6 +14,211 @@ export type Database = {
   }
   public: {
     Tables: {
+      academy_courses: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          description_es: string | null
+          duration_minutes: number | null
+          external_url: string | null
+          id: string
+          language: string
+          path_id: string
+          platform: string | null
+          skill_level: string
+          skills_learned: string[] | null
+          sort_order: number | null
+          title: string
+          title_es: string | null
+          tool: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          description_es?: string | null
+          duration_minutes?: number | null
+          external_url?: string | null
+          id?: string
+          language?: string
+          path_id: string
+          platform?: string | null
+          skill_level?: string
+          skills_learned?: string[] | null
+          sort_order?: number | null
+          title: string
+          title_es?: string | null
+          tool?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          description_es?: string | null
+          duration_minutes?: number | null
+          external_url?: string | null
+          id?: string
+          language?: string
+          path_id?: string
+          platform?: string | null
+          skill_level?: string
+          skills_learned?: string[] | null
+          sort_order?: number | null
+          title?: string
+          title_es?: string | null
+          tool?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_courses_path_id_fkey"
+            columns: ["path_id"]
+            isOneToOne: false
+            referencedRelation: "academy_paths"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_paths: {
+        Row: {
+          created_at: string
+          description: string | null
+          description_es: string | null
+          icon: string | null
+          id: string
+          sort_order: number | null
+          title: string
+          title_es: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          description_es?: string | null
+          icon?: string | null
+          id?: string
+          sort_order?: number | null
+          title: string
+          title_es?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          description_es?: string | null
+          icon?: string | null
+          id?: string
+          sort_order?: number | null
+          title?: string
+          title_es?: string | null
+        }
+        Relationships: []
+      }
+      academy_shared_prompts: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string
+          id: string
+          likes: number | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          likes?: number | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          likes?: number | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      academy_tools: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          description_es: string | null
+          icon: string | null
+          id: string
+          name: string
+          name_es: string | null
+          url: string | null
+          use_cases: string[] | null
+          use_cases_es: string[] | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          description_es?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          name_es?: string | null
+          url?: string | null
+          use_cases?: string[] | null
+          use_cases_es?: string[] | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          description_es?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          name_es?: string | null
+          url?: string | null
+          use_cases?: string[] | null
+          use_cases_es?: string[] | null
+        }
+        Relationships: []
+      }
+      explorer_course_progress: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          course_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          course_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          course_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "explorer_course_progress_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "academy_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
