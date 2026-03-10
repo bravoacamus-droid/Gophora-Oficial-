@@ -638,6 +638,88 @@ const AcademyDashboard = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Course Detail Dialog */}
+      <Dialog open={!!selectedCourse} onOpenChange={() => setSelectedCourse(null)}>
+        <DialogContent className="max-w-lg">
+          {selectedCourse && (() => {
+            const sc = selectedCourse;
+            const isComp = completedIds.has(sc.id);
+            const parentPath = paths.find(p => p.id === sc.path_id);
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="font-heading text-xl">
+                    {isEs ? sc.title_es || sc.title : sc.title}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    {isEs ? sc.description_es || sc.description : sc.description}
+                  </p>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline">{sc.platform}</Badge>
+                    <Badge variant="secondary" className="capitalize">{sc.skill_level}</Badge>
+                    <Badge variant="outline" className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" /> {sc.duration_minutes} min
+                    </Badge>
+                    {sc.tool && <Badge>{sc.tool}</Badge>}
+                  </div>
+
+                  {parentPath && (
+                    <div className="rounded-lg border p-3">
+                      <p className="text-xs text-muted-foreground font-heading uppercase tracking-wider mb-1">
+                        {isEs ? 'Ruta de aprendizaje' : 'Learning Path'}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        {iconMap[parentPath.icon] || <BookOpen className="h-4 w-4" />}
+                        <span className="font-heading font-semibold text-sm">
+                          {isEs ? parentPath.title_es || parentPath.title : parentPath.title}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-xs font-heading font-semibold mb-2">
+                      {isEs ? 'Habilidades que aprenderás:' : 'Skills you will learn:'}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {(sc.skills_learned || []).map(s => (
+                        <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant={isComp ? 'outline' : 'default'}
+                      className="flex-1"
+                      onClick={() => handleToggleCourse(sc.id)}
+                      disabled={toggleCompletion.isPending}
+                    >
+                      {isComp ? (
+                        <><CheckCircle2 className="h-4 w-4 mr-2" /> {isEs ? 'Completado ✓' : 'Completed ✓'}</>
+                      ) : (
+                        <><Circle className="h-4 w-4 mr-2" /> {isEs ? 'Marcar como completado' : 'Mark as completed'}</>
+                      )}
+                    </Button>
+                    {sc.external_url && (
+                      <Button variant="default" className="flex-1" asChild>
+                        <a href={sc.external_url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          {isEs ? 'Ir al Curso' : 'Go to Course'}
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
