@@ -192,6 +192,8 @@ const AcademyDashboard = () => {
     }
   };
 
+  const toolCategories = [...new Set(tools.map(t => t.category))];
+
 
   return (
     <div className="min-h-screen bg-background pt-20 pb-12">
