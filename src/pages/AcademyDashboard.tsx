@@ -23,6 +23,7 @@ import {
   useCourseProgress, useToggleCourseCompletion, useSharedPrompts,
   useCreateSharedPrompt, getExplorerLevel, EXPLORER_LEVELS,
   useTutorApplication, useSubmitTutorApplication,
+  useSubmitCourseAsTutor, useIncrementViews,
   type AcademyCourse
 } from '@/hooks/useAcademy';
 import CourseExam from '@/components/CourseExam';
