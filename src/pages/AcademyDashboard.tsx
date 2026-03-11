@@ -158,7 +158,40 @@ const AcademyDashboard = () => {
     );
   };
 
-  const toolCategories = [...new Set(tools.map(t => t.category))];
+  const handleSubmitCourse = () => {
+    if (!courseForm.title || !courseForm.external_url || !courseForm.path_id) return;
+    submitCourse.mutate(
+      {
+        title: courseForm.title,
+        description: courseForm.description,
+        external_url: courseForm.external_url,
+        thumbnail_url: courseForm.thumbnail_url || null,
+        duration_minutes: courseForm.duration_minutes,
+        skill_level: courseForm.skill_level,
+        language: courseForm.language,
+        skills_learned: courseForm.skills_learned.split(',').map(s => s.trim()).filter(Boolean),
+        path_id: courseForm.path_id,
+        category: selectedCategory || 'general',
+        platform: 'External',
+        instructor_name: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Tutor',
+      },
+      {
+        onSuccess: () => {
+          toast.success(isEs ? '¡Curso enviado! Será revisado por el equipo.' : 'Course submitted! It will be reviewed by the team.');
+          setShowCourseForm(false);
+          setSelectedCategory('');
+          setCourseForm({ title: '', description: '', external_url: '', thumbnail_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', path_id: '' });
+        },
+      }
+    );
+  };
+
+  const handleCourseClick = (course: AcademyCourse) => {
+    if (course.external_url) {
+      incrementViews.mutate(course.id);
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-background pt-20 pb-12">
