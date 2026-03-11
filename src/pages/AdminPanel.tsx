@@ -22,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 
 import { Textarea } from '@/components/ui/textarea';
 
-const tabs = ['Overview', 'Fund Releases', 'Withdrawals', 'Missions', 'Projects', 'Users', 'Payments', 'Revenue', 'Courses'] as const;
+const tabs = ['Overview', 'Fund Releases', 'Withdrawals', 'Missions', 'Projects', 'Users', 'Payments', 'Revenue', 'Courses', 'Tutors'] as const;
 type Tab = typeof tabs[number];
 const tabIcons: Record<Tab, any> = {
   Overview: BarChart3, 'Fund Releases': Banknote, Withdrawals: Wallet,
