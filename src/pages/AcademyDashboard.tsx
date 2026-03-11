@@ -81,6 +81,22 @@ const AcademyDashboard = () => {
   const [showTutorForm, setShowTutorForm] = useState(false);
   const [tutorForm, setTutorForm] = useState({ bio: '', expertise: '', portfolio_url: '' });
 
+  // Tutor course submission state
+  const [showCourseForm, setShowCourseForm] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [courseForm, setCourseForm] = useState({
+    title: '', description: '', external_url: '', thumbnail_url: '',
+    duration_minutes: 30, skill_level: 'beginner', language: 'en',
+    skills_learned: '', path_id: '',
+  });
+
+  const isTutor = tutorApp?.status === 'approved';
+
+  // Tutor's own courses
+  const tutorCourses = courses.filter(c => c.submitted_by === user?.id);
+  // Also get pending courses from all courses hook (includes non-published)
+  const { data: allTutorCourses = [] } = useAcademyCourses(); // published only for now
+
   const completedIds = new Set(progress.filter(p => p.completed).map(p => p.course_id));
   const completedCount = completedIds.size;
   const explorerLevel = getExplorerLevel(completedCount);
