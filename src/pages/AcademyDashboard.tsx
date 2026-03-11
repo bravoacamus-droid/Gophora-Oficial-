@@ -502,14 +502,14 @@ const AcademyDashboard = () => {
                        (isEs ? '⏳ En revisión' : '⏳ Under Review')}
                     </Badge>
                     <h3 className="font-heading font-bold text-lg mb-2">
-                      {tutorApp.status === 'approved'
-                        ? (isEs ? '¡Felicidades! Eres tutor de Dream Academy' : 'Congrats! You're a Dream Academy tutor')
+                    {tutorApp.status === 'approved'
+                        ? (isEs ? '¡Felicidades! Eres tutor de Dream Academy' : 'Congrats! You are a Dream Academy tutor')
                         : tutorApp.status === 'rejected'
                         ? (isEs ? 'Tu solicitud fue rechazada' : 'Your application was rejected')
                         : (isEs ? 'Solicitud enviada' : 'Application submitted')}
                     </h3>
                     {tutorApp.admin_note && (
-                      <p className="text-sm text-muted-foreground italic">"{tutorApp.admin_note}"</p>
+                      <p className="text-sm text-muted-foreground italic">{`"${tutorApp.admin_note}"`}</p>
                     )}
                     {tutorApp.status === 'approved' && (
                       <p className="text-sm text-muted-foreground mt-2">
