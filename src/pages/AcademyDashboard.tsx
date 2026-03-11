@@ -725,6 +725,95 @@ const AcademyDashboard = () => {
                             <Input value={courseForm.skills_learned} onChange={e => setCourseForm(f => ({ ...f, skills_learned: e.target.value }))} placeholder="Prompt Design, ..." />
                           </div>
                         </div>
+
+                        {/* Exam Questions Section */}
+                        <div className="border-t border-border/50 pt-4">
+                          <h4 className="font-heading font-bold text-sm mb-1 flex items-center gap-2">
+                            <GraduationCap className="h-4 w-4 text-primary" />
+                            {isEs ? 'Preguntas del Examen (mínimo 5) *' : 'Exam Questions (minimum 5) *'}
+                          </h4>
+                          <p className="text-[11px] text-muted-foreground mb-3">
+                            {isEs
+                              ? 'Cada pregunta debe tener 4 opciones y una respuesta correcta.'
+                              : 'Each question must have 4 options and one correct answer.'}
+                          </p>
+                          <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
+                            {examQuestions.map((eq, qi) => (
+                              <div key={qi} className="rounded-lg border border-border/50 p-3 space-y-2 bg-muted/20">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-heading font-bold text-muted-foreground">
+                                    {isEs ? `Pregunta ${qi + 1}` : `Question ${qi + 1}`}
+                                  </span>
+                                  {examQuestions.length > 5 && (
+                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive" onClick={() => {
+                                      setExamQuestions(prev => prev.filter((_, i) => i !== qi));
+                                    }}>×</Button>
+                                  )}
+                                </div>
+                                <Input
+                                  value={eq.question}
+                                  onChange={e => {
+                                    const updated = [...examQuestions];
+                                    updated[qi] = { ...updated[qi], question: e.target.value };
+                                    setExamQuestions(updated);
+                                  }}
+                                  placeholder={isEs ? 'Pregunta en inglés *' : 'Question in English *'}
+                                  className="text-sm"
+                                />
+                                <Input
+                                  value={eq.question_es}
+                                  onChange={e => {
+                                    const updated = [...examQuestions];
+                                    updated[qi] = { ...updated[qi], question_es: e.target.value };
+                                    setExamQuestions(updated);
+                                  }}
+                                  placeholder={isEs ? 'Pregunta en español' : 'Question in Spanish (optional)'}
+                                  className="text-sm"
+                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                  {eq.options.map((opt, oi) => (
+                                    <div key={oi} className="flex items-center gap-1">
+                                      <input
+                                        type="radio"
+                                        name={`correct-${qi}`}
+                                        checked={eq.correct_index === oi}
+                                        onChange={() => {
+                                          const updated = [...examQuestions];
+                                          updated[qi] = { ...updated[qi], correct_index: oi };
+                                          setExamQuestions(updated);
+                                        }}
+                                        className="accent-primary shrink-0"
+                                      />
+                                      <Input
+                                        value={opt}
+                                        onChange={e => {
+                                          const updated = [...examQuestions];
+                                          const newOpts = [...updated[qi].options];
+                                          newOpts[oi] = e.target.value;
+                                          updated[qi] = { ...updated[qi], options: newOpts };
+                                          setExamQuestions(updated);
+                                        }}
+                                        placeholder={`${String.fromCharCode(65 + oi)}. ${isEs ? 'Opción' : 'Option'}`}
+                                        className="text-xs h-8"
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {isEs ? '○ Selecciona la respuesta correcta' : '○ Select the correct answer'}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                          {examQuestions.length < 10 && (
+                            <Button variant="outline" size="sm" className="mt-2 w-full" onClick={() => {
+                              setExamQuestions(prev => [...prev, { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 }]);
+                            }}>
+                              + {isEs ? 'Agregar pregunta' : 'Add question'}
+                            </Button>
+                          )}
+                        </div>
+
                         <div className="flex gap-2 justify-end pt-2">
                           <Button variant="outline" onClick={() => { setShowCourseForm(false); setSelectedCategory(''); }}>
                             {isEs ? 'Cancelar' : 'Cancel'}
