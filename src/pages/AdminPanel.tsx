@@ -26,7 +26,7 @@ const tabs = ['Overview', 'Fund Releases', 'Withdrawals', 'Missions', 'Projects'
 type Tab = typeof tabs[number];
 const tabIcons: Record<Tab, any> = {
   Overview: BarChart3, 'Fund Releases': Banknote, Withdrawals: Wallet,
-  Missions: Zap, Projects: FolderOpen, Users, Payments: CreditCard, Revenue: DollarSign, Courses: GraduationCap
+  Missions: Zap, Projects: FolderOpen, Users, Payments: CreditCard, Revenue: DollarSign, Courses: GraduationCap, Tutors: UserCheck
 };
 
 const AdminPanel = () => {
