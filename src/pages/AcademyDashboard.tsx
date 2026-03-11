@@ -27,6 +27,7 @@ import {
   type AcademyCourse
 } from '@/hooks/useAcademy';
 import CourseExam from '@/components/CourseExam';
+import YouTubeVideoPlayer, { isYouTubeUrl, extractYouTubeId, getYouTubeThumbnail } from '@/components/YouTubeVideoPlayer';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
