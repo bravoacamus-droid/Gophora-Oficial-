@@ -1163,7 +1163,11 @@ const AcademyDashboard = () => {
                           href={isYouTubeUrl(sc.external_url) ? `https://www.youtube.com/watch?v=${extractYouTubeId(sc.external_url)}` : sc.external_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          onClick={() => handleCourseClick(sc)}
+                          onClick={() => {
+                            handleCourseClick(sc);
+                            // Close dialog to stop video playback
+                            setSelectedCourse(null);
+                          }}
                         >
                           <ExternalLink className="h-4 w-4 mr-2" />
                           {isYouTubeUrl(sc.external_url) ? (isEs ? 'Abrir en YouTube' : 'Open on YouTube') : (isEs ? 'Ir al Curso' : 'Go to Course')}
