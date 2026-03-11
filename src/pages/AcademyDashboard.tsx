@@ -342,11 +342,16 @@ const AcademyDashboard = () => {
                 />
               </div>
               <Select value={courseFilter} onValueChange={setCourseFilter}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder={isEs ? 'Categoría' : 'Category'} />
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder={isEs ? 'Filtrar' : 'Filter'} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{isEs ? 'Todos' : 'All'}</SelectItem>
+                  <SelectItem value="ai-basics">{isEs ? 'Fundamentos IA' : 'AI Basics'}</SelectItem>
+                  <SelectItem value="ai-productivity">{isEs ? 'Productividad IA' : 'AI Productivity'}</SelectItem>
+                  <SelectItem value="ai-automation">{isEs ? 'Automatización IA' : 'AI Automation'}</SelectItem>
+                  <SelectItem value="ai-content-creation">{isEs ? 'Creación de Contenido IA' : 'AI Content Creation'}</SelectItem>
+                  <SelectItem value="ai-development">{isEs ? 'Desarrollo IA' : 'AI Development'}</SelectItem>
                   <SelectItem value="beginner">{isEs ? 'Principiante' : 'Beginner'}</SelectItem>
                   <SelectItem value="intermediate">{isEs ? 'Intermedio' : 'Intermediate'}</SelectItem>
                   <SelectItem value="advanced">{isEs ? 'Avanzado' : 'Advanced'}</SelectItem>
