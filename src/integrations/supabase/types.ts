@@ -17,57 +17,84 @@ export type Database = {
       academy_courses: {
         Row: {
           category: string | null
+          course_status: string
           created_at: string
           description: string | null
           description_es: string | null
           duration_minutes: number | null
           external_url: string | null
+          featured: boolean | null
           id: string
+          instructor_avatar: string | null
+          instructor_name: string | null
           language: string
           path_id: string
           platform: string | null
+          rating: number | null
+          rating_count: number | null
           skill_level: string
           skills_learned: string[] | null
           sort_order: number | null
+          submitted_by: string | null
+          thumbnail_url: string | null
           title: string
           title_es: string | null
           tool: string | null
+          views_count: number | null
         }
         Insert: {
           category?: string | null
+          course_status?: string
           created_at?: string
           description?: string | null
           description_es?: string | null
           duration_minutes?: number | null
           external_url?: string | null
+          featured?: boolean | null
           id?: string
+          instructor_avatar?: string | null
+          instructor_name?: string | null
           language?: string
           path_id: string
           platform?: string | null
+          rating?: number | null
+          rating_count?: number | null
           skill_level?: string
           skills_learned?: string[] | null
           sort_order?: number | null
+          submitted_by?: string | null
+          thumbnail_url?: string | null
           title: string
           title_es?: string | null
           tool?: string | null
+          views_count?: number | null
         }
         Update: {
           category?: string | null
+          course_status?: string
           created_at?: string
           description?: string | null
           description_es?: string | null
           duration_minutes?: number | null
           external_url?: string | null
+          featured?: boolean | null
           id?: string
+          instructor_avatar?: string | null
+          instructor_name?: string | null
           language?: string
           path_id?: string
           platform?: string | null
+          rating?: number | null
+          rating_count?: number | null
           skill_level?: string
           skills_learned?: string[] | null
           sort_order?: number | null
+          submitted_by?: string | null
+          thumbnail_url?: string | null
           title?: string
           title_es?: string | null
           tool?: string | null
+          views_count?: number | null
         }
         Relationships: [
           {
@@ -181,6 +208,30 @@ export type Database = {
           url?: string | null
           use_cases?: string[] | null
           use_cases_es?: string[] | null
+        }
+        Relationships: []
+      }
+      course_ratings: {
+        Row: {
+          course_id: string
+          created_at: string
+          id: string
+          rating: number
+          user_id: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          id?: string
+          rating: number
+          user_id: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          id?: string
+          rating?: number
+          user_id?: string
         }
         Relationships: []
       }
@@ -463,6 +514,45 @@ export type Database = {
         }
         Relationships: []
       }
+      tutor_applications: {
+        Row: {
+          admin_note: string | null
+          bio: string
+          created_at: string
+          expertise: string[] | null
+          id: string
+          portfolio_url: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          admin_note?: string | null
+          bio: string
+          created_at?: string
+          expertise?: string[] | null
+          id?: string
+          portfolio_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          admin_note?: string | null
+          bio?: string
+          created_at?: string
+          expertise?: string[] | null
+          id?: string
+          portfolio_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -549,7 +639,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "moderator" | "user"
+      app_role: "admin" | "moderator" | "user" | "tutor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -677,7 +767,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "moderator", "user"],
+      app_role: ["admin", "moderator", "user", "tutor"],
     },
   },
 } as const

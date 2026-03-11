@@ -28,6 +28,15 @@ export interface AcademyCourse {
   category: string;
   tool: string | null;
   sort_order: number;
+  thumbnail_url: string | null;
+  instructor_name: string | null;
+  instructor_avatar: string | null;
+  views_count: number;
+  rating: number;
+  rating_count: number;
+  course_status: string;
+  submitted_by: string | null;
+  featured: boolean;
 }
 
 export interface AcademyTool {
@@ -51,12 +60,24 @@ export interface CourseProgress {
   completed_at: string | null;
 }
 
+export interface TutorApplication {
+  id: string;
+  user_id: string;
+  bio: string;
+  expertise: string[];
+  portfolio_url: string | null;
+  status: string;
+  reviewed_at: string | null;
+  admin_note: string | null;
+  created_at: string;
+}
+
 export const EXPLORER_LEVELS = [
-  { level: 1, name: 'AI Beginner', name_es: 'Principiante IA', minCourses: 0, multiplier: 1.0 },
-  { level: 2, name: 'Prompt Explorer', name_es: 'Explorador de Prompts', minCourses: 3, multiplier: 1.5 },
-  { level: 3, name: 'Automation Builder', name_es: 'Constructor de Automatización', minCourses: 7, multiplier: 2.0 },
-  { level: 4, name: 'AI Operator', name_es: 'Operador de IA', minCourses: 12, multiplier: 2.5 },
-  { level: 5, name: 'Mission Architect', name_es: 'Arquitecto de Misiones', minCourses: 18, multiplier: 3.0 },
+  { level: 1, name: 'Rookie Explorer', name_es: 'Explorador Novato', minCourses: 0, multiplier: 1.0 },
+  { level: 2, name: 'Mission Specialist', name_es: 'Especialista de Misiones', minCourses: 3, multiplier: 1.5 },
+  { level: 3, name: 'Automation Operator', name_es: 'Operador de Automatización', minCourses: 7, multiplier: 2.0 },
+  { level: 4, name: 'AI Navigator', name_es: 'Navegador de IA', minCourses: 12, multiplier: 2.5 },
+  { level: 5, name: 'Elite Explorer', name_es: 'Explorador Élite', minCourses: 18, multiplier: 3.0 },
 ];
 
 export function getExplorerLevel(completedCourses: number) {
@@ -71,7 +92,6 @@ export function getExplorerLevel(completedCourses: number) {
   return { ...current, progressToNext: Math.min(progressToNext, 100), nextLevel };
 }
 
-// Helper to bypass TypeScript checks for new tables not yet in generated types
 const db = supabase as any;
 
 export function useAcademyPaths() {
@@ -95,7 +115,22 @@ export function useAcademyCourses() {
       const { data, error } = await db
         .from('academy_courses')
         .select('*')
+        .eq('course_status', 'published')
         .order('sort_order');
+      if (error) throw error;
+      return (data || []) as AcademyCourse[];
+    },
+  });
+}
+
+export function useAllAcademyCourses() {
+  return useQuery({
+    queryKey: ['academy-courses-all'],
+    queryFn: async () => {
+      const { data, error } = await db
+        .from('academy_courses')
+        .select('*')
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return (data || []) as AcademyCourse[];
     },
@@ -193,6 +228,80 @@ export function useCreateSharedPrompt() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shared-prompts'] });
+    },
+  });
+}
+
+export function useTutorApplication() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['tutor-application', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data, error } = await db
+        .from('tutor_applications')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as TutorApplication | null;
+    },
+    enabled: !!user,
+  });
+}
+
+export function useSubmitTutorApplication() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ bio, expertise, portfolio_url }: { bio: string; expertise: string[]; portfolio_url?: string }) => {
+      if (!user) throw new Error('Not authenticated');
+      const { error } = await db
+        .from('tutor_applications')
+        .insert({ user_id: user.id, bio, expertise, portfolio_url });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tutor-application'] });
+    },
+  });
+}
+
+export function useSubmitCourseAsTutor() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (course: Partial<AcademyCourse> & { title: string; path_id: string }) => {
+      if (!user) throw new Error('Not authenticated');
+      const { error } = await db
+        .from('academy_courses')
+        .insert({
+          ...course,
+          submitted_by: user.id,
+          course_status: 'pending_review',
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['academy-courses'] });
+      queryClient.invalidateQueries({ queryKey: ['academy-courses-all'] });
+    },
+  });
+}
+
+export function useIncrementViews() {
+  return useMutation({
+    mutationFn: async (courseId: string) => {
+      const { error } = await db.rpc('increment_course_views', { _course_id: courseId });
+      if (error) {
+        // Fallback: direct update
+        await db
+          .from('academy_courses')
+          .update({ views_count: db.raw('views_count + 1') })
+          .eq('id', courseId);
+      }
     },
   });
 }

@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   Users, FolderOpen, Zap, DollarSign, BarChart3, CheckCircle, XCircle, Ban, UserCheck,
   CreditCard, Banknote, ExternalLink, Wallet, Building2, Bitcoin, CalendarIcon, Search, X,
-  Download, Image, ChevronDown, ChevronUp, FileText, Clock, ArrowRight, Eye, GraduationCap, Plus, Trash2
+  Download, Image, ChevronDown, ChevronUp, FileText, Clock, ArrowRight, Eye, GraduationCap, Plus, Trash2, Star
 } from 'lucide-react';
 import { format, startOfDay, endOfDay, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -22,11 +22,11 @@ import { Badge } from '@/components/ui/badge';
 
 import { Textarea } from '@/components/ui/textarea';
 
-const tabs = ['Overview', 'Fund Releases', 'Withdrawals', 'Missions', 'Projects', 'Users', 'Payments', 'Revenue', 'Courses'] as const;
+const tabs = ['Overview', 'Fund Releases', 'Withdrawals', 'Missions', 'Projects', 'Users', 'Payments', 'Revenue', 'Courses', 'Tutors'] as const;
 type Tab = typeof tabs[number];
 const tabIcons: Record<Tab, any> = {
   Overview: BarChart3, 'Fund Releases': Banknote, Withdrawals: Wallet,
-  Missions: Zap, Projects: FolderOpen, Users, Payments: CreditCard, Revenue: DollarSign, Courses: GraduationCap
+  Missions: Zap, Projects: FolderOpen, Users, Payments: CreditCard, Revenue: DollarSign, Courses: GraduationCap, Tutors: UserCheck
 };
 
 const AdminPanel = () => {
@@ -51,11 +51,14 @@ const AdminPanel = () => {
   // Courses management state
   const [adminCourses, setAdminCourses] = useState<any[]>([]);
   const [academyPaths, setAcademyPaths] = useState<any[]>([]);
+  const [tutorApplications, setTutorApplications] = useState<any[]>([]);
   const [showAddCourse, setShowAddCourse] = useState(false);
+  const [courseStatusFilter, setCourseStatusFilter] = useState<string>('all');
   const [newCourse, setNewCourse] = useState({
     title: '', title_es: '', description: '', description_es: '', platform: '',
     external_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en',
     skills_learned: '', category: 'general', tool: '', path_id: '', sort_order: 0,
+    instructor_name: '', thumbnail_url: '', featured: false,
   });
 
   // Withdrawal filters
@@ -151,16 +154,18 @@ const AdminPanel = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [statsData, usersData, projectsData, missionsData, releasesData, withdrawalsData, paymentsData, coursesData, pathsData] = await Promise.all([
+      const [statsData, usersData, projectsData, missionsData, releasesData, withdrawalsData, paymentsData, coursesData, pathsData, tutorData] = await Promise.all([
         adminCall('get_stats'), adminCall('get_users'), adminCall('get_projects'),
         adminCall('get_missions'), adminCall('get_pending_releases'),
         adminCall('get_withdrawals'), adminCall('get_payment_history'),
         adminCall('get_academy_courses'), adminCall('get_academy_paths'),
+        adminCall('get_tutor_applications'),
       ]);
       setStats(statsData); setUsers(usersData); setProjects(projectsData);
       setMissions(missionsData); setPendingReleases(releasesData || []);
       setWithdrawalRequests(withdrawalsData || []); setPaymentHistory(paymentsData || []);
       setAdminCourses(coursesData || []); setAcademyPaths(pathsData || []);
+      setTutorApplications(tutorData || []);
     } catch (err: any) {
       console.error('Admin load error:', err);
       toast.error(err.message || 'Failed to load admin data');
@@ -211,7 +216,7 @@ const AdminPanel = () => {
       });
       toast.success('Curso agregado');
       setShowAddCourse(false);
-      setNewCourse({ title: '', title_es: '', description: '', description_es: '', platform: '', external_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', category: 'general', tool: '', path_id: '', sort_order: 0 });
+      setNewCourse({ title: '', title_es: '', description: '', description_es: '', platform: '', external_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', category: 'general', tool: '', path_id: '', sort_order: 0, instructor_name: '', thumbnail_url: '', featured: false });
       loadData();
     } catch (err: any) { toast.error(err.message); }
   };
@@ -1057,6 +1062,49 @@ const AdminPanel = () => {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── TUTORS TAB ── */}
+          {activeTab === 'Tutors' && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-heading font-bold flex items-center gap-2">
+                <UserCheck className="h-5 w-5 text-primary" /> Solicitudes de Tutor ({tutorApplications.length})
+              </h2>
+              <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+                {tutorApplications.length === 0 ? (
+                  <div className="p-12 text-center text-muted-foreground font-body">No hay solicitudes de tutor</div>
+                ) : (
+                  <div className="divide-y divide-border/50">
+                    {tutorApplications.map((app: any) => (
+                      <div key={app.id} className="p-5 space-y-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="font-heading font-semibold text-sm">{app.email || app.user_id}</p>
+                            {app.full_name && <p className="text-xs text-muted-foreground">{app.full_name}</p>}
+                            <p className="text-sm mt-2">{app.bio}</p>
+                          </div>
+                          <div>{statusBadge(app.status)}</div>
+                        </div>
+                        {app.status === 'pending' && (
+                          <div className="flex gap-2 justify-end">
+                            <Button size="sm" className="gap-1 text-xs font-heading" onClick={async () => {
+                              try { await adminCall('review_tutor', { application_id: app.id, status: 'approved' }); toast.success('Tutor aprobado'); loadData(); } catch (err: any) { toast.error(err.message); }
+                            }}>
+                              <CheckCircle className="h-3 w-3" /> Aprobar
+                            </Button>
+                            <Button size="sm" variant="outline" className="gap-1 text-xs font-heading text-destructive" onClick={async () => {
+                              try { await adminCall('review_tutor', { application_id: app.id, status: 'rejected' }); toast.success('Tutor rechazado'); loadData(); } catch (err: any) { toast.error(err.message); }
+                            }}>
+                              <XCircle className="h-3 w-3" /> Rechazar
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -15,12 +15,14 @@ import {
   BookOpen, Search, ExternalLink, CheckCircle2, Circle, Clock,
   Wrench, Share2, MessageSquare, TrendingUp, Target, Award,
   GraduationCap, Flame, Shield, Bot, Image, Video, PenTool,
-  FileText, GitBranch, Workflow, Globe
+  FileText, GitBranch, Workflow, Globe, Eye, ThumbsUp, Play,
+  Users, Sparkles, Upload
 } from 'lucide-react';
 import {
   useAcademyPaths, useAcademyCourses, useAcademyTools,
   useCourseProgress, useToggleCourseCompletion, useSharedPrompts,
   useCreateSharedPrompt, getExplorerLevel, EXPLORER_LEVELS,
+  useTutorApplication, useSubmitTutorApplication,
   type AcademyCourse
 } from '@/hooks/useAcademy';
 import CourseExam from '@/components/CourseExam';
@@ -58,10 +60,12 @@ const AcademyDashboard = () => {
   const { data: tools = [] } = useAcademyTools();
   const { data: progress = [] } = useCourseProgress();
   const { data: prompts = [] } = useSharedPrompts();
+  const { data: tutorApp } = useTutorApplication();
   const toggleCompletion = useToggleCourseCompletion();
   const createPrompt = useCreateSharedPrompt();
+  const submitTutorApp = useSubmitTutorApplication();
 
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('courses');
   const [courseSearch, setCourseSearch] = useState('');
   const [courseFilter, setCourseFilter] = useState('all');
   const [toolFilter, setToolFilter] = useState('all');
@@ -69,6 +73,10 @@ const AcademyDashboard = () => {
   const [newPrompt, setNewPrompt] = useState({ title: '', content: '', category: 'general' });
   const [selectedCourse, setSelectedCourse] = useState<AcademyCourse | null>(null);
   const [showExam, setShowExam] = useState(false);
+
+  // Tutor application state
+  const [showTutorForm, setShowTutorForm] = useState(false);
+  const [tutorForm, setTutorForm] = useState({ bio: '', expertise: '', portfolio_url: '' });
 
   const completedIds = new Set(progress.filter(p => p.completed).map(p => p.course_id));
   const completedCount = completedIds.size;
@@ -90,9 +98,8 @@ const AcademyDashboard = () => {
     return matchSearch && matchFilter && matchLang;
   });
 
-  const filteredTools = tools.filter(t =>
-    toolFilter === 'all' || t.category === toolFilter
-  );
+  const featuredCourses = courses.filter(c => c.featured);
+  const filteredTools = tools.filter(t => toolFilter === 'all' || t.category === toolFilter);
 
   const handleExamPass = (courseId: string) => {
     toggleCompletion.mutate(
@@ -115,72 +122,66 @@ const AcademyDashboard = () => {
     });
   };
 
-  const toolCategories = [...new Set(tools.map(t => t.category))];
+  const handleTutorApply = () => {
+    if (!tutorForm.bio) return;
+    submitTutorApp.mutate(
+      {
+        bio: tutorForm.bio,
+        expertise: tutorForm.expertise.split(',').map(s => s.trim()).filter(Boolean),
+        portfolio_url: tutorForm.portfolio_url || undefined,
+      },
+      {
+        onSuccess: () => {
+          setShowTutorForm(false);
+          toast.success(isEs ? '¡Solicitud enviada! Revisaremos tu perfil.' : 'Application submitted! We will review your profile.');
+        },
+      }
+    );
+  };
 
-  // Language toggle component
-  const LanguageToggle = ({ value, onChange }: { value: 'all' | 'en' | 'es'; onChange: (v: 'all' | 'en' | 'es') => void }) => (
-    <div className="flex items-center gap-1 rounded-lg border border-border p-1 bg-muted/50">
-      <button
-        onClick={() => onChange('all')}
-        className={`px-3 py-1.5 rounded-md text-xs font-heading font-semibold transition-all flex items-center gap-1 ${
-          value === 'all' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-        }`}
-      >
-        <Globe className="h-3 w-3" /> {isEs ? 'Todos' : 'All'}
-      </button>
-      <button
-        onClick={() => onChange('en')}
-        className={`px-3 py-1.5 rounded-md text-xs font-heading font-semibold transition-all ${
-          value === 'en' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-        }`}
-      >
-        🇺🇸 English
-      </button>
-      <button
-        onClick={() => onChange('es')}
-        className={`px-3 py-1.5 rounded-md text-xs font-heading font-semibold transition-all ${
-          value === 'es' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-        }`}
-      >
-        🇪🇸 Español
-      </button>
-    </div>
-  );
+  const toolCategories = [...new Set(tools.map(t => t.category))];
 
   return (
     <div className="min-h-screen bg-background pt-20 pb-12">
       {/* Hero Banner */}
       <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-primary/5 border-b border-border/50">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.15),transparent_60%)]" />
-        <div className="container relative py-10">
+        <div className="container relative py-8 md:py-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6"
+            className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6"
           >
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <Rocket className="h-8 w-8 text-primary" />
-                <h1 className="text-3xl md:text-4xl font-heading font-bold tracking-tight">
-                  Gophora Dream Academy
-                </h1>
+            <div className="max-w-2xl">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Rocket className="h-7 w-7 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-heading font-bold tracking-tight">
+                    Dream Academy
+                  </h1>
+                  <p className="text-xs text-muted-foreground font-heading uppercase tracking-widest">
+                    {isEs ? 'Ecosistema de Aprendizaje en IA' : 'AI Learning Ecosystem'}
+                  </p>
+                </div>
               </div>
-              <p className="text-muted-foreground max-w-xl">
+              <p className="text-muted-foreground text-sm md:text-base">
                 {isEs
-                  ? 'Entrena para completar misiones 3X más rápido con herramientas de IA.'
-                  : 'Train to complete missions 3X faster with AI tools.'}
+                  ? 'Domina la productividad con IA. Cursos gratuitos de automatización, prompt engineering y herramientas de IA.'
+                  : 'Master AI productivity. Free courses on automation, prompt engineering and AI tools.'}
               </p>
             </div>
 
-            {/* Level Badge */}
-            <Card className="bg-card/80 backdrop-blur border-primary/20 min-w-[260px]">
+            {/* Level Card */}
+            <Card className="bg-card/80 backdrop-blur border-primary/20 min-w-[240px]">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                     <LevelIcon className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground font-heading uppercase tracking-wider">
+                    <p className="text-[10px] text-muted-foreground font-heading uppercase tracking-wider">
                       {isEs ? 'Nivel' : 'Level'} {explorerLevel.level}
                     </p>
                     <p className="font-heading font-bold text-sm">
@@ -190,9 +191,8 @@ const AcademyDashboard = () => {
                 </div>
                 <Progress value={explorerLevel.progressToNext} className="h-2" />
                 {explorerLevel.nextLevel && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {completedCount}/{explorerLevel.nextLevel.minCourses} {isEs ? 'cursos para' : 'courses to'}{' '}
-                    {isEs ? explorerLevel.nextLevel.name_es : explorerLevel.nextLevel.name}
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {completedCount}/{explorerLevel.nextLevel.minCourses} → {isEs ? explorerLevel.nextLevel.name_es : explorerLevel.nextLevel.name}
                   </p>
                 )}
               </CardContent>
@@ -203,173 +203,55 @@ const AcademyDashboard = () => {
 
       <div className="container mt-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-3 md:grid-cols-7 gap-1 h-auto p-1">
-            <TabsTrigger value="dashboard" className="text-xs font-heading">
-              <Target className="h-3.5 w-3.5 mr-1" /> {isEs ? 'Panel' : 'Dashboard'}
-            </TabsTrigger>
-            <TabsTrigger value="paths" className="text-xs font-heading">
-              <BookOpen className="h-3.5 w-3.5 mr-1" /> {isEs ? 'Rutas' : 'Paths'}
-            </TabsTrigger>
-            <TabsTrigger value="courses" className="text-xs font-heading">
-              <GraduationCap className="h-3.5 w-3.5 mr-1" /> {isEs ? 'Cursos' : 'Courses'}
-            </TabsTrigger>
-            <TabsTrigger value="toolkit" className="text-xs font-heading">
-              <Wrench className="h-3.5 w-3.5 mr-1" /> Toolkit
-            </TabsTrigger>
-            <TabsTrigger value="unlocks" className="text-xs font-heading">
-              <Star className="h-3.5 w-3.5 mr-1" /> Unlocks
-            </TabsTrigger>
-            <TabsTrigger value="progress" className="text-xs font-heading">
-              <TrendingUp className="h-3.5 w-3.5 mr-1" /> {isEs ? 'Progreso' : 'Progress'}
-            </TabsTrigger>
-            <TabsTrigger value="community" className="text-xs font-heading">
-              <Share2 className="h-3.5 w-3.5 mr-1" /> {isEs ? 'Comunidad' : 'Community'}
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+            <TabsList className="h-auto p-1 flex-wrap">
+              <TabsTrigger value="courses" className="text-xs font-heading gap-1.5">
+                <Play className="h-3.5 w-3.5" /> {isEs ? 'Cursos' : 'Courses'}
+              </TabsTrigger>
+              <TabsTrigger value="paths" className="text-xs font-heading gap-1.5">
+                <BookOpen className="h-3.5 w-3.5" /> {isEs ? 'Rutas' : 'Paths'}
+              </TabsTrigger>
+              <TabsTrigger value="toolkit" className="text-xs font-heading gap-1.5">
+                <Wrench className="h-3.5 w-3.5" /> Toolkit
+              </TabsTrigger>
+              <TabsTrigger value="progress" className="text-xs font-heading gap-1.5">
+                <TrendingUp className="h-3.5 w-3.5" /> {isEs ? 'Progreso' : 'Progress'}
+              </TabsTrigger>
+              <TabsTrigger value="teach" className="text-xs font-heading gap-1.5">
+                <Upload className="h-3.5 w-3.5" /> {isEs ? 'Enseñar' : 'Teach'}
+              </TabsTrigger>
+              <TabsTrigger value="community" className="text-xs font-heading gap-1.5">
+                <Share2 className="h-3.5 w-3.5" /> {isEs ? 'Comunidad' : 'Community'}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-          {/* 1. DASHBOARD */}
-          <TabsContent value="dashboard" className="mt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <StatCard
-                icon={<Trophy className="h-5 w-5 text-primary" />}
-                label={isEs ? 'Nivel de IA' : 'AI Level'}
-                value={isEs ? explorerLevel.name_es : explorerLevel.name}
-              />
-              <StatCard
-                icon={<CheckCircle2 className="h-5 w-5 text-emerald-500" />}
-                label={isEs ? 'Exámenes aprobados' : 'Exams Passed'}
-                value={`${completedCount}/${courses.length}`}
-              />
-              <StatCard
-                icon={<Zap className="h-5 w-5 text-amber-500" />}
-                label={isEs ? 'Habilidades desbloqueadas' : 'Skills Unlocked'}
-                value={String(skillsUnlocked.size)}
-              />
-              <StatCard
-                icon={<Rocket className="h-5 w-5 text-primary" />}
-                label={isEs ? 'Multiplicador' : 'Productivity'}
-                value={`${explorerLevel.multiplier}x`}
-              />
-            </div>
-
-            {/* Level Progression */}
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle className="font-heading text-lg flex items-center gap-2">
-                  <Award className="h-5 w-5 text-primary" />
-                  {isEs ? 'Niveles de Explorador' : 'Explorer Levels'}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-                  {EXPLORER_LEVELS.map((level, i) => {
-                    const Icon = levelIcons[i];
-                    const isCurrentOrPast = explorerLevel.level >= level.level;
-                    return (
-                      <div
-                        key={level.level}
-                        className={`rounded-lg border p-3 text-center transition-all ${
-                          explorerLevel.level === level.level
-                            ? 'border-primary bg-primary/5 shadow-sm'
-                            : isCurrentOrPast
-                            ? 'border-border/50 bg-muted/30'
-                            : 'border-border/30 opacity-50'
-                        }`}
-                      >
-                        <Icon className={`h-6 w-6 mx-auto mb-1 ${isCurrentOrPast ? 'text-primary' : 'text-muted-foreground'}`} />
-                        <p className="font-heading text-xs font-bold">Lv.{level.level}</p>
-                        <p className="text-[10px] text-muted-foreground">{isEs ? level.name_es : level.name}</p>
-                        <p className="text-[10px] text-primary font-semibold mt-1">{level.multiplier}x</p>
-                      </div>
-                    );
-                  })}
+          {/* ── COURSES TAB (YouTube-style) ── */}
+          <TabsContent value="courses" className="mt-2">
+            {/* Featured Section */}
+            {featuredCourses.length > 0 && (
+              <div className="mb-8">
+                <h2 className="text-lg font-heading font-bold mb-4 flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  {isEs ? 'Destacados' : 'Featured'}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {featuredCourses.slice(0, 3).map(course => (
+                    <CourseVideoCard
+                      key={course.id}
+                      course={course}
+                      isEs={isEs}
+                      completed={completedIds.has(course.id)}
+                      onOpen={() => setSelectedCourse(course)}
+                      featured
+                    />
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            )}
 
-            {/* Quick Access Paths */}
-            <h3 className="font-heading font-bold mb-3">{isEs ? 'Rutas de Aprendizaje' : 'Learning Paths'}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {paths.map(path => {
-                const pathCourses = courses.filter(c => c.path_id === path.id);
-                const pathCompleted = pathCourses.filter(c => completedIds.has(c.id)).length;
-                const pct = pathCourses.length ? (pathCompleted / pathCourses.length) * 100 : 0;
-                return (
-                  <Card
-                    key={path.id}
-                    className="cursor-pointer hover:border-primary/30 transition-all"
-                    onClick={() => setActiveTab('paths')}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                          {iconMap[path.icon] || <BookOpen className="h-5 w-5" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-heading font-bold text-sm truncate">
-                            {isEs ? path.title_es || path.title : path.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {pathCompleted}/{pathCourses.length} {isEs ? 'aprobados' : 'passed'}
-                          </p>
-                        </div>
-                      </div>
-                      <Progress value={pct} className="h-1.5" />
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </TabsContent>
-
-          {/* 2. LEARNING PATHS */}
-          <TabsContent value="paths" className="mt-6 space-y-6">
-            <div className="flex justify-end mb-2">
-              <LanguageToggle value={courseLangFilter} onChange={setCourseLangFilter} />
-            </div>
-            {paths.map(path => {
-              const pathCourses = courses
-                .filter(c => c.path_id === path.id)
-                .filter(c => courseLangFilter === 'all' || c.language === courseLangFilter);
-              if (pathCourses.length === 0) return null;
-              return (
-                <Card key={path.id}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        {iconMap[path.icon] || <BookOpen className="h-5 w-5" />}
-                      </div>
-                      <div>
-                        <CardTitle className="font-heading text-lg">
-                          {isEs ? path.title_es || path.title : path.title}
-                        </CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                          {isEs ? path.description_es || path.description : path.description}
-                        </p>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {pathCourses.map(course => (
-                        <CourseRow
-                          key={course.id}
-                          course={course}
-                          isEs={isEs}
-                          completed={completedIds.has(course.id)}
-                          onOpen={() => setSelectedCourse(course)}
-                        />
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </TabsContent>
-
-          {/* 3. COURSE LIBRARY */}
-          <TabsContent value="courses" className="mt-6">
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            {/* Search & Filters */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -380,26 +262,23 @@ const AcademyDashboard = () => {
                 />
               </div>
               <Select value={courseFilter} onValueChange={setCourseFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter" />
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder={isEs ? 'Categoría' : 'Category'} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{isEs ? 'Todos los niveles' : 'All Levels'}</SelectItem>
+                  <SelectItem value="all">{isEs ? 'Todos' : 'All'}</SelectItem>
                   <SelectItem value="beginner">{isEs ? 'Principiante' : 'Beginner'}</SelectItem>
                   <SelectItem value="intermediate">{isEs ? 'Intermedio' : 'Intermediate'}</SelectItem>
                   <SelectItem value="advanced">{isEs ? 'Avanzado' : 'Advanced'}</SelectItem>
                 </SelectContent>
               </Select>
+              <LanguageToggle value={courseLangFilter} onChange={setCourseLangFilter} isEs={isEs} />
             </div>
 
-            {/* Language Toggle */}
-            <div className="flex justify-center mb-6">
-              <LanguageToggle value={courseLangFilter} onChange={setCourseLangFilter} />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Course Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {filteredCourses.map(course => (
-                <CourseCard
+                <CourseVideoCard
                   key={course.id}
                   course={course}
                   isEs={isEs}
@@ -409,14 +288,63 @@ const AcademyDashboard = () => {
               ))}
             </div>
             {filteredCourses.length === 0 && (
-              <p className="text-center text-muted-foreground py-12">
-                {isEs ? 'No se encontraron cursos.' : 'No courses found.'}
-              </p>
+              <div className="text-center py-16">
+                <Search className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-muted-foreground font-heading">
+                  {isEs ? 'No se encontraron cursos.' : 'No courses found.'}
+                </p>
+              </div>
             )}
           </TabsContent>
 
-          {/* 4. AI TOOLKIT */}
-          <TabsContent value="toolkit" className="mt-6">
+          {/* ── LEARNING PATHS ── */}
+          <TabsContent value="paths" className="mt-4 space-y-6">
+            {paths.map(path => {
+              const pathCourses = courses
+                .filter(c => c.path_id === path.id)
+                .filter(c => courseLangFilter === 'all' || c.language === courseLangFilter);
+              const pathCompleted = pathCourses.filter(c => completedIds.has(c.id)).length;
+              const pct = pathCourses.length ? (pathCompleted / pathCourses.length) * 100 : 0;
+              if (pathCourses.length === 0) return null;
+              return (
+                <Card key={path.id} className="overflow-hidden">
+                  <div className="bg-gradient-to-r from-primary/5 to-transparent p-5 border-b border-border/50">
+                    <div className="flex items-center gap-3">
+                      <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center">
+                        {iconMap[path.icon] || <BookOpen className="h-5 w-5" />}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-heading font-bold">
+                          {isEs ? path.title_es || path.title : path.title}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {pathCompleted}/{pathCourses.length} {isEs ? 'completados' : 'completed'} · {Math.round(pct)}%
+                        </p>
+                      </div>
+                    </div>
+                    <Progress value={pct} className="h-1.5 mt-3" />
+                  </div>
+                  <CardContent className="p-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {pathCourses.map(course => (
+                        <CourseVideoCard
+                          key={course.id}
+                          course={course}
+                          isEs={isEs}
+                          completed={completedIds.has(course.id)}
+                          onOpen={() => setSelectedCourse(course)}
+                          compact
+                        />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </TabsContent>
+
+          {/* ── TOOLKIT ── */}
+          <TabsContent value="toolkit" className="mt-4">
             <div className="flex gap-2 mb-6 flex-wrap">
               <Button
                 variant={toolFilter === 'all' ? 'default' : 'outline'}
@@ -457,13 +385,10 @@ const AcademyDashboard = () => {
                     <p className="text-xs text-muted-foreground mb-3">
                       {isEs ? tool.description_es || tool.description : tool.description}
                     </p>
-                    <div className="space-y-1 mb-3">
-                      <p className="text-xs font-heading font-semibold">{isEs ? 'Casos de uso:' : 'Use cases:'}</p>
-                      <div className="flex flex-wrap gap-1">
-                        {(isEs ? tool.use_cases_es || tool.use_cases : tool.use_cases).map((uc, i) => (
-                          <Badge key={i} variant="secondary" className="text-[10px]">{uc}</Badge>
-                        ))}
-                      </div>
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {(isEs ? tool.use_cases_es || tool.use_cases : tool.use_cases).map((uc, i) => (
+                        <Badge key={i} variant="secondary" className="text-[10px]">{uc}</Badge>
+                      ))}
                     </div>
                     {tool.url && (
                       <Button variant="outline" size="sm" className="w-full text-xs" asChild>
@@ -479,106 +404,52 @@ const AcademyDashboard = () => {
             </div>
           </TabsContent>
 
-          {/* 5. MISSION UNLOCKS */}
-          <TabsContent value="unlocks" className="mt-6">
-            <div className="space-y-4">
-              {paths.map(path => {
-                const pathCourses = courses.filter(c => c.path_id === path.id);
-                const allCompleted = pathCourses.length > 0 && pathCourses.every(c => completedIds.has(c.id));
-                const someCompleted = pathCourses.some(c => completedIds.has(c.id));
-                const missionExamples = getMissionExamples(path.title, isEs);
-                return (
-                  <Card key={path.id} className={allCompleted ? 'border-primary/30 bg-primary/5' : ''}>
-                    <CardContent className="p-5">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${
-                          allCompleted ? 'bg-primary/20' : 'bg-muted'
-                        }`}>
-                          {allCompleted ? <CheckCircle2 className="h-5 w-5 text-primary" /> : iconMap[path.icon] || <BookOpen className="h-5 w-5" />}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-heading font-bold text-sm">
-                            {isEs ? path.title_es || path.title : path.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {allCompleted
-                              ? (isEs ? '✅ Ruta completada — Misiones desbloqueadas' : '✅ Path completed — Missions unlocked')
-                              : someCompleted
-                              ? (isEs ? '🔄 En progreso' : '🔄 In progress')
-                              : (isEs ? '🔒 No iniciada' : '🔒 Not started')}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {missionExamples.map((m, i) => (
-                          <div key={i} className={`rounded-md border p-2 text-xs ${
-                            allCompleted ? 'border-primary/20 bg-background' : 'opacity-50'
-                          }`}>
-                            <p className="font-heading font-semibold">{m.title}</p>
-                            <p className="text-muted-foreground text-[10px]">{m.desc}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </TabsContent>
-
-          {/* 6. PROGRESS TRACKER */}
-          <TabsContent value="progress" className="mt-6">
+          {/* ── PROGRESS ── */}
+          <TabsContent value="progress" className="mt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <StatCard
-                icon={<CheckCircle2 className="h-5 w-5 text-emerald-500" />}
-                label={isEs ? 'Exámenes aprobados' : 'Exams Passed'}
-                value={`${completedCount}`}
-              />
-              <StatCard
-                icon={<Zap className="h-5 w-5 text-amber-500" />}
-                label={isEs ? 'Habilidades ganadas' : 'Skills Gained'}
-                value={`${skillsUnlocked.size}`}
-              />
-              <StatCard
-                icon={<TrendingUp className="h-5 w-5 text-primary" />}
-                label={isEs ? 'Multiplicador de productividad' : 'Productivity Multiplier'}
-                value={`${explorerLevel.multiplier}x`}
-              />
-              <StatCard
-                icon={<Target className="h-5 w-5 text-primary" />}
-                label={isEs ? 'Nivel' : 'Level'}
-                value={isEs ? explorerLevel.name_es : explorerLevel.name}
-              />
+              <StatCard icon={<Trophy className="h-5 w-5 text-primary" />} label={isEs ? 'Nivel' : 'Level'} value={isEs ? explorerLevel.name_es : explorerLevel.name} />
+              <StatCard icon={<CheckCircle2 className="h-5 w-5 text-emerald-500" />} label={isEs ? 'Completados' : 'Completed'} value={`${completedCount}/${courses.length}`} />
+              <StatCard icon={<Zap className="h-5 w-5 text-amber-500" />} label={isEs ? 'Habilidades' : 'Skills'} value={String(skillsUnlocked.size)} />
+              <StatCard icon={<Rocket className="h-5 w-5 text-primary" />} label={isEs ? 'Multiplicador' : 'Multiplier'} value={`${explorerLevel.multiplier}x`} />
             </div>
 
+            {/* Explorer Level Progression */}
             <Card className="mb-6">
               <CardHeader>
-                <CardTitle className="font-heading text-lg">
-                  {isEs ? 'Puntuación de Productividad IA' : 'AI Productivity Score'}
+                <CardTitle className="font-heading text-lg flex items-center gap-2">
+                  <Award className="h-5 w-5 text-primary" />
+                  {isEs ? 'Niveles de Explorador' : 'Explorer Levels'}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-4">
-                  {[
-                    { label: isEs ? 'Sin IA' : 'No AI', value: '1.0x', active: explorerLevel.multiplier >= 1 },
-                    { label: isEs ? 'Principiante' : 'Beginner', value: '1.5x', active: explorerLevel.multiplier >= 1.5 },
-                    { label: isEs ? 'Asistido por IA' : 'AI Assisted', value: '2.0x', active: explorerLevel.multiplier >= 2 },
-                    { label: isEs ? 'Operador IA' : 'AI Operator', value: '2.5x', active: explorerLevel.multiplier >= 2.5 },
-                    { label: isEs ? 'Arquitecto' : 'Architect', value: '3.0x', active: explorerLevel.multiplier >= 3 },
-                  ].map((item, i) => (
-                    <div key={i} className="flex-1 text-center">
-                      <div className={`h-16 rounded-lg flex items-center justify-center font-heading font-bold text-lg ${
-                        item.active ? 'bg-primary/10 text-primary border border-primary/30' : 'bg-muted text-muted-foreground'
-                      }`}>
-                        {item.value}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  {EXPLORER_LEVELS.map((level, i) => {
+                    const Icon = levelIcons[i];
+                    const isActive = explorerLevel.level >= level.level;
+                    const isCurrent = explorerLevel.level === level.level;
+                    return (
+                      <div
+                        key={level.level}
+                        className={`rounded-xl border p-4 text-center transition-all ${
+                          isCurrent
+                            ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20'
+                            : isActive
+                            ? 'border-border/50 bg-muted/30'
+                            : 'border-border/30 opacity-40'
+                        }`}
+                      >
+                        <Icon className={`h-7 w-7 mx-auto mb-2 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                        <p className="font-heading text-xs font-bold">Lv.{level.level}</p>
+                        <p className="text-[10px] text-muted-foreground leading-tight mt-1">{isEs ? level.name_es : level.name}</p>
+                        <p className="text-xs text-primary font-heading font-bold mt-1">{level.multiplier}x</p>
                       </div>
-                      <p className="text-[10px] mt-1 text-muted-foreground">{item.label}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
 
+            {/* Skills */}
             <Card>
               <CardHeader>
                 <CardTitle className="font-heading text-lg">
@@ -594,15 +465,151 @@ const AcademyDashboard = () => {
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    {isEs ? 'Aprueba exámenes para desbloquear habilidades.' : 'Pass exams to unlock skills.'}
+                    {isEs ? 'Completa cursos para desbloquear habilidades.' : 'Complete courses to unlock skills.'}
                   </p>
                 )}
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* 7. COMMUNITY */}
-          <TabsContent value="community" className="mt-6">
+          {/* ── TEACH (Tutor Application) ── */}
+          <TabsContent value="teach" className="mt-4">
+            <div className="max-w-2xl mx-auto">
+              <div className="text-center mb-8">
+                <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <GraduationCap className="h-8 w-8 text-primary" />
+                </div>
+                <h2 className="text-2xl font-heading font-bold mb-2">
+                  {isEs ? 'Conviértete en Tutor' : 'Become a Tutor'}
+                </h2>
+                <p className="text-muted-foreground">
+                  {isEs
+                    ? 'Comparte tu conocimiento en IA y ayuda a otros exploradores a crecer. Crea cursos de automatización, prompt engineering y más.'
+                    : 'Share your AI knowledge and help other explorers grow. Create courses on automation, prompt engineering and more.'}
+                </p>
+              </div>
+
+              {tutorApp ? (
+                <Card className={`border-${tutorApp.status === 'approved' ? 'primary' : tutorApp.status === 'rejected' ? 'destructive' : 'border'}/30`}>
+                  <CardContent className="p-6 text-center">
+                    <Badge className={`mb-3 ${
+                      tutorApp.status === 'approved' ? '' :
+                      tutorApp.status === 'rejected' ? 'bg-destructive text-destructive-foreground' :
+                      'bg-muted text-muted-foreground'
+                    }`}>
+                      {tutorApp.status === 'approved' ? (isEs ? '✅ Aprobado' : '✅ Approved') :
+                       tutorApp.status === 'rejected' ? (isEs ? '❌ Rechazado' : '❌ Rejected') :
+                       (isEs ? '⏳ En revisión' : '⏳ Under Review')}
+                    </Badge>
+                    <h3 className="font-heading font-bold text-lg mb-2">
+                    {tutorApp.status === 'approved'
+                        ? (isEs ? '¡Felicidades! Eres tutor de Dream Academy' : 'Congrats! You are a Dream Academy tutor')
+                        : tutorApp.status === 'rejected'
+                        ? (isEs ? 'Tu solicitud fue rechazada' : 'Your application was rejected')
+                        : (isEs ? 'Solicitud enviada' : 'Application submitted')}
+                    </h3>
+                    {tutorApp.admin_note && (
+                      <p className="text-sm text-muted-foreground italic">{`"${tutorApp.admin_note}"`}</p>
+                    )}
+                    {tutorApp.status === 'approved' && (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        {isEs
+                          ? 'Contacta al equipo admin para subir tus cursos.'
+                          : 'Contact the admin team to upload your courses.'}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  {!showTutorForm ? (
+                    <Card className="border-dashed border-2 border-primary/30 hover:border-primary/50 transition-all cursor-pointer"
+                      onClick={() => setShowTutorForm(true)}>
+                      <CardContent className="p-8 text-center">
+                        <Upload className="h-10 w-10 text-primary/50 mx-auto mb-3" />
+                        <p className="font-heading font-bold mb-1">
+                          {isEs ? 'Aplicar como Tutor' : 'Apply as Tutor'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {isEs ? 'Haz clic para comenzar tu solicitud' : 'Click to start your application'}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="font-heading">{isEs ? 'Solicitud de Tutor' : 'Tutor Application'}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div>
+                          <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                            {isEs ? 'Cuéntanos sobre ti y tu experiencia en IA *' : 'Tell us about yourself and your AI experience *'}
+                          </label>
+                          <Textarea
+                            value={tutorForm.bio}
+                            onChange={e => setTutorForm(f => ({ ...f, bio: e.target.value }))}
+                            placeholder={isEs ? 'Tu experiencia, proyectos, áreas de expertise...' : 'Your experience, projects, areas of expertise...'}
+                            rows={4}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                            {isEs ? 'Áreas de expertise (separadas por coma)' : 'Expertise areas (comma-separated)'}
+                          </label>
+                          <Input
+                            value={tutorForm.expertise}
+                            onChange={e => setTutorForm(f => ({ ...f, expertise: e.target.value }))}
+                            placeholder="Prompt Engineering, AI Automation, ..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                            {isEs ? 'Link a tu portafolio (opcional)' : 'Portfolio link (optional)'}
+                          </label>
+                          <Input
+                            value={tutorForm.portfolio_url}
+                            onChange={e => setTutorForm(f => ({ ...f, portfolio_url: e.target.value }))}
+                            placeholder="https://..."
+                          />
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <Button variant="outline" onClick={() => setShowTutorForm(false)}>
+                            {isEs ? 'Cancelar' : 'Cancel'}
+                          </Button>
+                          <Button onClick={handleTutorApply} disabled={!tutorForm.bio || submitTutorApp.isPending}>
+                            <Upload className="h-4 w-4 mr-2" />
+                            {isEs ? 'Enviar Solicitud' : 'Submit Application'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              )}
+
+              {/* What tutors can teach */}
+              <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-3">
+                {[
+                  { icon: <Brain className="h-5 w-5" />, label: isEs ? 'Automatización IA' : 'AI Automation' },
+                  { icon: <MessageSquare className="h-5 w-5" />, label: 'Prompt Engineering' },
+                  { icon: <Video className="h-5 w-5" />, label: isEs ? 'Creación de Video IA' : 'AI Video Creation' },
+                  { icon: <Code className="h-5 w-5" />, label: isEs ? 'Herramientas de Código IA' : 'AI Coding Tools' },
+                  { icon: <TrendingUp className="h-5 w-5" />, label: isEs ? 'Marketing con IA' : 'AI Marketing' },
+                  { icon: <Zap className="h-5 w-5" />, label: isEs ? 'Productividad con IA' : 'AI Productivity' },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-2.5 rounded-xl border border-border/50 p-3 bg-card/50">
+                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-primary">
+                      {item.icon}
+                    </div>
+                    <span className="text-xs font-heading font-semibold">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* ── COMMUNITY ── */}
+          <TabsContent value="community" className="mt-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
@@ -624,9 +631,7 @@ const AcademyDashboard = () => {
                     rows={4}
                   />
                   <Select value={newPrompt.category} onValueChange={v => setNewPrompt(p => ({ ...p, category: v }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="general">General</SelectItem>
                       <SelectItem value="coding">{isEs ? 'Programación' : 'Coding'}</SelectItem>
@@ -684,9 +689,26 @@ const AcademyDashboard = () => {
             return (
               <>
                 <DialogHeader>
+                  {sc.thumbnail_url && (
+                    <div className="w-full aspect-video rounded-lg overflow-hidden mb-3 bg-muted">
+                      <img src={sc.thumbnail_url} alt={sc.title} className="w-full h-full object-cover" />
+                    </div>
+                  )}
                   <DialogTitle className="font-heading text-xl">
                     {isEs ? sc.title_es || sc.title : sc.title}
                   </DialogTitle>
+                  {sc.instructor_name && (
+                    <div className="flex items-center gap-2 mt-1">
+                      {sc.instructor_avatar ? (
+                        <img src={sc.instructor_avatar} alt="" className="h-6 w-6 rounded-full object-cover" />
+                      ) : (
+                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Users className="h-3 w-3 text-primary" />
+                        </div>
+                      )}
+                      <span className="text-sm text-muted-foreground">{sc.instructor_name}</span>
+                    </div>
+                  )}
                 </DialogHeader>
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground">
@@ -700,7 +722,16 @@ const AcademyDashboard = () => {
                       <Clock className="h-3 w-3" /> {sc.duration_minutes} min
                     </Badge>
                     <Badge variant="outline">{sc.language === 'es' ? '🇪🇸 Español' : '🇺🇸 English'}</Badge>
-                    {sc.tool && <Badge>{sc.tool}</Badge>}
+                    {sc.views_count > 0 && (
+                      <Badge variant="outline" className="flex items-center gap-1">
+                        <Eye className="h-3 w-3" /> {sc.views_count}
+                      </Badge>
+                    )}
+                    {sc.rating > 0 && (
+                      <Badge variant="outline" className="flex items-center gap-1">
+                        <Star className="h-3 w-3 fill-primary text-primary" /> {Number(sc.rating).toFixed(1)}
+                      </Badge>
+                    )}
                   </div>
 
                   {parentPath && (
@@ -732,15 +763,15 @@ const AcademyDashboard = () => {
                     <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-center">
                       <CheckCircle2 className="h-6 w-6 text-primary mx-auto mb-1" />
                       <p className="font-heading font-bold text-sm text-primary">
-                        {isEs ? '✅ Examen aprobado — Curso completado' : '✅ Exam passed — Course completed'}
+                        {isEs ? '✅ Curso completado' : '✅ Course completed'}
                       </p>
                     </div>
                   ) : (
                     <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-                      <p className="text-xs text-muted-foreground mb-2">
+                      <p className="text-xs text-muted-foreground">
                         {isEs
-                          ? '📝 Para completar este curso, primero estúdialo y luego aprueba el examen.'
-                          : '📝 To complete this course, first study it and then pass the exam.'}
+                          ? '📝 Estudia el curso y luego aprueba el examen para completarlo.'
+                          : '📝 Study the course and pass the exam to complete it.'}
                       </p>
                     </div>
                   )}
@@ -757,7 +788,7 @@ const AcademyDashboard = () => {
                     {!isComp && (
                       <Button className="flex-1" onClick={() => setShowExam(true)}>
                         <GraduationCap className="h-4 w-4 mr-2" />
-                        {isEs ? 'Tomar Prueba' : 'Take Exam'}
+                        {isEs ? 'Tomar Examen' : 'Take Exam'}
                       </Button>
                     )}
                   </div>
@@ -769,7 +800,7 @@ const AcademyDashboard = () => {
       </Dialog>
 
       {/* Exam Dialog */}
-      <Dialog open={showExam && !!selectedCourse} onOpenChange={(open) => { if (!open) { setShowExam(false); } }}>
+      <Dialog open={showExam && !!selectedCourse} onOpenChange={(open) => { if (!open) setShowExam(false); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           {selectedCourse && (
             <>
@@ -797,7 +828,8 @@ const AcademyDashboard = () => {
   );
 };
 
-// Sub-components
+// ─── Sub-components ─────────────────────────────
+
 function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <Card>
@@ -814,127 +846,127 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-function CourseRow({ course, isEs, completed, onOpen }: {
-  course: AcademyCourse; isEs: boolean; completed: boolean; onOpen: () => void;
-}) {
+function LanguageToggle({ value, onChange, isEs }: { value: 'all' | 'en' | 'es'; onChange: (v: 'all' | 'en' | 'es') => void; isEs: boolean }) {
   return (
-    <div
-      className={`flex items-center gap-3 rounded-lg border p-3 transition-all cursor-pointer ${
-        completed ? 'border-primary/20 bg-primary/5' : 'hover:border-primary/30'
-      }`}
-      onClick={onOpen}
-    >
-      <div className="shrink-0">
-        {completed ? <CheckCircle2 className="h-5 w-5 text-primary" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-heading font-semibold ${completed ? 'text-primary' : ''}`}>
-          {isEs ? course.title_es || course.title : course.title}
-        </p>
-        <div className="flex items-center gap-2 mt-0.5">
-          <Badge variant="outline" className="text-[10px]">{course.platform}</Badge>
-          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-            <Clock className="h-3 w-3" /> {course.duration_minutes}min
-          </span>
-          <Badge variant="secondary" className="text-[10px] capitalize">{course.skill_level}</Badge>
-          <Badge variant="outline" className="text-[10px]">{course.language === 'es' ? '🇪🇸' : '🇺🇸'}</Badge>
-        </div>
-      </div>
-      {completed ? (
-        <Badge className="shrink-0 text-[10px]">
-          <CheckCircle2 className="h-3 w-3 mr-1" /> {isEs ? 'Aprobado' : 'Passed'}
-        </Badge>
-      ) : (
-        <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={(e) => { e.stopPropagation(); onOpen(); }}>
-          <GraduationCap className="h-3 w-3 mr-1" />
-          {isEs ? 'Tomar Prueba' : 'Take Exam'}
-        </Button>
-      )}
+    <div className="flex items-center gap-0.5 rounded-lg border border-border p-0.5 bg-muted/50">
+      {(['all', 'en', 'es'] as const).map(v => (
+        <button
+          key={v}
+          onClick={() => onChange(v)}
+          className={`px-3 py-1.5 rounded-md text-xs font-heading font-semibold transition-all ${
+            value === v ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          {v === 'all' ? (isEs ? 'Todos' : 'All') : v === 'en' ? '🇺🇸' : '🇪🇸'}
+        </button>
+      ))}
     </div>
   );
 }
 
-function CourseCard({ course, isEs, completed, onOpen }: {
-  course: AcademyCourse; isEs: boolean; completed: boolean; onOpen: () => void;
+function CourseVideoCard({
+  course, isEs, completed, onOpen, featured, compact
+}: {
+  course: AcademyCourse;
+  isEs: boolean;
+  completed: boolean;
+  onOpen: () => void;
+  featured?: boolean;
+  compact?: boolean;
 }) {
+  const title = isEs ? course.title_es || course.title : course.title;
+  const description = isEs ? course.description_es || course.description : course.description;
+
   return (
-    <Card
-      className={`hover:border-primary/30 transition-all cursor-pointer ${completed ? 'border-primary/20 bg-primary/5' : ''}`}
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`group cursor-pointer ${compact ? '' : ''}`}
       onClick={onOpen}
     >
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between mb-2">
-          <h4 className="font-heading font-bold text-sm flex-1">
-            {isEs ? course.title_es || course.title : course.title}
-          </h4>
-          {completed ? (
-            <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
-          ) : (
-            <Circle className="h-5 w-5 text-muted-foreground shrink-0" />
+      {/* Thumbnail */}
+      <div className={`relative overflow-hidden rounded-xl bg-muted mb-3 ${featured ? 'aspect-video' : 'aspect-video'}`}>
+        {course.thumbnail_url ? (
+          <img
+            src={course.thumbnail_url}
+            alt={title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+            <Play className="h-10 w-10 text-primary/30" />
+          </div>
+        )}
+        {/* Overlay badges */}
+        <div className="absolute top-2 left-2 flex gap-1">
+          {completed && (
+            <span className="bg-primary text-primary-foreground text-[10px] font-heading font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3" /> {isEs ? 'Completado' : 'Completed'}
+            </span>
+          )}
+          {course.featured && (
+            <span className="bg-accent text-accent-foreground text-[10px] font-heading font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+              <Sparkles className="h-3 w-3" /> {isEs ? 'Destacado' : 'Featured'}
+            </span>
           )}
         </div>
-        <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-          {isEs ? course.description_es || course.description : course.description}
-        </p>
-        <div className="flex flex-wrap gap-1 mb-3">
-          <Badge variant="outline" className="text-[10px]">{course.platform}</Badge>
-          <Badge variant="secondary" className="text-[10px] capitalize">{course.skill_level}</Badge>
-          <Badge variant="outline" className="text-[10px]">{course.language === 'es' ? '🇪🇸 ES' : '🇺🇸 EN'}</Badge>
-          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-            <Clock className="h-3 w-3" /> {course.duration_minutes}min
+        <div className="absolute bottom-2 right-2 flex gap-1">
+          <span className="bg-foreground/80 text-background text-[10px] font-heading font-bold px-2 py-0.5 rounded-md">
+            {course.duration_minutes} min
           </span>
         </div>
-        <div className="flex flex-wrap gap-1 mb-3">
-          {(course.skills_learned || []).slice(0, 3).map(s => (
-            <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
-          ))}
-        </div>
-        {completed ? (
-          <div className="flex items-center justify-center gap-1 text-xs text-primary font-heading font-semibold">
-            <CheckCircle2 className="h-3.5 w-3.5" /> {isEs ? 'Examen Aprobado' : 'Exam Passed'}
+        {/* Hover play overlay */}
+        <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 transition-colors flex items-center justify-center">
+          <div className="h-12 w-12 rounded-full bg-primary/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity scale-90 group-hover:scale-100">
+            <Play className="h-5 w-5 text-primary-foreground ml-0.5" />
           </div>
-        ) : (
-          <Button size="sm" className="w-full text-xs">
-            <GraduationCap className="h-3 w-3 mr-1" />
-            {isEs ? 'Ver Curso y Tomar Prueba' : 'View Course & Take Exam'}
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+        </div>
+      </div>
 
-function getMissionExamples(pathTitle: string, isEs: boolean) {
-  const examples: Record<string, { title: string; desc: string }[]> = {
-    'AI Foundations for Explorers': [
-      { title: isEs ? 'Asistente de Investigación' : 'Research Assistant', desc: isEs ? 'Investigación con IA' : 'AI-powered research' },
-      { title: isEs ? 'Escritura de Contenido' : 'Content Writing', desc: isEs ? 'Creación de contenido con IA' : 'AI content creation' },
-      { title: isEs ? 'Análisis de Datos' : 'Data Analysis', desc: isEs ? 'Análisis con prompts' : 'Prompt-based analysis' },
-    ],
-    'AI Automation': [
-      { title: isEs ? 'Optimización de Flujos' : 'Workflow Optimization', desc: isEs ? 'Automatización de procesos' : 'Process automation' },
-      { title: isEs ? 'Automatización de Datos' : 'Data Automation', desc: isEs ? 'Pipelines de datos con IA' : 'AI data pipelines' },
-      { title: isEs ? 'Creación de Agentes IA' : 'AI Agent Creation', desc: isEs ? 'Agentes autónomos' : 'Autonomous agents' },
-    ],
-    'Claude Code & AI Development': [
-      { title: isEs ? 'Desarrollo con IA' : 'AI Development', desc: isEs ? 'Código asistido' : 'AI-assisted code' },
-      { title: isEs ? 'Herramientas Custom' : 'Custom Tools', desc: isEs ? 'Construcción de herramientas' : 'Tool building' },
-      { title: isEs ? 'Integración de APIs' : 'API Integration', desc: isEs ? 'Conexiones inteligentes' : 'Smart connections' },
-    ],
-    'AI for Creative Work': [
-      { title: isEs ? 'Diseño con IA' : 'AI Design', desc: isEs ? 'Visuales generados' : 'Generated visuals' },
-      { title: isEs ? 'Producción de Video' : 'Video Production', desc: isEs ? 'Videos con IA' : 'AI-powered video' },
-      { title: isEs ? 'Contenido Creativo' : 'Creative Content', desc: isEs ? 'Contenido multimedia' : 'Multimedia content' },
-    ],
-    'AI for Business Execution': [
-      { title: isEs ? 'Marketing con IA' : 'AI Marketing', desc: isEs ? 'Campañas automatizadas' : 'Automated campaigns' },
-      { title: isEs ? 'Documentación' : 'Documentation', desc: isEs ? 'Docs automatizados' : 'Automated docs' },
-      { title: isEs ? 'Sistemas de Productividad' : 'Productivity Systems', desc: isEs ? 'Sistemas inteligentes' : 'Smart systems' },
-    ],
-  };
-  return examples[pathTitle] || [
-    { title: isEs ? 'Misión General' : 'General Mission', desc: isEs ? 'Misión con IA' : 'AI mission' },
-  ];
+      {/* Info */}
+      <div className="space-y-1.5">
+        <div className="flex items-start gap-2.5">
+          {course.instructor_avatar ? (
+            <img src={course.instructor_avatar} alt="" className="h-8 w-8 rounded-full object-cover shrink-0 mt-0.5" />
+          ) : (
+            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <GraduationCap className="h-4 w-4 text-primary" />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <h3 className="font-heading font-bold text-sm leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+              {title}
+            </h3>
+            {course.instructor_name && (
+              <p className="text-xs text-muted-foreground mt-0.5">{course.instructor_name}</p>
+            )}
+            <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
+              {course.views_count > 0 && (
+                <span className="flex items-center gap-0.5">
+                  <Eye className="h-3 w-3" /> {course.views_count.toLocaleString()}
+                </span>
+              )}
+              {course.rating > 0 && (
+                <span className="flex items-center gap-0.5">
+                  <Star className="h-3 w-3 fill-primary text-primary" /> {Number(course.rating).toFixed(1)}
+                </span>
+              )}
+              <span className="capitalize">{course.skill_level}</span>
+              <span>{course.language === 'es' ? '🇪🇸' : '🇺🇸'}</span>
+            </div>
+          </div>
+        </div>
+        {!compact && (
+          <div className="flex flex-wrap gap-1 pl-[42px]">
+            <Badge variant="outline" className="text-[10px] h-5">{course.platform}</Badge>
+            {(course.skills_learned || []).slice(0, 2).map(s => (
+              <Badge key={s} variant="secondary" className="text-[10px] h-5">{s}</Badge>
+            ))}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
 }
 
 export default AcademyDashboard;

@@ -482,16 +482,18 @@ serve(async (req) => {
       }
 
       case 'create_course': {
-        const { title, title_es, description, description_es, platform, external_url, duration_minutes, skill_level, language: lang, skills_learned, category, tool: courseTool, path_id, sort_order } = params;
+        const { title, title_es, description, description_es, platform, external_url, duration_minutes, skill_level, language: lang, skills_learned, category, tool: courseTool, path_id, sort_order, instructor_name, thumbnail_url, featured } = params;
         if (!title || !path_id) {
           return jsonResponse({ error: 'title and path_id are required' }, 400);
         }
         const { error } = await supabase.from('academy_courses').insert({
           title, title_es: title_es || null, description: description || null, description_es: description_es || null,
-          platform: platform || 'YouTube', external_url: external_url || null,
+          platform: platform || 'External', external_url: external_url || null,
           duration_minutes: duration_minutes || 30, skill_level: skill_level || 'beginner',
           language: lang || 'en', skills_learned: skills_learned || [], category: category || 'general',
           tool: courseTool || null, path_id, sort_order: sort_order || 0,
+          instructor_name: instructor_name || null, thumbnail_url: thumbnail_url || null,
+          featured: featured || false, course_status: 'published',
         });
         if (error) throw error;
         result = { success: true };
@@ -504,6 +506,48 @@ serve(async (req) => {
         await supabase.from('explorer_course_progress').delete().eq('course_id', course_id);
         const { error } = await supabase.from('academy_courses').delete().eq('id', course_id);
         if (error) throw error;
+        result = { success: true };
+        break;
+      }
+
+      case 'update_course_status': {
+        const { course_id, status } = params;
+        if (!course_id || !status) return jsonResponse({ error: 'course_id and status required' }, 400);
+        const { error } = await supabase.from('academy_courses').update({ course_status: status }).eq('id', course_id);
+        if (error) throw error;
+        result = { success: true };
+        break;
+      }
+
+      case 'toggle_featured': {
+        const { course_id, featured } = params;
+        if (!course_id) return jsonResponse({ error: 'course_id required' }, 400);
+        const { error } = await supabase.from('academy_courses').update({ featured: !!featured }).eq('id', course_id);
+        if (error) throw error;
+        result = { success: true };
+        break;
+      }
+
+      case 'get_tutor_applications': {
+        const { data, error } = await supabase.from('tutor_applications').select('*').order('created_at', { ascending: false });
+        if (error) throw error;
+        const userIds = [...new Set((data || []).map((a: any) => a.user_id))];
+        const { data: profiles } = await supabase.from('profiles').select('id, email, full_name').in('id', userIds);
+        const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+        result = (data || []).map((a: any) => ({ ...a, email: profileMap.get(a.user_id)?.email, full_name: profileMap.get(a.user_id)?.full_name }));
+        break;
+      }
+
+      case 'review_tutor': {
+        const { application_id, status, admin_note } = params;
+        if (!application_id || !status) return jsonResponse({ error: 'application_id and status required' }, 400);
+        const { data: app, error: fetchErr } = await supabase.from('tutor_applications').select('user_id').eq('id', application_id).single();
+        if (fetchErr) throw fetchErr;
+        const { error } = await supabase.from('tutor_applications').update({ status, reviewed_at: new Date().toISOString(), reviewed_by: caller.id, admin_note: admin_note || null }).eq('id', application_id);
+        if (error) throw error;
+        if (status === 'approved' && app) {
+          await supabase.from('user_roles').upsert({ user_id: app.user_id, role: 'tutor' }, { onConflict: 'user_id,role' });
+        }
         result = { success: true };
         break;
       }
