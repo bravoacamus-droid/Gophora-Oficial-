@@ -65,6 +65,8 @@ const AcademyDashboard = () => {
   const toggleCompletion = useToggleCourseCompletion();
   const createPrompt = useCreateSharedPrompt();
   const submitTutorApp = useSubmitTutorApplication();
+  const submitCourse = useSubmitCourseAsTutor();
+  const incrementViews = useIncrementViews();
 
   const [activeTab, setActiveTab] = useState('courses');
   const [courseSearch, setCourseSearch] = useState('');
