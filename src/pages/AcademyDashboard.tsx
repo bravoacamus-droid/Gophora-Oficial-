@@ -701,10 +701,6 @@ const AcademyDashboard = () => {
                       </div>
                     </DialogContent>
                   </Dialog>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  )}
 
                   {/* My Courses */}
                   {tutorCourses.length > 0 && (
