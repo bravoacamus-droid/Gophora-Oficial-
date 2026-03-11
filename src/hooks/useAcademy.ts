@@ -52,6 +52,17 @@ export interface AcademyTool {
   use_cases_es: string[];
 }
 
+export interface ExamQuestion {
+  id: string;
+  course_id: string;
+  question: string;
+  question_es: string | null;
+  options: string[];
+  options_es: string[];
+  correct_index: number;
+  sort_order: number;
+}
+
 export interface CourseProgress {
   id: string;
   user_id: string;
