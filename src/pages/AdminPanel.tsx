@@ -1026,9 +1026,9 @@ const AdminPanel = () => {
                         <th className="p-3 text-left text-xs font-heading font-semibold text-muted-foreground">Curso</th>
                         <th className="p-3 text-left text-xs font-heading font-semibold text-muted-foreground">Ruta</th>
                         <th className="p-3 text-left text-xs font-heading font-semibold text-muted-foreground">Plataforma</th>
+                        <th className="p-3 text-left text-xs font-heading font-semibold text-muted-foreground">Estado</th>
                         <th className="p-3 text-left text-xs font-heading font-semibold text-muted-foreground">Idioma</th>
-                        <th className="p-3 text-left text-xs font-heading font-semibold text-muted-foreground">Nivel</th>
-                        <th className="p-3 text-left text-xs font-heading font-semibold text-muted-foreground">URL</th>
+                        <th className="p-3 text-left text-xs font-heading font-semibold text-muted-foreground">Video</th>
                         <th className="p-3 text-left text-xs font-heading font-semibold text-muted-foreground">Acción</th>
                       </tr>
                     </thead>
@@ -1041,16 +1041,50 @@ const AdminPanel = () => {
                           </td>
                           <td className="p-3 text-xs text-muted-foreground">{course.path_title}</td>
                           <td className="p-3 text-xs">{course.platform}</td>
-                          <td className="p-3 text-xs">{course.language === 'es' ? '🇪🇸' : '🇺🇸'}</td>
-                          <td className="p-3 text-xs capitalize">{course.skill_level}</td>
                           <td className="p-3">
-                            {course.external_url ? (
+                            {course.course_status === 'published' ? (
+                              <Badge className="bg-green-500/10 text-green-500 text-xs">Publicado</Badge>
+                            ) : course.course_status === 'pending_review' ? (
+                              <Badge className="bg-yellow-500/10 text-yellow-500 text-xs">Pendiente</Badge>
+                            ) : (
+                              <Badge className="bg-muted text-muted-foreground text-xs">{course.course_status}</Badge>
+                            )}
+                          </td>
+                          <td className="p-3 text-xs">{course.language === 'es' ? '🇪🇸' : '🇺🇸'}</td>
+                          <td className="p-3">
+                            {course.external_url && isYouTubeUrl(course.external_url) ? (
+                              <Button variant="ghost" size="sm" className="text-primary gap-1" onClick={() => setSelectedCoursePreview(course)}>
+                                <Play className="h-3 w-3" /> Preview
+                              </Button>
+                            ) : course.external_url ? (
                               <a href={course.external_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
                                 <ExternalLink className="h-3 w-3" /> Abrir
                               </a>
                             ) : '—'}
                           </td>
-                          <td className="p-3">
+                          <td className="p-3 flex items-center gap-1">
+                            {course.course_status === 'pending_review' && (
+                              <Button variant="ghost" size="sm" className="text-green-500 hover:text-green-400" onClick={async () => {
+                                try {
+                                  await adminCall('update_course_status', { course_id: course.id, status: 'published' });
+                                  toast.success('Curso publicado');
+                                  loadData();
+                                } catch (err: any) { toast.error(err.message); }
+                              }}>
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {course.course_status === 'published' && (
+                              <Button variant="ghost" size="sm" className="text-yellow-500 hover:text-yellow-400" onClick={async () => {
+                                try {
+                                  await adminCall('update_course_status', { course_id: course.id, status: 'pending_review' });
+                                  toast.success('Curso despublicado');
+                                  loadData();
+                                } catch (err: any) { toast.error(err.message); }
+                              }}>
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button variant="ghost" size="sm" onClick={() => handleDeleteCourse(course.id)} className="text-destructive hover:text-destructive">
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1064,6 +1098,18 @@ const AdminPanel = () => {
                   </table>
                 </div>
               </div>
+
+              {/* YouTube Video Preview Dialog */}
+              <Dialog open={!!selectedCoursePreview} onOpenChange={() => setSelectedCoursePreview(null)}>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>{selectedCoursePreview?.title}</DialogTitle>
+                  </DialogHeader>
+                  {selectedCoursePreview?.external_url && (
+                    <YouTubeVideoPlayer url={selectedCoursePreview.external_url} title={selectedCoursePreview.title} />
+                  )}
+                </DialogContent>
+              </Dialog>
             </div>
           )}
 
