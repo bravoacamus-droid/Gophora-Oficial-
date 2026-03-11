@@ -2,26 +2,22 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Compass, Zap, CheckCircle, DollarSign, Star, Trophy, ExternalLink, Send, ChevronRight, Clock, FileText, LinkIcon } from 'lucide-react';
+import {
+  Compass, Zap, CheckCircle, DollarSign, Star, Trophy, ExternalLink,
+  Send, ChevronRight, Clock, FileText, LinkIcon, GraduationCap,
+  ShoppingBag, Wallet, Award, TrendingUp, Rocket, Target
+} from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import BalanceModule from '@/components/BalanceModule';
 import { toast } from 'sonner';
 import ExplorerOnboarding from '@/components/ExplorerOnboarding';
-
-const StatCard = ({ icon: Icon, label, value, accent = false }: { icon: any; label: string; value: string; accent?: boolean }) => (
-  <div className={`rounded-xl border p-6 transition-all hover:border-primary/30 ${accent ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-card'}`}>
-    <div className="flex items-center gap-3 mb-3">
-      <div className={`p-2 rounded-lg ${accent ? 'bg-primary/20' : 'bg-muted'}`}>
-        <Icon className={`h-5 w-5 ${accent ? 'text-primary' : 'text-muted-foreground'}`} />
-      </div>
-      <span className="text-sm text-muted-foreground font-body">{label}</span>
-    </div>
-    <div className="text-3xl font-heading font-bold">{value}</div>
-  </div>
-);
+import { motion } from 'framer-motion';
 
 interface ApplicationWithMission {
   id: string;
@@ -45,15 +41,21 @@ interface ApplicationWithMission {
 }
 
 const levelConfig = [
-  { name: 'Rookie', threshold: 0 },
-  { name: 'Explorer', threshold: 3 },
-  { name: 'Specialist', threshold: 10 },
-  { name: 'Elite Operator', threshold: 25 },
-  { name: 'Legend', threshold: 50 },
+  { name: 'Rookie', nameEs: 'Novato', threshold: 0, icon: '🌱' },
+  { name: 'Explorer', nameEs: 'Explorador', threshold: 3, icon: '🧭' },
+  { name: 'Specialist', nameEs: 'Especialista', threshold: 10, icon: '⚡' },
+  { name: 'Elite Operator', nameEs: 'Operador Élite', threshold: 25, icon: '🔥' },
+  { name: 'Legend', nameEs: 'Leyenda', threshold: 50, icon: '👑' },
 ];
 
+const fadeIn = {
+  hidden: { opacity: 0, y: 12 },
+  visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.06, duration: 0.4 } }),
+};
+
 const ExplorerDashboard = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const isEs = language === 'es';
   const { user } = useAuth();
   const [applications, setApplications] = useState<ApplicationWithMission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,16 +63,19 @@ const ExplorerDashboard = () => {
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
   const [selectedApp, setSelectedApp] = useState<ApplicationWithMission | null>(null);
+  const [profile, setProfile] = useState<{ username: string | null; full_name: string | null } | null>(null);
+  const [missionTab, setMissionTab] = useState('active');
 
   useEffect(() => {
     if (!user) return;
     supabase
       .from('profiles')
-      .select('onboarding_completed')
+      .select('onboarding_completed, username, full_name')
       .eq('id', user.id)
       .single()
       .then(({ data }) => {
         setOnboardingDone(data?.onboarding_completed ?? false);
+        setProfile({ username: data?.username ?? null, full_name: data?.full_name ?? null });
       });
   }, [user]);
 
@@ -144,13 +149,13 @@ const ExplorerDashboard = () => {
   const handleSubmitDelivery = async (appId: string) => {
     const url = deliveryUrls[appId]?.trim();
     if (!url) {
-      toast.error('Ingresa el link de tu entrega');
+      toast.error(isEs ? 'Ingresa el link de tu entrega' : 'Enter your delivery link');
       return;
     }
     try {
       new URL(url);
     } catch {
-      toast.error('Ingresa una URL válida (ej: https://...)');
+      toast.error(isEs ? 'Ingresa una URL válida (ej: https://...)' : 'Enter a valid URL (e.g. https://...)');
       return;
     }
 
@@ -166,22 +171,20 @@ const ExplorerDashboard = () => {
         .eq('id', appId);
 
       if (error) throw error;
-      toast.success('Entrega enviada correctamente');
+      toast.success(isEs ? 'Entrega enviada correctamente' : 'Delivery submitted successfully');
       setDeliveryUrls((prev) => ({ ...prev, [appId]: '' }));
       loadData();
     } catch (err: any) {
-      toast.error(err.message || 'Error al enviar la entrega');
+      toast.error(err.message || (isEs ? 'Error al enviar' : 'Submission error'));
     } finally {
       setSubmittingId(null);
     }
   };
 
-  const completedCount = applications.filter((a) => a.status === 'completed').length;
-  const activatedCount = applications.length;
-  const inProgressCount = applications.filter((a) => a.status === 'pending' || a.status === 'delivered').length;
-  const totalEarnings = applications
-    .filter((a) => a.status === 'completed')
-    .reduce((sum, a) => sum + a.missionReward, 0);
+  const completedCount = applications.filter((a) => a.status === 'completed' || a.status === 'funds_released').length;
+  const activeMissions = applications.filter((a) => a.status === 'pending' || a.status === 'delivered' || a.status === 'rejected');
+  const completedMissions = applications.filter((a) => a.status === 'completed' || a.status === 'funds_released');
+  const totalEarnings = completedMissions.reduce((sum, a) => sum + a.missionReward, 0);
 
   const currentLevel = levelConfig.reduce((lvl, l) => (completedCount >= l.threshold ? l : lvl), levelConfig[0]);
   const nextLevel = levelConfig[levelConfig.indexOf(currentLevel) + 1];
@@ -190,30 +193,26 @@ const ExplorerDashboard = () => {
     : 100;
 
   const badges = [
-    { name: 'Explorer', icon: Compass, earned: activatedCount >= 1 },
-    { name: 'Specialist', icon: Star, earned: completedCount >= 5 },
-    { name: 'Elite Operator', icon: Trophy, earned: completedCount >= 25 },
-    { name: 'Speed Runner', icon: Zap, earned: completedCount >= 10 },
+    { name: isEs ? 'Explorador' : 'Explorer', icon: Compass, earned: applications.length >= 1, desc: isEs ? 'Primera misión activada' : 'First mission activated' },
+    { name: isEs ? 'Especialista' : 'Specialist', icon: Star, earned: completedCount >= 5, desc: isEs ? '5 misiones completadas' : '5 missions completed' },
+    { name: isEs ? 'Operador Élite' : 'Elite Operator', icon: Trophy, earned: completedCount >= 25, desc: isEs ? '25 misiones completadas' : '25 missions completed' },
+    { name: isEs ? 'Velocista' : 'Speed Runner', icon: Zap, earned: completedCount >= 10, desc: isEs ? '10 misiones completadas' : '10 missions completed' },
   ];
 
   const statusLabel = (status: string) => {
-    const map: Record<string, string> = {
-      pending: 'ACTIVADA',
-      delivered: 'EN REVISIÓN',
-      completed: 'COMPLETADA',
-      rejected: 'RECHAZADA',
-      funds_released: 'FONDOS LIBERADOS',
-    };
+    const map: Record<string, string> = isEs
+      ? { pending: 'ACTIVA', delivered: 'EN REVISIÓN', completed: 'COMPLETADA', rejected: 'RECHAZADA', funds_released: 'PAGADA' }
+      : { pending: 'ACTIVE', delivered: 'IN REVIEW', completed: 'COMPLETED', rejected: 'REJECTED', funds_released: 'PAID' };
     return map[status] || status.toUpperCase();
   };
 
   const statusColor = (status: string) => {
     const map: Record<string, string> = {
       pending: 'bg-primary/10 text-primary',
-      delivered: 'bg-yellow-500/10 text-yellow-500',
-      completed: 'bg-green-500/10 text-green-500',
+      delivered: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
+      completed: 'bg-green-500/10 text-green-600 dark:text-green-400',
       rejected: 'bg-destructive/10 text-destructive',
-      funds_released: 'bg-green-500/10 text-green-500',
+      funds_released: 'bg-green-500/10 text-green-600 dark:text-green-400',
     };
     return map[status] || 'bg-muted text-muted-foreground';
   };
@@ -230,280 +229,410 @@ const ExplorerDashboard = () => {
     return <ExplorerOnboarding onComplete={() => setOnboardingDone(true)} />;
   }
 
+  const displayName = profile?.username ? `@${profile.username}` : profile?.full_name || user?.email?.split('@')[0] || 'Explorer';
+
+  const filteredMissions = missionTab === 'active' ? activeMissions : completedMissions;
+
   return (
-    <div className="container py-8 max-w-6xl">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold">{t('explorer.title')}</h1>
-          <p className="text-muted-foreground font-body text-sm mt-1">{user?.email}</p>
-        </div>
-        <Link to="/marketplace">
-          <Button variant="hero" className="gap-2">
-            <Compass className="h-4 w-4" /> {t('explorer.browse')}
-          </Button>
-        </Link>
-      </div>
+    <div className="min-h-screen bg-background">
+      <div className="container py-6 md:py-10 max-w-6xl space-y-8">
 
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard icon={Compass} label={t('explorer.available')} value={String(activatedCount)} accent />
-            <StatCard icon={Zap} label={t('explorer.in_progress')} value={String(inProgressCount)} />
-            <StatCard icon={CheckCircle} label={t('explorer.completed')} value={String(completedCount)} />
-            <StatCard icon={DollarSign} label={t('explorer.earnings')} value={`$${totalEarnings.toLocaleString()}`} />
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6 mb-8">
-            <div className="rounded-xl border border-border/50 bg-card p-6">
-              <h2 className="font-heading font-bold mb-4">{t('explorer.level')}</h2>
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-16 h-16 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
-                  <span className="text-2xl font-heading font-black text-primary">
-                    L{levelConfig.indexOf(currentLevel) + 1}
-                  </span>
-                </div>
-                <div>
-                  <p className="font-heading font-bold">{currentLevel.name}</p>
-                  <p className="text-sm text-muted-foreground font-body">
-                    {completedCount} missions completed
-                  </p>
-                </div>
-              </div>
-              <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
-                <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(progressToNext, 100)}%` }} />
-              </div>
-              {nextLevel && (
-                <p className="text-xs text-muted-foreground mt-2 font-body">
-                  {nextLevel.threshold - completedCount} more missions to reach {nextLevel.name}
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-xl border border-border/50 bg-card p-6">
-              <h2 className="font-heading font-bold mb-4">Badges</h2>
-              <div className="grid grid-cols-2 gap-3">
-                {badges.map((badge, i) => (
-                  <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border ${badge.earned ? 'border-primary/30 bg-primary/5' : 'border-border/50 opacity-40'}`}>
-                    <badge.icon className={`h-5 w-5 ${badge.earned ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <span className={`text-sm font-heading font-semibold ${badge.earned ? '' : 'text-muted-foreground'}`}>{badge.name}</span>
-                  </div>
-                ))}
-              </div>
+        {/* ─── Welcome Header ─── */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col md:flex-row md:items-end justify-between gap-4"
+        >
+          <div>
+            <p className="text-sm text-muted-foreground font-body mb-1">
+              {isEs ? 'Bienvenido de vuelta' : 'Welcome back'}
+            </p>
+            <h1 className="text-3xl md:text-4xl font-heading font-black tracking-tight">
+              {displayName}
+            </h1>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-lg">{currentLevel.icon}</span>
+              <span className="text-sm font-heading font-semibold text-primary">
+                {isEs ? currentLevel.nameEs : currentLevel.name}
+              </span>
+              <span className="text-xs text-muted-foreground">• Level {levelConfig.indexOf(currentLevel) + 1}</span>
             </div>
           </div>
-
-          {/* Balance & Withdrawals */}
-          <div className="mb-8">
-            <h2 className="font-heading font-bold mb-4">Balance & Retiros</h2>
-            <BalanceModule />
+          <div className="flex gap-2">
+            <Link to="/academy">
+              <Button variant="outline" size="sm" className="gap-2 font-heading">
+                <GraduationCap className="h-4 w-4" />
+                {isEs ? 'Academia' : 'Academy'}
+              </Button>
+            </Link>
+            <Link to="/marketplace">
+              <Button variant="hero" size="sm" className="gap-2">
+                <Compass className="h-4 w-4" />
+                {isEs ? 'Explorar Misiones' : 'Browse Missions'}
+              </Button>
+            </Link>
           </div>
+        </motion.div>
 
-          <div className="rounded-xl border border-border/50 bg-card">
-            <div className="p-6 border-b border-border/50">
-              <h2 className="font-heading font-bold">Mis Misiones</h2>
-            </div>
-            <div className="divide-y divide-border/50">
-              {applications.length === 0 && (
-                <div className="p-8 text-center text-muted-foreground font-body">
-                  No hay misiones activadas. Explora el marketplace para encontrar misiones.
-                </div>
-              )}
-              {applications.map((app) => (
-                <div
-                  key={app.id}
-                  className="p-4 md:p-6 space-y-3 cursor-pointer hover:bg-muted/30 transition-colors"
-                  onClick={() => setSelectedApp(app)}
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          </div>
+        ) : (
+          <>
+            {/* ─── Stats Grid ─── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+              {[
+                { icon: Target, label: isEs ? 'Misiones Activas' : 'Active Missions', value: String(activeMissions.length), accent: true },
+                { icon: CheckCircle, label: isEs ? 'Completadas' : 'Completed', value: String(completedCount), accent: false },
+                { icon: DollarSign, label: isEs ? 'Ganancias' : 'Earnings', value: `$${totalEarnings.toLocaleString()}`, accent: false },
+                { icon: TrendingUp, label: isEs ? 'Nivel' : 'Level', value: `L${levelConfig.indexOf(currentLevel) + 1}`, accent: false },
+              ].map((stat, i) => (
+                <motion.div
+                  key={stat.label}
+                  custom={i}
+                  initial="hidden"
+                  animate="visible"
+                  variants={fadeIn}
+                  className={`rounded-xl border p-4 md:p-5 transition-all hover:shadow-md ${stat.accent ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-card'}`}
                 >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <h3 className="font-heading font-semibold">{app.missionTitle}</h3>
-                        <p className="text-sm text-muted-foreground font-body">{app.projectTitle}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${statusColor(app.status)}`}>
-                        {statusLabel(app.status)}
-                      </span>
-                      <span className="text-sm font-heading font-semibold text-primary">${app.missionReward.toLocaleString()}</span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <stat.icon className={`h-4 w-4 ${stat.accent ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <span className="text-xs text-muted-foreground font-body truncate">{stat.label}</span>
                   </div>
-                </div>
+                  <div className="text-2xl md:text-3xl font-heading font-bold">{stat.value}</div>
+                </motion.div>
               ))}
             </div>
-          </div>
 
-          {/* Mission Detail Dialog */}
-          <Dialog open={!!selectedApp} onOpenChange={(open) => !open && setSelectedApp(null)}>
-            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-              {selectedApp && (
-                <>
-                  <DialogHeader>
-                    <DialogTitle className="font-heading text-xl">{selectedApp.missionTitle}</DialogTitle>
-                    {selectedApp.missionTitleEs && selectedApp.missionTitleEs !== selectedApp.missionTitle && (
-                      <p className="text-sm text-muted-foreground font-body">{selectedApp.missionTitleEs}</p>
-                    )}
-                  </DialogHeader>
-
-                  <div className="space-y-5">
-                    {/* Status & Reward */}
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className={`text-xs font-heading font-semibold px-3 py-1.5 rounded-full ${statusColor(selectedApp.status)}`}>
-                        {statusLabel(selectedApp.status)}
-                      </span>
-                      <span className="text-sm font-heading font-semibold text-primary">${selectedApp.missionReward.toLocaleString()}</span>
-                      <span className="text-xs text-muted-foreground font-body">
-                        {selectedApp.missionSkill}
-                      </span>
-                    </div>
-
-                    {/* Mission Details */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="flex items-center gap-2 p-3 rounded-lg border border-border/50 bg-muted/30">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="text-xs text-muted-foreground font-body">Horas estimadas</p>
-                          <p className="text-sm font-heading font-semibold">{selectedApp.missionHours}h</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 p-3 rounded-lg border border-border/50 bg-muted/30">
-                        <DollarSign className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="text-xs text-muted-foreground font-body">Tarifa por hora</p>
-                          <p className="text-sm font-heading font-semibold">${selectedApp.missionHourlyRate}/h</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Description */}
-                    {(selectedApp.missionDescription || selectedApp.missionDescriptionEs) && (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          <h3 className="font-heading font-semibold text-sm">Descripción de la misión</h3>
-                        </div>
-                        <div className="p-4 rounded-lg border border-border/50 bg-muted/20">
-                          <p className="text-sm font-body whitespace-pre-wrap leading-relaxed">
-                            {selectedApp.missionDescriptionEs || selectedApp.missionDescription}
-                          </p>
-                          {selectedApp.missionDescriptionEs && selectedApp.missionDescription && selectedApp.missionDescriptionEs !== selectedApp.missionDescription && (
-                            <details className="mt-3">
-                              <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">Ver en inglés</summary>
-                              <p className="text-sm font-body whitespace-pre-wrap leading-relaxed mt-2 text-muted-foreground">
-                                {selectedApp.missionDescription}
-                              </p>
-                            </details>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Project & Resources */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <LinkIcon className="h-4 w-4 text-muted-foreground" />
-                        <h3 className="font-heading font-semibold text-sm">Proyecto y recursos</h3>
-                      </div>
-                      <div className="p-4 rounded-lg border border-border/50 bg-muted/20 space-y-2">
-                        <p className="text-sm font-body">
-                          <span className="text-muted-foreground">Proyecto:</span>{' '}
-                          <span className="font-semibold">{selectedApp.projectTitle}</span>
-                        </p>
-                        {selectedApp.projectResourceLink && (
-                          <a
-                            href={selectedApp.projectResourceLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-body"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            Recursos del proyecto (brief, logos, materiales)
-                          </a>
-                        )}
-                        {!selectedApp.projectResourceLink && (
-                          <p className="text-xs text-muted-foreground font-body italic">
-                            No hay recursos adicionales disponibles para este proyecto.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Review note */}
-                    {selectedApp.review_note && (
-                      <div className="p-3 rounded-lg border border-border/50 bg-muted/20">
-                        <p className="text-xs text-muted-foreground font-body mb-1">Nota de revisión:</p>
-                        <p className="text-sm font-body italic">{selectedApp.review_note}</p>
-                      </div>
-                    )}
-
-                    {/* Delivery section inside dialog */}
-                    {(selectedApp.status === 'pending' || selectedApp.status === 'rejected') && (
-                      <div className="space-y-2 border-t border-border/50 pt-4">
-                        <h3 className="font-heading font-semibold text-sm">Entregar trabajo</h3>
-                        {selectedApp.status === 'rejected' && selectedApp.review_note && (
-                          <p className="text-sm text-destructive font-body italic">
-                            Motivo del rechazo: {selectedApp.review_note}
-                          </p>
-                        )}
-                        <div className="flex gap-2 items-center">
-                          <Input
-                            placeholder="https://link-a-tu-trabajo.com"
-                            value={deliveryUrls[selectedApp.id] || ''}
-                            onChange={(e) => setDeliveryUrls((prev) => ({ ...prev, [selectedApp.id]: e.target.value }))}
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex-1 text-sm"
-                          />
-                          <Button
-                            size="sm"
-                            className="gap-1 font-heading text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSubmitDelivery(selectedApp.id);
-                            }}
-                            disabled={submittingId === selectedApp.id}
-                          >
-                            <Send className="h-3 w-3" />
-                            {submittingId === selectedApp.id ? 'Enviando...' : selectedApp.status === 'rejected' ? 'Reenviar' : 'Entregar'}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {selectedApp.status === 'delivered' && (
-                      <div className="flex items-center gap-3 border-t border-border/50 pt-4">
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-                          <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
-                          <span className="text-sm font-heading font-semibold text-yellow-500">En revisión</span>
-                        </div>
-                        {selectedApp.delivery_url && (
-                          <a href={selectedApp.delivery_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm text-primary hover:underline font-body truncate">
-                            <ExternalLink className="h-3 w-3" /> {selectedApp.delivery_url}
-                          </a>
-                        )}
-                      </div>
-                    )}
-
-                    {(selectedApp.status === 'completed' || selectedApp.status === 'funds_released') && selectedApp.delivery_url && (
-                      <div className="flex items-center gap-2 text-sm border-t border-border/50 pt-4">
-                        <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                        <a href={selectedApp.delivery_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-body truncate">
-                          {selectedApp.delivery_url}
-                        </a>
-                      </div>
+            {/* ─── Level + Badges Row ─── */}
+            <div className="grid md:grid-cols-5 gap-4">
+              {/* Level Progress */}
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={fadeIn}
+                custom={4}
+                className="md:col-span-3 rounded-xl border border-border/50 bg-card p-5"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-heading font-bold text-sm">{isEs ? 'Progreso de Nivel' : 'Level Progress'}</h2>
+                  <Badge variant="outline" className="font-heading text-xs">
+                    {completedCount} / {nextLevel ? nextLevel.threshold : currentLevel.threshold} {isEs ? 'misiones' : 'missions'}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-14 h-14 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-2xl shrink-0">
+                    {currentLevel.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-heading font-bold text-lg">{isEs ? currentLevel.nameEs : currentLevel.name}</p>
+                    <Progress value={Math.min(progressToNext, 100)} className="h-2 mt-2" />
+                    {nextLevel && (
+                      <p className="text-xs text-muted-foreground mt-1.5 font-body">
+                        {nextLevel.threshold - completedCount} {isEs ? 'misiones más para' : 'more missions to'}{' '}
+                        <span className="font-semibold text-foreground">{isEs ? nextLevel.nameEs : nextLevel.name}</span>
+                      </p>
                     )}
                   </div>
-                </>
-              )}
-            </DialogContent>
-          </Dialog>
-        </>
-      )}
+                </div>
+                {/* Mini level roadmap */}
+                <div className="flex items-center gap-1 mt-2">
+                  {levelConfig.map((lvl, i) => {
+                    const isActive = levelConfig.indexOf(currentLevel) >= i;
+                    return (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                        <div className={`w-full h-1.5 rounded-full ${isActive ? 'bg-primary' : 'bg-muted'}`} />
+                        <span className={`text-[10px] font-body ${isActive ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
+                          L{i + 1}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+
+              {/* Badges */}
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={fadeIn}
+                custom={5}
+                className="md:col-span-2 rounded-xl border border-border/50 bg-card p-5"
+              >
+                <h2 className="font-heading font-bold text-sm mb-4">{isEs ? 'Insignias' : 'Badges'}</h2>
+                <div className="grid grid-cols-2 gap-2">
+                  {badges.map((badge, i) => (
+                    <div
+                      key={i}
+                      className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border text-center transition-all ${
+                        badge.earned
+                          ? 'border-primary/30 bg-primary/5 hover:bg-primary/10'
+                          : 'border-border/30 opacity-35 grayscale'
+                      }`}
+                    >
+                      <badge.icon className={`h-5 w-5 ${badge.earned ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <span className="text-xs font-heading font-semibold leading-tight">{badge.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            </div>
+
+            {/* ─── Balance Section ─── */}
+            <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={6}>
+              <div className="rounded-xl border border-border/50 bg-card p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Wallet className="h-4 w-4 text-primary" />
+                  <h2 className="font-heading font-bold text-sm">{isEs ? 'Balance y Retiros' : 'Balance & Withdrawals'}</h2>
+                </div>
+                <BalanceModule />
+              </div>
+            </motion.div>
+
+            {/* ─── Missions Section with Tabs ─── */}
+            <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={7}>
+              <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+                <div className="p-5 pb-0">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Rocket className="h-4 w-4 text-primary" />
+                      <h2 className="font-heading font-bold text-sm">{isEs ? 'Mis Misiones' : 'My Missions'}</h2>
+                    </div>
+                    <Badge variant="secondary" className="font-heading text-xs">
+                      {applications.length} {isEs ? 'total' : 'total'}
+                    </Badge>
+                  </div>
+                  <Tabs value={missionTab} onValueChange={setMissionTab}>
+                    <TabsList className="w-full justify-start bg-transparent p-0 h-auto border-b border-border/50 rounded-none gap-0">
+                      <TabsTrigger
+                        value="active"
+                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3 font-heading text-sm"
+                      >
+                        {isEs ? 'Activas' : 'Active'} ({activeMissions.length})
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="completed"
+                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3 font-heading text-sm"
+                      >
+                        {isEs ? 'Completadas' : 'Completed'} ({completedMissions.length})
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value={missionTab} className="mt-0">
+                      <div className="divide-y divide-border/50">
+                        {filteredMissions.length === 0 && (
+                          <div className="p-10 text-center">
+                            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
+                              {missionTab === 'active' ? <Target className="h-5 w-5 text-muted-foreground" /> : <CheckCircle className="h-5 w-5 text-muted-foreground" />}
+                            </div>
+                            <p className="text-sm text-muted-foreground font-body">
+                              {missionTab === 'active'
+                                ? (isEs ? 'No tienes misiones activas.' : 'No active missions.')
+                                : (isEs ? 'Aún no has completado misiones.' : 'No completed missions yet.')}
+                            </p>
+                            {missionTab === 'active' && (
+                              <Link to="/marketplace">
+                                <Button variant="outline" size="sm" className="mt-3 gap-2 font-heading text-xs">
+                                  <Compass className="h-3.5 w-3.5" />
+                                  {isEs ? 'Explorar Marketplace' : 'Browse Marketplace'}
+                                </Button>
+                              </Link>
+                            )}
+                          </div>
+                        )}
+                        {filteredMissions.map((app) => (
+                          <div
+                            key={app.id}
+                            className="p-4 md:px-5 flex items-center gap-4 cursor-pointer hover:bg-muted/40 transition-colors group"
+                            onClick={() => setSelectedApp(app)}
+                          >
+                            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                              <Award className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-heading font-semibold text-sm truncate">
+                                {isEs && app.missionTitleEs ? app.missionTitleEs : app.missionTitle}
+                              </p>
+                              <p className="text-xs text-muted-foreground font-body truncate">{app.projectTitle}</p>
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0">
+                              <span className={`text-[10px] font-heading font-bold px-2 py-1 rounded-full ${statusColor(app.status)}`}>
+                                {statusLabel(app.status)}
+                              </span>
+                              <span className="text-sm font-heading font-bold text-primary hidden sm:block">${app.missionReward.toLocaleString()}</span>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </div>
+
+      {/* ─── Mission Detail Dialog ─── */}
+      <Dialog open={!!selectedApp} onOpenChange={(open) => !open && setSelectedApp(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          {selectedApp && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-heading text-xl">
+                  {isEs && selectedApp.missionTitleEs ? selectedApp.missionTitleEs : selectedApp.missionTitle}
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-5">
+                {/* Status & Reward */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className={`text-xs font-heading font-semibold px-3 py-1.5 rounded-full ${statusColor(selectedApp.status)}`}>
+                    {statusLabel(selectedApp.status)}
+                  </span>
+                  <span className="text-sm font-heading font-semibold text-primary">${selectedApp.missionReward.toLocaleString()}</span>
+                  <Badge variant="outline" className="text-xs">{selectedApp.missionSkill}</Badge>
+                </div>
+
+                {/* Mission Details */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2 p-3 rounded-lg border border-border/50 bg-muted/30">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground font-body">{isEs ? 'Horas estimadas' : 'Est. hours'}</p>
+                      <p className="text-sm font-heading font-semibold">{selectedApp.missionHours}h</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 rounded-lg border border-border/50 bg-muted/30">
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground font-body">{isEs ? 'Tarifa/hora' : 'Hourly rate'}</p>
+                      <p className="text-sm font-heading font-semibold">${selectedApp.missionHourlyRate}/h</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Description */}
+                {(selectedApp.missionDescription || selectedApp.missionDescriptionEs) && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="font-heading font-semibold text-sm">{isEs ? 'Descripción' : 'Description'}</h3>
+                    </div>
+                    <div className="p-4 rounded-lg border border-border/50 bg-muted/20">
+                      <p className="text-sm font-body whitespace-pre-wrap leading-relaxed">
+                        {isEs ? (selectedApp.missionDescriptionEs || selectedApp.missionDescription) : (selectedApp.missionDescription || selectedApp.missionDescriptionEs)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Project & Resources */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="font-heading font-semibold text-sm">{isEs ? 'Proyecto y recursos' : 'Project & resources'}</h3>
+                  </div>
+                  <div className="p-4 rounded-lg border border-border/50 bg-muted/20 space-y-2">
+                    <p className="text-sm font-body">
+                      <span className="text-muted-foreground">{isEs ? 'Proyecto:' : 'Project:'}</span>{' '}
+                      <span className="font-semibold">{selectedApp.projectTitle}</span>
+                    </p>
+                    {selectedApp.projectResourceLink && (
+                      <a href={selectedApp.projectResourceLink} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-body"
+                        onClick={(e) => e.stopPropagation()}>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        {isEs ? 'Recursos del proyecto' : 'Project resources'}
+                      </a>
+                    )}
+                    {!selectedApp.projectResourceLink && (
+                      <p className="text-xs text-muted-foreground font-body italic">
+                        {isEs ? 'No hay recursos adicionales.' : 'No additional resources.'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Review note */}
+                {selectedApp.review_note && (
+                  <div className="p-3 rounded-lg border border-border/50 bg-muted/20">
+                    <p className="text-xs text-muted-foreground font-body mb-1">{isEs ? 'Nota de revisión:' : 'Review note:'}</p>
+                    <p className="text-sm font-body italic">{selectedApp.review_note}</p>
+                  </div>
+                )}
+
+                {/* Delivery section */}
+                {(selectedApp.status === 'pending' || selectedApp.status === 'rejected') && (
+                  <div className="space-y-2 border-t border-border/50 pt-4">
+                    <h3 className="font-heading font-semibold text-sm">{isEs ? 'Entregar trabajo' : 'Submit delivery'}</h3>
+                    {selectedApp.status === 'rejected' && selectedApp.review_note && (
+                      <p className="text-sm text-destructive font-body italic">
+                        {isEs ? 'Motivo del rechazo:' : 'Rejection reason:'} {selectedApp.review_note}
+                      </p>
+                    )}
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        placeholder="https://link-to-your-work.com"
+                        value={deliveryUrls[selectedApp.id] || ''}
+                        onChange={(e) => setDeliveryUrls((prev) => ({ ...prev, [selectedApp.id]: e.target.value }))}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 text-sm"
+                      />
+                      <Button
+                        size="sm"
+                        className="gap-1 font-heading text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSubmitDelivery(selectedApp.id);
+                        }}
+                        disabled={submittingId === selectedApp.id}
+                      >
+                        <Send className="h-3 w-3" />
+                        {submittingId === selectedApp.id
+                          ? (isEs ? 'Enviando...' : 'Sending...')
+                          : selectedApp.status === 'rejected'
+                            ? (isEs ? 'Reenviar' : 'Resubmit')
+                            : (isEs ? 'Entregar' : 'Submit')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {selectedApp.status === 'delivered' && (
+                  <div className="flex items-center gap-3 border-t border-border/50 pt-4">
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                      <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+                      <span className="text-sm font-heading font-semibold text-yellow-600 dark:text-yellow-400">
+                        {isEs ? 'En revisión' : 'In review'}
+                      </span>
+                    </div>
+                    {selectedApp.delivery_url && (
+                      <a href={selectedApp.delivery_url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-sm text-primary hover:underline font-body truncate">
+                        <ExternalLink className="h-3 w-3" /> {selectedApp.delivery_url}
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {(selectedApp.status === 'completed' || selectedApp.status === 'funds_released') && selectedApp.delivery_url && (
+                  <div className="flex items-center gap-2 text-sm border-t border-border/50 pt-4">
+                    <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                    <a href={selectedApp.delivery_url} target="_blank" rel="noopener noreferrer"
+                      className="text-primary hover:underline font-body truncate">
+                      {selectedApp.delivery_url}
+                    </a>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
