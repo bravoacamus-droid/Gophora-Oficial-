@@ -630,21 +630,31 @@ const AcademyDashboard = () => {
                         </div>
                         <div>
                           <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
-                            {isEs ? 'Link del curso *' : 'Course link *'}
+                            {isEs ? 'Link del curso (YouTube u otro) *' : 'Course link (YouTube or other) *'}
                           </label>
-                          <Input value={courseForm.external_url} onChange={e => setCourseForm(f => ({ ...f, external_url: e.target.value }))} placeholder="https://..." />
+                          <Input value={courseForm.external_url} onChange={e => {
+                            const url = e.target.value;
+                            setCourseForm(f => {
+                              const update = { ...f, external_url: url };
+                              // Auto-generate thumbnail from YouTube URL
+                              const ytId = extractYouTubeId(url);
+                              if (ytId && !f.thumbnail_url) {
+                                update.thumbnail_url = getYouTubeThumbnail(ytId);
+                              }
+                              return update;
+                            });
+                          }} placeholder="https://youtube.com/watch?v=..." />
                         </div>
+                        {/* YouTube preview */}
+                        {courseForm.external_url && isYouTubeUrl(courseForm.external_url) && (
+                          <YouTubeVideoPlayer url={courseForm.external_url} title="Preview" className="max-w-full" />
+                        )}
                         <div>
                           <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
-                            {isEs ? 'URL de miniatura' : 'Thumbnail URL'}
+                            {isEs ? 'URL de miniatura (auto-generada para YouTube)' : 'Thumbnail URL (auto-generated for YouTube)'}
                           </label>
                           <Input value={courseForm.thumbnail_url} onChange={e => setCourseForm(f => ({ ...f, thumbnail_url: e.target.value }))} placeholder="https://..." />
                         </div>
-                        {courseForm.thumbnail_url && (
-                          <div className="rounded-lg overflow-hidden border border-border/50 aspect-video max-w-[200px]">
-                            <img src={courseForm.thumbnail_url} alt="Preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                          </div>
-                        )}
                         <div>
                           <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
                             {isEs ? 'Descripción' : 'Description'}
