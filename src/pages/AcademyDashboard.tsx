@@ -133,7 +133,7 @@ const AcademyDashboard = () => {
       {
         onSuccess: () => {
           setShowTutorForm(false);
-          toast.success(isEs ? '¡Solicitud enviada! Revisaremos tu perfil.' : 'Application submitted! We'll review your profile.');
+          toast.success(isEs ? '¡Solicitud enviada! Revisaremos tu perfil.' : 'Application submitted! We will review your profile.');
         },
       }
     );
