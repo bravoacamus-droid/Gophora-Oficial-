@@ -170,20 +170,29 @@ const AcademyDashboard = () => {
 
   const handleSubmitCourse = () => {
     if (!courseForm.title || !courseForm.external_url || !courseForm.path_id) return;
+    // Validate exam questions - at least 5 valid questions
+    const validQuestions = examQuestions.filter(q => q.question.trim() && q.options.every(o => o.trim()));
+    if (validQuestions.length < 5) {
+      toast.error(isEs ? 'Debes agregar al menos 5 preguntas de examen completas' : 'You must add at least 5 complete exam questions');
+      return;
+    }
     submitCourse.mutate(
       {
-        title: courseForm.title,
-        description: courseForm.description,
-        external_url: courseForm.external_url,
-        thumbnail_url: courseForm.thumbnail_url || null,
-        duration_minutes: courseForm.duration_minutes,
-        skill_level: courseForm.skill_level,
-        language: courseForm.language,
-        skills_learned: courseForm.skills_learned.split(',').map(s => s.trim()).filter(Boolean),
-        path_id: courseForm.path_id,
-        category: selectedCategory || 'general',
-        platform: 'External',
-        instructor_name: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Tutor',
+        course: {
+          title: courseForm.title,
+          description: courseForm.description,
+          external_url: courseForm.external_url,
+          thumbnail_url: courseForm.thumbnail_url || null,
+          duration_minutes: courseForm.duration_minutes,
+          skill_level: courseForm.skill_level,
+          language: courseForm.language,
+          skills_learned: courseForm.skills_learned.split(',').map(s => s.trim()).filter(Boolean),
+          path_id: courseForm.path_id,
+          category: selectedCategory || 'general',
+          platform: 'External',
+          instructor_name: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Tutor',
+        },
+        examQuestions: validQuestions,
       },
       {
         onSuccess: () => {
@@ -191,6 +200,13 @@ const AcademyDashboard = () => {
           setShowCourseForm(false);
           setSelectedCategory('');
           setCourseForm({ title: '', description: '', external_url: '', thumbnail_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', path_id: '' });
+          setExamQuestions([
+            { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+            { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+            { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+            { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+            { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+          ]);
         },
       }
     );
