@@ -953,11 +953,13 @@ const AcademyDashboard = () => {
             return (
               <>
                 <DialogHeader>
-                  {sc.thumbnail_url && (
+                  {sc.external_url && isYouTubeUrl(sc.external_url) ? (
+                    <YouTubeVideoPlayer url={sc.external_url} title={sc.title} className="mb-3" />
+                  ) : sc.thumbnail_url ? (
                     <div className="w-full aspect-video rounded-lg overflow-hidden mb-3 bg-muted">
                       <img src={sc.thumbnail_url} alt={sc.title} className="w-full h-full object-cover" />
                     </div>
-                  )}
+                  ) : null}
                   <DialogTitle className="font-heading text-xl">
                     {isEs ? sc.title_es || sc.title : sc.title}
                   </DialogTitle>
