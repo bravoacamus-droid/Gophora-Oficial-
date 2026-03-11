@@ -117,18 +117,6 @@ export default function YouTubeVideoPlayer({ url, title = 'Video', className = '
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowFullScreen
         referrerPolicy="strict-origin-when-cross-origin"
-        sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
-        onLoad={(e) => {
-          // Check if iframe loaded properly
-          try {
-            const iframe = e.target as HTMLIFrameElement;
-            if (!iframe.contentWindow) {
-              setIframeError(true);
-            }
-          } catch {
-            // Cross-origin - this is expected and means iframe loaded
-          }
-        }}
         onError={() => setIframeError(true)}
       />
     </div>
