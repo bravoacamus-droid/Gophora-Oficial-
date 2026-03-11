@@ -214,7 +214,7 @@ const AdminPanel = () => {
       });
       toast.success('Curso agregado');
       setShowAddCourse(false);
-      setNewCourse({ title: '', title_es: '', description: '', description_es: '', platform: '', external_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', category: 'general', tool: '', path_id: '', sort_order: 0 });
+      setNewCourse({ title: '', title_es: '', description: '', description_es: '', platform: '', external_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', category: 'general', tool: '', path_id: '', sort_order: 0, instructor_name: '', thumbnail_url: '', featured: false });
       loadData();
     } catch (err: any) { toast.error(err.message); }
   };
