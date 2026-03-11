@@ -27,6 +27,7 @@ import {
   type AcademyCourse
 } from '@/hooks/useAcademy';
 import CourseExam from '@/components/CourseExam';
+import YouTubeVideoPlayer, { isYouTubeUrl, extractYouTubeId, getYouTubeThumbnail } from '@/components/YouTubeVideoPlayer';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -629,21 +630,31 @@ const AcademyDashboard = () => {
                         </div>
                         <div>
                           <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
-                            {isEs ? 'Link del curso *' : 'Course link *'}
+                            {isEs ? 'Link del curso (YouTube u otro) *' : 'Course link (YouTube or other) *'}
                           </label>
-                          <Input value={courseForm.external_url} onChange={e => setCourseForm(f => ({ ...f, external_url: e.target.value }))} placeholder="https://..." />
+                          <Input value={courseForm.external_url} onChange={e => {
+                            const url = e.target.value;
+                            setCourseForm(f => {
+                              const update = { ...f, external_url: url };
+                              // Auto-generate thumbnail from YouTube URL
+                              const ytId = extractYouTubeId(url);
+                              if (ytId && !f.thumbnail_url) {
+                                update.thumbnail_url = getYouTubeThumbnail(ytId);
+                              }
+                              return update;
+                            });
+                          }} placeholder="https://youtube.com/watch?v=..." />
                         </div>
+                        {/* YouTube preview */}
+                        {courseForm.external_url && isYouTubeUrl(courseForm.external_url) && (
+                          <YouTubeVideoPlayer url={courseForm.external_url} title="Preview" className="max-w-full" />
+                        )}
                         <div>
                           <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
-                            {isEs ? 'URL de miniatura' : 'Thumbnail URL'}
+                            {isEs ? 'URL de miniatura (auto-generada para YouTube)' : 'Thumbnail URL (auto-generated for YouTube)'}
                           </label>
                           <Input value={courseForm.thumbnail_url} onChange={e => setCourseForm(f => ({ ...f, thumbnail_url: e.target.value }))} placeholder="https://..." />
                         </div>
-                        {courseForm.thumbnail_url && (
-                          <div className="rounded-lg overflow-hidden border border-border/50 aspect-video max-w-[200px]">
-                            <img src={courseForm.thumbnail_url} alt="Preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                          </div>
-                        )}
                         <div>
                           <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
                             {isEs ? 'Descripción' : 'Description'}
@@ -942,11 +953,13 @@ const AcademyDashboard = () => {
             return (
               <>
                 <DialogHeader>
-                  {sc.thumbnail_url && (
+                  {sc.external_url && isYouTubeUrl(sc.external_url) ? (
+                    <YouTubeVideoPlayer url={sc.external_url} title={sc.title} className="mb-3" />
+                  ) : sc.thumbnail_url ? (
                     <div className="w-full aspect-video rounded-lg overflow-hidden mb-3 bg-muted">
                       <img src={sc.thumbnail_url} alt={sc.title} className="w-full h-full object-cover" />
                     </div>
-                  )}
+                  ) : null}
                   <DialogTitle className="font-heading text-xl">
                     {isEs ? sc.title_es || sc.title : sc.title}
                   </DialogTitle>
@@ -1137,19 +1150,22 @@ function CourseVideoCard({
       className={`group cursor-pointer ${compact ? '' : ''}`}
       onClick={onOpen}
     >
-      {/* Thumbnail */}
-      <div className={`relative overflow-hidden rounded-xl bg-muted mb-3 ${featured ? 'aspect-video' : 'aspect-video'}`}>
-        {course.thumbnail_url ? (
-          <img
-            src={course.thumbnail_url}
-            alt={title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-            <Play className="h-10 w-10 text-primary/30" />
-          </div>
-        )}
+      {/* Thumbnail - auto-detect YouTube thumbnail */}
+      <div className={`relative overflow-hidden rounded-xl bg-muted mb-3 aspect-video`}>
+        {(() => {
+          const thumbUrl = course.thumbnail_url || (course.external_url && isYouTubeUrl(course.external_url) ? getYouTubeThumbnail(extractYouTubeId(course.external_url)!) : null);
+          return thumbUrl ? (
+            <img
+              src={thumbUrl}
+              alt={title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+              <Play className="h-10 w-10 text-primary/30" />
+            </div>
+          );
+        })()}
         {/* Overlay badges */}
         <div className="absolute top-2 left-2 flex gap-1">
           {completed && (
