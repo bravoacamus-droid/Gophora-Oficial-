@@ -54,6 +54,7 @@ const AdminPanel = () => {
   const [academyPaths, setAcademyPaths] = useState<any[]>([]);
   const [tutorApplications, setTutorApplications] = useState<any[]>([]);
   const [showAddCourse, setShowAddCourse] = useState(false);
+  const [selectedCoursePreview, setSelectedCoursePreview] = useState<any>(null);
   const [courseStatusFilter, setCourseStatusFilter] = useState<string>('all');
   const [newCourse, setNewCourse] = useState({
     title: '', title_es: '', description: '', description_es: '', platform: '',
