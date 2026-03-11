@@ -1078,17 +1078,64 @@ const AdminPanel = () => {
                 ) : (
                   <div className="divide-y divide-border/50">
                     {tutorApplications.map((app: any) => (
-                      <div key={app.id} className="p-5 space-y-3">
+                      <div key={app.id} className="p-5 space-y-4">
                         <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <p className="font-heading font-semibold text-sm">{app.email || app.user_id}</p>
-                            {app.full_name && <p className="text-xs text-muted-foreground">{app.full_name}</p>}
-                            <p className="text-sm mt-2">{app.bio}</p>
+                          <div className="space-y-1">
+                            <p className="font-heading font-semibold text-base">{app.full_name || 'Sin nombre'}</p>
+                            <p className="text-xs text-muted-foreground">{app.email || app.user_id}</p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Clock className="h-3 w-3" /> {format(new Date(app.created_at), 'dd MMM yyyy, HH:mm', { locale: es })}
+                            </p>
                           </div>
                           <div>{statusBadge(app.status)}</div>
                         </div>
+
+                        {/* Bio */}
+                        <div className="rounded-lg bg-muted/30 p-3">
+                          <p className="text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider mb-1">Biografía</p>
+                          <p className="text-sm">{app.bio}</p>
+                        </div>
+
+                        {/* Expertise */}
+                        {app.expertise && app.expertise.length > 0 && (
+                          <div>
+                            <p className="text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider mb-2">Expertise</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {app.expertise.map((skill: string, i: number) => (
+                                <Badge key={i} variant="secondary" className="text-xs">{skill}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Portfolio URL */}
+                        {app.portfolio_url && (
+                          <div>
+                            <p className="text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider mb-1">Portfolio / Link</p>
+                            <a href={app.portfolio_url} target="_blank" rel="noopener noreferrer"
+                              className="text-sm text-primary hover:underline flex items-center gap-1.5 break-all">
+                              <ExternalLink className="h-3.5 w-3.5 shrink-0" /> {app.portfolio_url}
+                            </a>
+                          </div>
+                        )}
+
+                        {/* Admin note if reviewed */}
+                        {app.admin_note && (
+                          <div className="rounded-lg bg-muted/30 p-3">
+                            <p className="text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider mb-1">Nota del Admin</p>
+                            <p className="text-sm">{app.admin_note}</p>
+                          </div>
+                        )}
+
+                        {/* Reviewed date */}
+                        {app.reviewed_at && (
+                          <p className="text-xs text-muted-foreground">
+                            Revisado: {format(new Date(app.reviewed_at), 'dd MMM yyyy, HH:mm', { locale: es })}
+                          </p>
+                        )}
+
                         {app.status === 'pending' && (
-                          <div className="flex gap-2 justify-end">
+                          <div className="flex gap-2 justify-end pt-2 border-t border-border/30">
                             <Button size="sm" className="gap-1 text-xs font-heading" onClick={async () => {
                               try { await adminCall('review_tutor', { application_id: app.id, status: 'approved' }); toast.success('Tutor aprobado'); loadData(); } catch (err: any) { toast.error(err.message); }
                             }}>
