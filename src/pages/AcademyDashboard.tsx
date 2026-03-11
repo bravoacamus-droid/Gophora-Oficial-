@@ -90,6 +90,15 @@ const AcademyDashboard = () => {
     duration_minutes: 30, skill_level: 'beginner', language: 'en',
     skills_learned: '', path_id: '',
   });
+  const [examQuestions, setExamQuestions] = useState<Array<{
+    question: string; question_es: string; options: string[]; options_es: string[]; correct_index: number;
+  }>>([
+    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+  ]);
 
   const isTutor = tutorApp?.status === 'approved';
 
