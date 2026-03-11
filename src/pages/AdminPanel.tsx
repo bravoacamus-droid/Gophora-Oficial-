@@ -1065,6 +1065,49 @@ const AdminPanel = () => {
               </div>
             </div>
           )}
+
+          {/* ── TUTORS TAB ── */}
+          {activeTab === 'Tutors' && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-heading font-bold flex items-center gap-2">
+                <UserCheck className="h-5 w-5 text-primary" /> Solicitudes de Tutor ({tutorApplications.length})
+              </h2>
+              <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+                {tutorApplications.length === 0 ? (
+                  <div className="p-12 text-center text-muted-foreground font-body">No hay solicitudes de tutor</div>
+                ) : (
+                  <div className="divide-y divide-border/50">
+                    {tutorApplications.map((app: any) => (
+                      <div key={app.id} className="p-5 space-y-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="font-heading font-semibold text-sm">{app.email || app.user_id}</p>
+                            {app.full_name && <p className="text-xs text-muted-foreground">{app.full_name}</p>}
+                            <p className="text-sm mt-2">{app.bio}</p>
+                          </div>
+                          <div>{statusBadge(app.status)}</div>
+                        </div>
+                        {app.status === 'pending' && (
+                          <div className="flex gap-2 justify-end">
+                            <Button size="sm" className="gap-1 text-xs font-heading" onClick={async () => {
+                              try { await adminCall('review_tutor', { application_id: app.id, status: 'approved' }); toast.success('Tutor aprobado'); loadData(); } catch (err: any) { toast.error(err.message); }
+                            }}>
+                              <CheckCircle className="h-3 w-3" /> Aprobar
+                            </Button>
+                            <Button size="sm" variant="outline" className="gap-1 text-xs font-heading text-destructive" onClick={async () => {
+                              try { await adminCall('review_tutor', { application_id: app.id, status: 'rejected' }); toast.success('Tutor rechazado'); loadData(); } catch (err: any) { toast.error(err.message); }
+                            }}>
+                              <XCircle className="h-3 w-3" /> Rechazar
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
