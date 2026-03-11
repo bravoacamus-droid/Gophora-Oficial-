@@ -1045,9 +1045,14 @@ const AcademyDashboard = () => {
                   <div className="flex gap-2">
                     {sc.external_url && (
                       <Button variant="outline" className="flex-1" asChild>
-                        <a href={sc.external_url} target="_blank" rel="noopener noreferrer" onClick={() => handleCourseClick(sc)}>
+                        <a
+                          href={isYouTubeUrl(sc.external_url) ? `https://www.youtube.com/watch?v=${extractYouTubeId(sc.external_url)}` : sc.external_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => handleCourseClick(sc)}
+                        >
                           <ExternalLink className="h-4 w-4 mr-2" />
-                          {isEs ? 'Ir al Curso' : 'Go to Course'}
+                          {isYouTubeUrl(sc.external_url) ? (isEs ? 'Abrir en YouTube' : 'Open on YouTube') : (isEs ? 'Ir al Curso' : 'Go to Course')}
                         </a>
                       </Button>
                     )}
