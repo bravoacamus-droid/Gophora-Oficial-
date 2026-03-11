@@ -26,8 +26,10 @@ const Header = () => {
 
   const navLinks = user ? [
     { path: accountType === 'company' ? '/company' : '/explorer', label: t('nav.dashboard') },
-    { path: '/marketplace', label: t('nav.marketplace') },
-    ...(accountType === 'explorer' ? [{ path: '/academy', label: 'Dream Academy' }] : []),
+    ...(accountType === 'explorer' ? [
+      { path: '/marketplace', label: language === 'es' ? 'Trabajo' : 'Work' },
+      { path: '/academy', label: 'Dream Academy' },
+    ] : []),
     ...(accountType === 'company' ? [{ path: '/projects/create', label: t('nav.projects') }] : []),
     ...(isAdmin ? [{ path: '/admin', label: t('nav.admin') }] : []),
   ] : [
