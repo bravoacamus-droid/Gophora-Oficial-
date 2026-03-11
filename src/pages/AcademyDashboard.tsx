@@ -574,9 +574,12 @@ const AcademyDashboard = () => {
                       ].map(cat => (
                         <Card
                           key={cat.key}
-                          className={`cursor-pointer hover:border-primary/50 transition-all group ${selectedCategory === cat.key && showCourseForm ? 'border-primary ring-2 ring-primary/20' : ''}`}
+                          className="cursor-pointer hover:border-primary/50 transition-all group"
                           onClick={() => {
                             setSelectedCategory(cat.key);
+                            // Auto-select first path if available
+                            const firstPath = paths.length > 0 ? paths[0].id : '';
+                            setCourseForm(f => ({ ...f, path_id: firstPath }));
                             setShowCourseForm(true);
                           }}
                         >
@@ -594,114 +597,110 @@ const AcademyDashboard = () => {
                     </div>
                   </div>
 
-                  {/* Course Upload Form */}
-                  {showCourseForm && (
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                      <Card className="border-primary/30">
-                        <CardHeader>
-                          <CardTitle className="font-heading flex items-center gap-2">
-                            <Upload className="h-5 w-5 text-primary" />
-                            {isEs ? 'Nuevo Curso' : 'New Course'} — <Badge variant="secondary" className="capitalize">{selectedCategory.replace('ai-', 'AI ').replace('-', ' ')}</Badge>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
-                                {isEs ? 'Título del curso *' : 'Course title *'}
-                              </label>
-                              <Input value={courseForm.title} onChange={e => setCourseForm(f => ({ ...f, title: e.target.value }))} placeholder={isEs ? 'Ej: Automatiza tu flujo con Make' : 'Ex: Automate your flow with Make'} />
-                            </div>
-                            <div>
-                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
-                                {isEs ? 'Link del curso *' : 'Course link *'}
-                              </label>
-                              <Input value={courseForm.external_url} onChange={e => setCourseForm(f => ({ ...f, external_url: e.target.value }))} placeholder="https://..." />
-                            </div>
-                            <div>
-                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
-                                {isEs ? 'URL de miniatura' : 'Thumbnail URL'}
-                              </label>
-                              <Input value={courseForm.thumbnail_url} onChange={e => setCourseForm(f => ({ ...f, thumbnail_url: e.target.value }))} placeholder="https://..." />
-                            </div>
-                            <div>
-                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
-                                {isEs ? 'Ruta de aprendizaje *' : 'Learning path *'}
-                              </label>
-                              <Select value={courseForm.path_id} onValueChange={v => setCourseForm(f => ({ ...f, path_id: v }))}>
-                                <SelectTrigger><SelectValue placeholder={isEs ? 'Seleccionar' : 'Select'} /></SelectTrigger>
-                                <SelectContent>
-                                  {paths.map(p => (
-                                    <SelectItem key={p.id} value={p.id}>{isEs ? p.title_es || p.title : p.title}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="md:col-span-2">
-                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
-                                {isEs ? 'Descripción' : 'Description'}
-                              </label>
-                              <Textarea value={courseForm.description} onChange={e => setCourseForm(f => ({ ...f, description: e.target.value }))} placeholder={isEs ? 'Describe qué aprenderán los exploradores...' : 'Describe what explorers will learn...'} rows={3} />
-                            </div>
-                            <div>
-                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
-                                {isEs ? 'Nivel' : 'Level'}
-                              </label>
-                              <Select value={courseForm.skill_level} onValueChange={v => setCourseForm(f => ({ ...f, skill_level: v }))}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="beginner">{isEs ? 'Principiante' : 'Beginner'}</SelectItem>
-                                  <SelectItem value="intermediate">{isEs ? 'Intermedio' : 'Intermediate'}</SelectItem>
-                                  <SelectItem value="advanced">{isEs ? 'Avanzado' : 'Advanced'}</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
-                                {isEs ? 'Idioma' : 'Language'}
-                              </label>
-                              <Select value={courseForm.language} onValueChange={v => setCourseForm(f => ({ ...f, language: v }))}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="en">🇺🇸 English</SelectItem>
-                                  <SelectItem value="es">🇪🇸 Español</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
-                                {isEs ? 'Duración (min)' : 'Duration (min)'}
-                              </label>
-                              <Input type="number" value={courseForm.duration_minutes} onChange={e => setCourseForm(f => ({ ...f, duration_minutes: Number(e.target.value) }))} />
-                            </div>
-                            <div>
-                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
-                                {isEs ? 'Skills (separadas por coma)' : 'Skills (comma-separated)'}
-                              </label>
-                              <Input value={courseForm.skills_learned} onChange={e => setCourseForm(f => ({ ...f, skills_learned: e.target.value }))} placeholder="Prompt Design, Automation, ..." />
-                            </div>
-                          </div>
+                  {/* Course Upload Dialog */}
+                  <Dialog open={showCourseForm} onOpenChange={(open) => { if (!open) { setShowCourseForm(false); setSelectedCategory(''); } }}>
+                    <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="font-heading flex items-center gap-2">
+                          <Upload className="h-5 w-5 text-primary" />
+                          {isEs ? 'Nuevo Curso' : 'New Course'}
+                        </DialogTitle>
+                      </DialogHeader>
 
-                          {/* Thumbnail preview */}
-                          {courseForm.thumbnail_url && (
-                            <div className="rounded-lg overflow-hidden border border-border/50 aspect-video max-w-xs">
-                              <img src={courseForm.thumbnail_url} alt="Preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                            </div>
-                          )}
+                      {/* Category & Path shown at top */}
+                      <div className="flex items-center gap-3 rounded-lg border border-border/50 p-3 bg-muted/30">
+                        <Badge className="capitalize">{selectedCategory.replace('ai-', 'AI ').replace('-', ' ')}</Badge>
+                        <Select value={courseForm.path_id} onValueChange={v => setCourseForm(f => ({ ...f, path_id: v }))}>
+                          <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder={isEs ? 'Ruta de aprendizaje' : 'Learning path'} /></SelectTrigger>
+                          <SelectContent>
+                            {paths.map(p => (
+                              <SelectItem key={p.id} value={p.id}>{isEs ? p.title_es || p.title : p.title}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                          <div className="flex gap-2 justify-end">
-                            <Button variant="outline" onClick={() => { setShowCourseForm(false); setSelectedCategory(''); }}>
-                              {isEs ? 'Cancelar' : 'Cancel'}
-                            </Button>
-                            <Button onClick={handleSubmitCourse} disabled={!courseForm.title || !courseForm.external_url || !courseForm.path_id || submitCourse.isPending}>
-                              <Upload className="h-4 w-4 mr-2" />
-                              {isEs ? 'Enviar para Revisión' : 'Submit for Review'}
-                            </Button>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                            {isEs ? 'Título del curso *' : 'Course title *'}
+                          </label>
+                          <Input value={courseForm.title} onChange={e => setCourseForm(f => ({ ...f, title: e.target.value }))} placeholder={isEs ? 'Ej: Automatiza tu flujo con Make' : 'Ex: Automate your flow with Make'} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                            {isEs ? 'Link del curso *' : 'Course link *'}
+                          </label>
+                          <Input value={courseForm.external_url} onChange={e => setCourseForm(f => ({ ...f, external_url: e.target.value }))} placeholder="https://..." />
+                        </div>
+                        <div>
+                          <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                            {isEs ? 'URL de miniatura' : 'Thumbnail URL'}
+                          </label>
+                          <Input value={courseForm.thumbnail_url} onChange={e => setCourseForm(f => ({ ...f, thumbnail_url: e.target.value }))} placeholder="https://..." />
+                        </div>
+                        {courseForm.thumbnail_url && (
+                          <div className="rounded-lg overflow-hidden border border-border/50 aspect-video max-w-[200px]">
+                            <img src={courseForm.thumbnail_url} alt="Preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                           </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  )}
+                        )}
+                        <div>
+                          <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                            {isEs ? 'Descripción' : 'Description'}
+                          </label>
+                          <Textarea value={courseForm.description} onChange={e => setCourseForm(f => ({ ...f, description: e.target.value }))} placeholder={isEs ? 'Describe qué aprenderán los exploradores...' : 'Describe what explorers will learn...'} rows={3} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                              {isEs ? 'Nivel' : 'Level'}
+                            </label>
+                            <Select value={courseForm.skill_level} onValueChange={v => setCourseForm(f => ({ ...f, skill_level: v }))}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="beginner">{isEs ? 'Principiante' : 'Beginner'}</SelectItem>
+                                <SelectItem value="intermediate">{isEs ? 'Intermedio' : 'Intermediate'}</SelectItem>
+                                <SelectItem value="advanced">{isEs ? 'Avanzado' : 'Advanced'}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                              {isEs ? 'Idioma' : 'Language'}
+                            </label>
+                            <Select value={courseForm.language} onValueChange={v => setCourseForm(f => ({ ...f, language: v }))}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="en">🇺🇸 English</SelectItem>
+                                <SelectItem value="es">🇪🇸 Español</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                              {isEs ? 'Duración (min)' : 'Duration (min)'}
+                            </label>
+                            <Input type="number" value={courseForm.duration_minutes} onChange={e => setCourseForm(f => ({ ...f, duration_minutes: Number(e.target.value) }))} />
+                          </div>
+                          <div>
+                            <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                              {isEs ? 'Skills (coma)' : 'Skills (comma)'}
+                            </label>
+                            <Input value={courseForm.skills_learned} onChange={e => setCourseForm(f => ({ ...f, skills_learned: e.target.value }))} placeholder="Prompt Design, ..." />
+                          </div>
+                        </div>
+                        <div className="flex gap-2 justify-end pt-2">
+                          <Button variant="outline" onClick={() => { setShowCourseForm(false); setSelectedCategory(''); }}>
+                            {isEs ? 'Cancelar' : 'Cancel'}
+                          </Button>
+                          <Button onClick={handleSubmitCourse} disabled={!courseForm.title || !courseForm.external_url || !courseForm.path_id || submitCourse.isPending}>
+                            <Upload className="h-4 w-4 mr-2" />
+                            {isEs ? 'Enviar para Revisión' : 'Submit for Review'}
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
 
                   {/* My Courses */}
                   {tutorCourses.length > 0 && (
