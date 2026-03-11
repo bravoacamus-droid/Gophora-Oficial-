@@ -284,16 +284,35 @@ export function useSubmitCourseAsTutor() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (course: Partial<AcademyCourse> & { title: string; path_id: string }) => {
+    mutationFn: async (payload: {
+      course: Partial<AcademyCourse> & { title: string; path_id: string };
+      examQuestions?: Array<{ question: string; question_es: string; options: string[]; options_es: string[]; correct_index: number }>;
+    }) => {
       if (!user) throw new Error('Not authenticated');
-      const { error } = await db
+      const { data, error } = await db
         .from('academy_courses')
         .insert({
-          ...course,
+          ...payload.course,
           submitted_by: user.id,
           course_status: 'pending_review',
-        });
+        })
+        .select('id')
+        .single();
       if (error) throw error;
+
+      if (payload.examQuestions && payload.examQuestions.length > 0 && data?.id) {
+        const questions = payload.examQuestions.map((q: any, i: number) => ({
+          course_id: data.id,
+          question: q.question,
+          question_es: q.question_es || null,
+          options: q.options,
+          options_es: q.options_es || [],
+          correct_index: q.correct_index,
+          sort_order: i,
+        }));
+        const { error: qError } = await db.from('course_exam_questions').insert(questions);
+        if (qError) throw qError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['academy-courses'] });
@@ -302,12 +321,32 @@ export function useSubmitCourseAsTutor() {
   });
 }
 
+export function useCourseExamQuestions(courseId: string | null) {
+  return useQuery({
+    queryKey: ['course-exam-questions', courseId],
+    queryFn: async () => {
+      if (!courseId) return [];
+      const { data, error } = await db
+        .from('course_exam_questions')
+        .select('*')
+        .eq('course_id', courseId)
+        .order('sort_order');
+      if (error) throw error;
+      return (data || []).map((q: any) => ({
+        ...q,
+        options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options,
+        options_es: typeof q.options_es === 'string' ? JSON.parse(q.options_es) : q.options_es,
+      })) as ExamQuestion[];
+    },
+    enabled: !!courseId,
+  });
+}
+
 export function useIncrementViews() {
   return useMutation({
     mutationFn: async (courseId: string) => {
       const { error } = await db.rpc('increment_course_views', { _course_id: courseId });
       if (error) {
-        // Fallback: direct update
         await db
           .from('academy_courses')
           .update({ views_count: db.raw('views_count + 1') })
