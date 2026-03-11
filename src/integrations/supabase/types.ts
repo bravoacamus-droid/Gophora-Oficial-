@@ -211,6 +211,50 @@ export type Database = {
         }
         Relationships: []
       }
+      course_exam_questions: {
+        Row: {
+          correct_index: number
+          course_id: string
+          created_at: string
+          id: string
+          options: Json
+          options_es: Json
+          question: string
+          question_es: string | null
+          sort_order: number | null
+        }
+        Insert: {
+          correct_index?: number
+          course_id: string
+          created_at?: string
+          id?: string
+          options?: Json
+          options_es?: Json
+          question: string
+          question_es?: string | null
+          sort_order?: number | null
+        }
+        Update: {
+          correct_index?: number
+          course_id?: string
+          created_at?: string
+          id?: string
+          options?: Json
+          options_es?: Json
+          question?: string
+          question_es?: string | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_exam_questions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "academy_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_ratings: {
         Row: {
           course_id: string

@@ -90,6 +90,15 @@ const AcademyDashboard = () => {
     duration_minutes: 30, skill_level: 'beginner', language: 'en',
     skills_learned: '', path_id: '',
   });
+  const [examQuestions, setExamQuestions] = useState<Array<{
+    question: string; question_es: string; options: string[]; options_es: string[]; correct_index: number;
+  }>>([
+    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+  ]);
 
   const isTutor = tutorApp?.status === 'approved';
 
@@ -161,20 +170,29 @@ const AcademyDashboard = () => {
 
   const handleSubmitCourse = () => {
     if (!courseForm.title || !courseForm.external_url || !courseForm.path_id) return;
+    // Validate exam questions - at least 5 valid questions
+    const validQuestions = examQuestions.filter(q => q.question.trim() && q.options.every(o => o.trim()));
+    if (validQuestions.length < 5) {
+      toast.error(isEs ? 'Debes agregar al menos 5 preguntas de examen completas' : 'You must add at least 5 complete exam questions');
+      return;
+    }
     submitCourse.mutate(
       {
-        title: courseForm.title,
-        description: courseForm.description,
-        external_url: courseForm.external_url,
-        thumbnail_url: courseForm.thumbnail_url || null,
-        duration_minutes: courseForm.duration_minutes,
-        skill_level: courseForm.skill_level,
-        language: courseForm.language,
-        skills_learned: courseForm.skills_learned.split(',').map(s => s.trim()).filter(Boolean),
-        path_id: courseForm.path_id,
-        category: selectedCategory || 'general',
-        platform: 'External',
-        instructor_name: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Tutor',
+        course: {
+          title: courseForm.title,
+          description: courseForm.description,
+          external_url: courseForm.external_url,
+          thumbnail_url: courseForm.thumbnail_url || null,
+          duration_minutes: courseForm.duration_minutes,
+          skill_level: courseForm.skill_level,
+          language: courseForm.language,
+          skills_learned: courseForm.skills_learned.split(',').map(s => s.trim()).filter(Boolean),
+          path_id: courseForm.path_id,
+          category: selectedCategory || 'general',
+          platform: 'External',
+          instructor_name: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Tutor',
+        },
+        examQuestions: validQuestions,
       },
       {
         onSuccess: () => {
@@ -182,6 +200,13 @@ const AcademyDashboard = () => {
           setShowCourseForm(false);
           setSelectedCategory('');
           setCourseForm({ title: '', description: '', external_url: '', thumbnail_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', path_id: '' });
+          setExamQuestions([
+            { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+            { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+            { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+            { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+            { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+          ]);
         },
       }
     );
@@ -700,6 +725,95 @@ const AcademyDashboard = () => {
                             <Input value={courseForm.skills_learned} onChange={e => setCourseForm(f => ({ ...f, skills_learned: e.target.value }))} placeholder="Prompt Design, ..." />
                           </div>
                         </div>
+
+                        {/* Exam Questions Section */}
+                        <div className="border-t border-border/50 pt-4">
+                          <h4 className="font-heading font-bold text-sm mb-1 flex items-center gap-2">
+                            <GraduationCap className="h-4 w-4 text-primary" />
+                            {isEs ? 'Preguntas del Examen (mínimo 5) *' : 'Exam Questions (minimum 5) *'}
+                          </h4>
+                          <p className="text-[11px] text-muted-foreground mb-3">
+                            {isEs
+                              ? 'Cada pregunta debe tener 4 opciones y una respuesta correcta.'
+                              : 'Each question must have 4 options and one correct answer.'}
+                          </p>
+                          <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
+                            {examQuestions.map((eq, qi) => (
+                              <div key={qi} className="rounded-lg border border-border/50 p-3 space-y-2 bg-muted/20">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-heading font-bold text-muted-foreground">
+                                    {isEs ? `Pregunta ${qi + 1}` : `Question ${qi + 1}`}
+                                  </span>
+                                  {examQuestions.length > 5 && (
+                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive" onClick={() => {
+                                      setExamQuestions(prev => prev.filter((_, i) => i !== qi));
+                                    }}>×</Button>
+                                  )}
+                                </div>
+                                <Input
+                                  value={eq.question}
+                                  onChange={e => {
+                                    const updated = [...examQuestions];
+                                    updated[qi] = { ...updated[qi], question: e.target.value };
+                                    setExamQuestions(updated);
+                                  }}
+                                  placeholder={isEs ? 'Pregunta en inglés *' : 'Question in English *'}
+                                  className="text-sm"
+                                />
+                                <Input
+                                  value={eq.question_es}
+                                  onChange={e => {
+                                    const updated = [...examQuestions];
+                                    updated[qi] = { ...updated[qi], question_es: e.target.value };
+                                    setExamQuestions(updated);
+                                  }}
+                                  placeholder={isEs ? 'Pregunta en español' : 'Question in Spanish (optional)'}
+                                  className="text-sm"
+                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                  {eq.options.map((opt, oi) => (
+                                    <div key={oi} className="flex items-center gap-1">
+                                      <input
+                                        type="radio"
+                                        name={`correct-${qi}`}
+                                        checked={eq.correct_index === oi}
+                                        onChange={() => {
+                                          const updated = [...examQuestions];
+                                          updated[qi] = { ...updated[qi], correct_index: oi };
+                                          setExamQuestions(updated);
+                                        }}
+                                        className="accent-primary shrink-0"
+                                      />
+                                      <Input
+                                        value={opt}
+                                        onChange={e => {
+                                          const updated = [...examQuestions];
+                                          const newOpts = [...updated[qi].options];
+                                          newOpts[oi] = e.target.value;
+                                          updated[qi] = { ...updated[qi], options: newOpts };
+                                          setExamQuestions(updated);
+                                        }}
+                                        placeholder={`${String.fromCharCode(65 + oi)}. ${isEs ? 'Opción' : 'Option'}`}
+                                        className="text-xs h-8"
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {isEs ? '○ Selecciona la respuesta correcta' : '○ Select the correct answer'}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                          {examQuestions.length < 10 && (
+                            <Button variant="outline" size="sm" className="mt-2 w-full" onClick={() => {
+                              setExamQuestions(prev => [...prev, { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 }]);
+                            }}>
+                              + {isEs ? 'Agregar pregunta' : 'Add question'}
+                            </Button>
+                          )}
+                        </div>
+
                         <div className="flex gap-2 justify-end pt-2">
                           <Button variant="outline" onClick={() => { setShowCourseForm(false); setSelectedCategory(''); }}>
                             {isEs ? 'Cancelar' : 'Cancel'}
@@ -1049,7 +1163,11 @@ const AcademyDashboard = () => {
                           href={isYouTubeUrl(sc.external_url) ? `https://www.youtube.com/watch?v=${extractYouTubeId(sc.external_url)}` : sc.external_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          onClick={() => handleCourseClick(sc)}
+                          onClick={() => {
+                            handleCourseClick(sc);
+                            // Close dialog to stop video playback
+                            setSelectedCourse(null);
+                          }}
                         >
                           <ExternalLink className="h-4 w-4 mr-2" />
                           {isYouTubeUrl(sc.external_url) ? (isEs ? 'Abrir en YouTube' : 'Open on YouTube') : (isEs ? 'Ir al Curso' : 'Go to Course')}
