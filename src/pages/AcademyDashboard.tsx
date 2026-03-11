@@ -1150,19 +1150,22 @@ function CourseVideoCard({
       className={`group cursor-pointer ${compact ? '' : ''}`}
       onClick={onOpen}
     >
-      {/* Thumbnail */}
-      <div className={`relative overflow-hidden rounded-xl bg-muted mb-3 ${featured ? 'aspect-video' : 'aspect-video'}`}>
-        {course.thumbnail_url ? (
-          <img
-            src={course.thumbnail_url}
-            alt={title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-            <Play className="h-10 w-10 text-primary/30" />
-          </div>
-        )}
+      {/* Thumbnail - auto-detect YouTube thumbnail */}
+      <div className={`relative overflow-hidden rounded-xl bg-muted mb-3 aspect-video`}>
+        {(() => {
+          const thumbUrl = course.thumbnail_url || (course.external_url && isYouTubeUrl(course.external_url) ? getYouTubeThumbnail(extractYouTubeId(course.external_url)!) : null);
+          return thumbUrl ? (
+            <img
+              src={thumbUrl}
+              alt={title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+              <Play className="h-10 w-10 text-primary/30" />
+            </div>
+          );
+        })()}
         {/* Overlay badges */}
         <div className="absolute top-2 left-2 flex gap-1">
           {completed && (
