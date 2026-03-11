@@ -23,6 +23,7 @@ import {
   useCourseProgress, useToggleCourseCompletion, useSharedPrompts,
   useCreateSharedPrompt, getExplorerLevel, EXPLORER_LEVELS,
   useTutorApplication, useSubmitTutorApplication,
+  useSubmitCourseAsTutor, useIncrementViews,
   type AcademyCourse
 } from '@/hooks/useAcademy';
 import CourseExam from '@/components/CourseExam';
@@ -64,6 +65,8 @@ const AcademyDashboard = () => {
   const toggleCompletion = useToggleCourseCompletion();
   const createPrompt = useCreateSharedPrompt();
   const submitTutorApp = useSubmitTutorApplication();
+  const submitCourse = useSubmitCourseAsTutor();
+  const incrementViews = useIncrementViews();
 
   const [activeTab, setActiveTab] = useState('courses');
   const [courseSearch, setCourseSearch] = useState('');
@@ -77,6 +80,22 @@ const AcademyDashboard = () => {
   // Tutor application state
   const [showTutorForm, setShowTutorForm] = useState(false);
   const [tutorForm, setTutorForm] = useState({ bio: '', expertise: '', portfolio_url: '' });
+
+  // Tutor course submission state
+  const [showCourseForm, setShowCourseForm] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [courseForm, setCourseForm] = useState({
+    title: '', description: '', external_url: '', thumbnail_url: '',
+    duration_minutes: 30, skill_level: 'beginner', language: 'en',
+    skills_learned: '', path_id: '',
+  });
+
+  const isTutor = tutorApp?.status === 'approved';
+
+  // Tutor's own courses
+  const tutorCourses = courses.filter(c => c.submitted_by === user?.id);
+  // Also get pending courses from all courses hook (includes non-published)
+  const { data: allTutorCourses = [] } = useAcademyCourses(); // published only for now
 
   const completedIds = new Set(progress.filter(p => p.completed).map(p => p.course_id));
   const completedCount = completedIds.size;
@@ -139,7 +158,42 @@ const AcademyDashboard = () => {
     );
   };
 
+  const handleSubmitCourse = () => {
+    if (!courseForm.title || !courseForm.external_url || !courseForm.path_id) return;
+    submitCourse.mutate(
+      {
+        title: courseForm.title,
+        description: courseForm.description,
+        external_url: courseForm.external_url,
+        thumbnail_url: courseForm.thumbnail_url || null,
+        duration_minutes: courseForm.duration_minutes,
+        skill_level: courseForm.skill_level,
+        language: courseForm.language,
+        skills_learned: courseForm.skills_learned.split(',').map(s => s.trim()).filter(Boolean),
+        path_id: courseForm.path_id,
+        category: selectedCategory || 'general',
+        platform: 'External',
+        instructor_name: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Tutor',
+      },
+      {
+        onSuccess: () => {
+          toast.success(isEs ? '¡Curso enviado! Será revisado por el equipo.' : 'Course submitted! It will be reviewed by the team.');
+          setShowCourseForm(false);
+          setSelectedCategory('');
+          setCourseForm({ title: '', description: '', external_url: '', thumbnail_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', path_id: '' });
+        },
+      }
+    );
+  };
+
+  const handleCourseClick = (course: AcademyCourse) => {
+    if (course.external_url) {
+      incrementViews.mutate(course.id);
+    }
+  };
+
   const toolCategories = [...new Set(tools.map(t => t.category))];
+
 
   return (
     <div className="min-h-screen bg-background pt-20 pb-12">
@@ -472,56 +526,256 @@ const AcademyDashboard = () => {
             </Card>
           </TabsContent>
 
-          {/* ── TEACH (Tutor Application) ── */}
+          {/* ── TEACH (Tutor Dashboard) ── */}
           <TabsContent value="teach" className="mt-4">
-            <div className="max-w-2xl mx-auto">
+            <div className="max-w-4xl mx-auto">
+              {/* Header */}
               <div className="text-center mb-8">
                 <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                   <GraduationCap className="h-8 w-8 text-primary" />
                 </div>
                 <h2 className="text-2xl font-heading font-bold mb-2">
-                  {isEs ? 'Conviértete en Tutor' : 'Become a Tutor'}
+                  {isTutor
+                    ? (isEs ? 'Tu Panel de Tutor' : 'Your Tutor Dashboard')
+                    : (isEs ? 'Conviértete en Tutor' : 'Become a Tutor')}
                 </h2>
                 <p className="text-muted-foreground">
-                  {isEs
-                    ? 'Comparte tu conocimiento en IA y ayuda a otros exploradores a crecer. Crea cursos de automatización, prompt engineering y más.'
-                    : 'Share your AI knowledge and help other explorers grow. Create courses on automation, prompt engineering and more.'}
+                  {isTutor
+                    ? (isEs ? 'Sube cursos, trackea vistas y gana recompensas.' : 'Upload courses, track views and earn rewards.')
+                    : (isEs ? 'Comparte tu conocimiento en IA y gana recompensas por cada vista.' : 'Share your AI knowledge and earn rewards for every view.')}
                 </p>
               </div>
 
-              {tutorApp ? (
-                <Card className={`border-${tutorApp.status === 'approved' ? 'primary' : tutorApp.status === 'rejected' ? 'destructive' : 'border'}/30`}>
+              {/* ─ APPROVED TUTOR DASHBOARD ─ */}
+              {isTutor ? (
+                <div className="space-y-8">
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <StatCard icon={<BookOpen className="h-5 w-5 text-primary" />} label={isEs ? 'Cursos subidos' : 'Courses uploaded'} value={String(tutorCourses.length)} />
+                    <StatCard icon={<Eye className="h-5 w-5 text-primary" />} label={isEs ? 'Vistas totales' : 'Total views'} value={String(tutorCourses.reduce((s, c) => s + (c.views_count || 0), 0))} />
+                    <StatCard icon={<Star className="h-5 w-5 text-primary" />} label={isEs ? 'Rating promedio' : 'Avg rating'} value={tutorCourses.length > 0 ? (tutorCourses.reduce((s, c) => s + Number(c.rating || 0), 0) / tutorCourses.length).toFixed(1) : '—'} />
+                    <StatCard icon={<TrendingUp className="h-5 w-5 text-primary" />} label={isEs ? 'Recompensas' : 'Rewards'} value={`$${(tutorCourses.reduce((s, c) => s + (c.views_count || 0), 0) * 0.01).toFixed(2)}`} />
+                  </div>
+
+                  {/* Category Cards - click to upload */}
+                  <div>
+                    <h3 className="font-heading font-bold text-lg mb-4 flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-primary" />
+                      {isEs ? 'Subir Curso por Categoría' : 'Upload Course by Category'}
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {[
+                        { key: 'ai-foundations', icon: <Brain className="h-6 w-6" />, label: isEs ? 'Fundamentos de IA' : 'AI Foundations', color: 'from-blue-500/10 to-blue-600/5' },
+                        { key: 'automation', icon: <Zap className="h-6 w-6" />, label: isEs ? 'Automatización' : 'Automation', color: 'from-amber-500/10 to-amber-600/5' },
+                        { key: 'development', icon: <Code className="h-6 w-6" />, label: isEs ? 'Desarrollo' : 'Development', color: 'from-green-500/10 to-green-600/5' },
+                        { key: 'creative', icon: <Palette className="h-6 w-6" />, label: isEs ? 'Creativo' : 'Creative', color: 'from-pink-500/10 to-pink-600/5' },
+                        { key: 'business', icon: <Briefcase className="h-6 w-6" />, label: isEs ? 'Negocios' : 'Business', color: 'from-purple-500/10 to-purple-600/5' },
+                        { key: 'general', icon: <Globe className="h-6 w-6" />, label: 'General', color: 'from-primary/10 to-primary/5' },
+                      ].map(cat => (
+                        <Card
+                          key={cat.key}
+                          className={`cursor-pointer hover:border-primary/50 transition-all group ${selectedCategory === cat.key && showCourseForm ? 'border-primary ring-2 ring-primary/20' : ''}`}
+                          onClick={() => {
+                            setSelectedCategory(cat.key);
+                            setShowCourseForm(true);
+                          }}
+                        >
+                          <CardContent className={`p-5 text-center bg-gradient-to-br ${cat.color} rounded-lg`}>
+                            <div className="h-12 w-12 rounded-xl bg-background/80 flex items-center justify-center mx-auto mb-3 text-primary group-hover:scale-110 transition-transform">
+                              {cat.icon}
+                            </div>
+                            <p className="font-heading font-bold text-sm">{cat.label}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              {isEs ? 'Click para subir' : 'Click to upload'}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Course Upload Form */}
+                  {showCourseForm && (
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                      <Card className="border-primary/30">
+                        <CardHeader>
+                          <CardTitle className="font-heading flex items-center gap-2">
+                            <Upload className="h-5 w-5 text-primary" />
+                            {isEs ? 'Nuevo Curso' : 'New Course'} — <Badge variant="secondary" className="capitalize">{selectedCategory.replace('ai-', 'AI ').replace('-', ' ')}</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                                {isEs ? 'Título del curso *' : 'Course title *'}
+                              </label>
+                              <Input value={courseForm.title} onChange={e => setCourseForm(f => ({ ...f, title: e.target.value }))} placeholder={isEs ? 'Ej: Automatiza tu flujo con Make' : 'Ex: Automate your flow with Make'} />
+                            </div>
+                            <div>
+                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                                {isEs ? 'Link del curso *' : 'Course link *'}
+                              </label>
+                              <Input value={courseForm.external_url} onChange={e => setCourseForm(f => ({ ...f, external_url: e.target.value }))} placeholder="https://..." />
+                            </div>
+                            <div>
+                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                                {isEs ? 'URL de miniatura' : 'Thumbnail URL'}
+                              </label>
+                              <Input value={courseForm.thumbnail_url} onChange={e => setCourseForm(f => ({ ...f, thumbnail_url: e.target.value }))} placeholder="https://..." />
+                            </div>
+                            <div>
+                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                                {isEs ? 'Ruta de aprendizaje *' : 'Learning path *'}
+                              </label>
+                              <Select value={courseForm.path_id} onValueChange={v => setCourseForm(f => ({ ...f, path_id: v }))}>
+                                <SelectTrigger><SelectValue placeholder={isEs ? 'Seleccionar' : 'Select'} /></SelectTrigger>
+                                <SelectContent>
+                                  {paths.map(p => (
+                                    <SelectItem key={p.id} value={p.id}>{isEs ? p.title_es || p.title : p.title}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="md:col-span-2">
+                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                                {isEs ? 'Descripción' : 'Description'}
+                              </label>
+                              <Textarea value={courseForm.description} onChange={e => setCourseForm(f => ({ ...f, description: e.target.value }))} placeholder={isEs ? 'Describe qué aprenderán los exploradores...' : 'Describe what explorers will learn...'} rows={3} />
+                            </div>
+                            <div>
+                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                                {isEs ? 'Nivel' : 'Level'}
+                              </label>
+                              <Select value={courseForm.skill_level} onValueChange={v => setCourseForm(f => ({ ...f, skill_level: v }))}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="beginner">{isEs ? 'Principiante' : 'Beginner'}</SelectItem>
+                                  <SelectItem value="intermediate">{isEs ? 'Intermedio' : 'Intermediate'}</SelectItem>
+                                  <SelectItem value="advanced">{isEs ? 'Avanzado' : 'Advanced'}</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                                {isEs ? 'Idioma' : 'Language'}
+                              </label>
+                              <Select value={courseForm.language} onValueChange={v => setCourseForm(f => ({ ...f, language: v }))}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="en">🇺🇸 English</SelectItem>
+                                  <SelectItem value="es">🇪🇸 Español</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                                {isEs ? 'Duración (min)' : 'Duration (min)'}
+                              </label>
+                              <Input type="number" value={courseForm.duration_minutes} onChange={e => setCourseForm(f => ({ ...f, duration_minutes: Number(e.target.value) }))} />
+                            </div>
+                            <div>
+                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                                {isEs ? 'Skills (separadas por coma)' : 'Skills (comma-separated)'}
+                              </label>
+                              <Input value={courseForm.skills_learned} onChange={e => setCourseForm(f => ({ ...f, skills_learned: e.target.value }))} placeholder="Prompt Design, Automation, ..." />
+                            </div>
+                          </div>
+
+                          {/* Thumbnail preview */}
+                          {courseForm.thumbnail_url && (
+                            <div className="rounded-lg overflow-hidden border border-border/50 aspect-video max-w-xs">
+                              <img src={courseForm.thumbnail_url} alt="Preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            </div>
+                          )}
+
+                          <div className="flex gap-2 justify-end">
+                            <Button variant="outline" onClick={() => { setShowCourseForm(false); setSelectedCategory(''); }}>
+                              {isEs ? 'Cancelar' : 'Cancel'}
+                            </Button>
+                            <Button onClick={handleSubmitCourse} disabled={!courseForm.title || !courseForm.external_url || !courseForm.path_id || submitCourse.isPending}>
+                              <Upload className="h-4 w-4 mr-2" />
+                              {isEs ? 'Enviar para Revisión' : 'Submit for Review'}
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+
+                  {/* My Courses */}
+                  {tutorCourses.length > 0 && (
+                    <div>
+                      <h3 className="font-heading font-bold text-lg mb-4 flex items-center gap-2">
+                        <BookOpen className="h-5 w-5 text-primary" />
+                        {isEs ? 'Mis Cursos' : 'My Courses'}
+                      </h3>
+                      <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+                        <div className="divide-y divide-border/50">
+                          {tutorCourses.map(course => (
+                            <div key={course.id} className="p-4 flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-3 min-w-0">
+                                {course.thumbnail_url ? (
+                                  <img src={course.thumbnail_url} alt="" className="h-12 w-20 rounded-lg object-cover shrink-0" />
+                                ) : (
+                                  <div className="h-12 w-20 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                                    <Play className="h-5 w-5 text-muted-foreground" />
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="font-heading font-semibold text-sm truncate">{course.title}</p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <Badge variant={course.course_status === 'published' ? 'default' : course.course_status === 'pending_review' ? 'secondary' : 'outline'} className="text-[10px]">
+                                      {course.course_status === 'published' ? (isEs ? 'Publicado' : 'Published') :
+                                       course.course_status === 'pending_review' ? (isEs ? 'En revisión' : 'Under Review') :
+                                       course.course_status}
+                                    </Badge>
+                                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                                      <Eye className="h-3 w-3" /> {course.views_count || 0} {isEs ? 'vistas' : 'views'}
+                                    </span>
+                                    {course.rating > 0 && (
+                                      <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                                        <Star className="h-3 w-3 fill-primary text-primary" /> {Number(course.rating).toFixed(1)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-xs text-muted-foreground">{isEs ? 'Recompensa' : 'Reward'}</p>
+                                <p className="font-heading font-bold text-sm text-primary">${((course.views_count || 0) * 0.01).toFixed(2)}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : tutorApp ? (
+                /* Pending/Rejected application status */
+                <Card className={`border-${tutorApp.status === 'rejected' ? 'destructive' : 'border'}/30 max-w-lg mx-auto`}>
                   <CardContent className="p-6 text-center">
                     <Badge className={`mb-3 ${
-                      tutorApp.status === 'approved' ? '' :
                       tutorApp.status === 'rejected' ? 'bg-destructive text-destructive-foreground' :
                       'bg-muted text-muted-foreground'
                     }`}>
-                      {tutorApp.status === 'approved' ? (isEs ? '✅ Aprobado' : '✅ Approved') :
-                       tutorApp.status === 'rejected' ? (isEs ? '❌ Rechazado' : '❌ Rejected') :
+                      {tutorApp.status === 'rejected' ? (isEs ? '❌ Rechazado' : '❌ Rejected') :
                        (isEs ? '⏳ En revisión' : '⏳ Under Review')}
                     </Badge>
                     <h3 className="font-heading font-bold text-lg mb-2">
-                    {tutorApp.status === 'approved'
-                        ? (isEs ? '¡Felicidades! Eres tutor de Dream Academy' : 'Congrats! You are a Dream Academy tutor')
-                        : tutorApp.status === 'rejected'
+                      {tutorApp.status === 'rejected'
                         ? (isEs ? 'Tu solicitud fue rechazada' : 'Your application was rejected')
                         : (isEs ? 'Solicitud enviada' : 'Application submitted')}
                     </h3>
                     {tutorApp.admin_note && (
                       <p className="text-sm text-muted-foreground italic">{`"${tutorApp.admin_note}"`}</p>
                     )}
-                    {tutorApp.status === 'approved' && (
-                      <p className="text-sm text-muted-foreground mt-2">
-                        {isEs
-                          ? 'Contacta al equipo admin para subir tus cursos.'
-                          : 'Contact the admin team to upload your courses.'}
-                      </p>
-                    )}
                   </CardContent>
                 </Card>
               ) : (
-                <>
+                /* No application yet - show application form */
+                <div className="max-w-lg mx-auto">
                   {!showTutorForm ? (
                     <Card className="border-dashed border-2 border-primary/30 hover:border-primary/50 transition-all cursor-pointer"
                       onClick={() => setShowTutorForm(true)}>
@@ -584,27 +838,27 @@ const AcademyDashboard = () => {
                       </CardContent>
                     </Card>
                   )}
-                </>
-              )}
 
-              {/* What tutors can teach */}
-              <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-3">
-                {[
-                  { icon: <Brain className="h-5 w-5" />, label: isEs ? 'Automatización IA' : 'AI Automation' },
-                  { icon: <MessageSquare className="h-5 w-5" />, label: 'Prompt Engineering' },
-                  { icon: <Video className="h-5 w-5" />, label: isEs ? 'Creación de Video IA' : 'AI Video Creation' },
-                  { icon: <Code className="h-5 w-5" />, label: isEs ? 'Herramientas de Código IA' : 'AI Coding Tools' },
-                  { icon: <TrendingUp className="h-5 w-5" />, label: isEs ? 'Marketing con IA' : 'AI Marketing' },
-                  { icon: <Zap className="h-5 w-5" />, label: isEs ? 'Productividad con IA' : 'AI Productivity' },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-2.5 rounded-xl border border-border/50 p-3 bg-card/50">
-                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-primary">
-                      {item.icon}
-                    </div>
-                    <span className="text-xs font-heading font-semibold">{item.label}</span>
+                  {/* What tutors can teach */}
+                  <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {[
+                      { icon: <Brain className="h-5 w-5" />, label: isEs ? 'Automatización IA' : 'AI Automation' },
+                      { icon: <MessageSquare className="h-5 w-5" />, label: 'Prompt Engineering' },
+                      { icon: <Video className="h-5 w-5" />, label: isEs ? 'Creación de Video IA' : 'AI Video Creation' },
+                      { icon: <Code className="h-5 w-5" />, label: isEs ? 'Herramientas de Código IA' : 'AI Coding Tools' },
+                      { icon: <TrendingUp className="h-5 w-5" />, label: isEs ? 'Marketing con IA' : 'AI Marketing' },
+                      { icon: <Zap className="h-5 w-5" />, label: isEs ? 'Productividad con IA' : 'AI Productivity' },
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-center gap-2.5 rounded-xl border border-border/50 p-3 bg-card/50">
+                        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-primary">
+                          {item.icon}
+                        </div>
+                        <span className="text-xs font-heading font-semibold">{item.label}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
           </TabsContent>
 
@@ -779,7 +1033,7 @@ const AcademyDashboard = () => {
                   <div className="flex gap-2">
                     {sc.external_url && (
                       <Button variant="outline" className="flex-1" asChild>
-                        <a href={sc.external_url} target="_blank" rel="noopener noreferrer">
+                        <a href={sc.external_url} target="_blank" rel="noopener noreferrer" onClick={() => handleCourseClick(sc)}>
                           <ExternalLink className="h-4 w-4 mr-2" />
                           {isEs ? 'Ir al Curso' : 'Go to Course'}
                         </a>
