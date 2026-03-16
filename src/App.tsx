@@ -22,6 +22,7 @@ import AcademyDashboard from "@/pages/AcademyDashboard";
 import AuthCallback from "@/pages/AuthCallback";
 import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "./pages/NotFound";
+import PublicPassport from "./pages/PublicPassport";
 
 const queryClient = new QueryClient();
 
