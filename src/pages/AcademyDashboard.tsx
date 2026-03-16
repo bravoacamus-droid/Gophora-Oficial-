@@ -36,6 +36,7 @@ import {
 } from '@/hooks/useAcademySocial';
 import CourseExam from '@/components/CourseExam';
 import CertificateCard from '@/components/CertificateCard';
+import { useAIRecommendations } from '@/hooks/useRecommendations';
 import YouTubeVideoPlayer, { isYouTubeUrl, extractYouTubeId, getYouTubeThumbnail } from '@/components/YouTubeVideoPlayer';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -79,6 +80,7 @@ const AcademyDashboard = () => {
   const upsertSkills = useUpsertSkills();
   const recordAttempt = useRecordExamAttempt();
   const issueCert = useIssueCertificate();
+  const { data: aiRecs = [], isLoading: recsLoading, refetch: refetchRecs } = useAIRecommendations();
 
   const [activeTab, setActiveTab] = useState('courses');
   const [courseSearch, setCourseSearch] = useState('');
@@ -387,6 +389,9 @@ const AcademyDashboard = () => {
               </TabsTrigger>
               <TabsTrigger value="community" className="text-xs font-heading gap-1.5">
                 <Share2 className="h-3.5 w-3.5" /> {isEs ? 'Comunidad' : 'Community'}
+              </TabsTrigger>
+              <TabsTrigger value="recommendations" className="text-xs font-heading gap-1.5">
+                <Sparkles className="h-3.5 w-3.5" /> {isEs ? 'Para ti' : 'For You'}
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1019,6 +1024,107 @@ const AcademyDashboard = () => {
               </Card>
             </div>
           </TabsContent>
+
+          {/* ── AI RECOMMENDATIONS ── */}
+          <TabsContent value="recommendations" className="mt-4">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-heading font-bold flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  {isEs ? 'Recomendado para ti' : 'Recommended for You'}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {isEs ? 'Cursos seleccionados por IA basados en tus habilidades y misiones disponibles' : 'AI-curated courses based on your skills and available missions'}
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => refetchRecs()} disabled={recsLoading}>
+                {recsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {isEs ? 'Actualizar' : 'Refresh'}
+              </Button>
+            </div>
+
+            {recsLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3].map(i => (
+                  <Card key={i} className="animate-pulse">
+                    <CardContent className="p-6">
+                      <div className="h-4 bg-muted rounded w-3/4 mb-3" />
+                      <div className="h-3 bg-muted rounded w-full mb-2" />
+                      <div className="h-3 bg-muted rounded w-2/3" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : aiRecs.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Sparkles className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">
+                    {isEs ? 'Completa algunos cursos para recibir recomendaciones personalizadas' : 'Complete some courses to get personalized recommendations'}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {aiRecs.map((rec, idx) => {
+                  const course = courses.find(c => c.id === rec.course_id);
+                  if (!course) return null;
+                  return (
+                    <motion.div
+                      key={rec.course_id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.1 }}
+                    >
+                      <Card className="h-full hover:shadow-lg transition-shadow border-primary/20">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between">
+                            <CardTitle className="text-sm font-heading line-clamp-2">
+                              {isEs ? (course.title_es || course.title) : course.title}
+                            </CardTitle>
+                            <Badge variant="secondary" className="text-[10px] shrink-0 ml-2">
+                              {rec.relevance_score}%
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                            {isEs ? rec.reason_es : rec.reason}
+                          </p>
+                        </CardHeader>
+                        <CardContent className="pt-0 space-y-3">
+                          <div className="flex flex-wrap gap-1">
+                            {(course.skills_learned || []).slice(0, 3).map(s => (
+                              <Badge key={s} variant="outline" className="text-[10px] h-5">{s}</Badge>
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Eye className="h-3 w-3" /> {course.views_count || 0}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Star className="h-3 w-3" /> {course.rating || 0}
+                            </span>
+                            <span className="capitalize">{course.skill_level}</span>
+                          </div>
+                          <Button
+                            size="sm"
+                            className="w-full text-xs"
+                            onClick={() => {
+                              setSelectedCourse(course);
+                              handleCourseClick(course);
+                            }}
+                          >
+                            <Play className="h-3 w-3 mr-1" />
+                            {isEs ? 'Empezar curso' : 'Start Course'}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
         </Tabs>
       </div>
 

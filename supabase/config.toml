@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.parse-exam-pdf]
 verify_jwt = false
+
+[functions.recommend-courses]
+verify_jwt = false
