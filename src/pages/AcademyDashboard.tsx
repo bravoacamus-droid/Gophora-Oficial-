@@ -389,6 +389,9 @@ const AcademyDashboard = () => {
               <TabsTrigger value="community" className="text-xs font-heading gap-1.5">
                 <Share2 className="h-3.5 w-3.5" /> {isEs ? 'Comunidad' : 'Community'}
               </TabsTrigger>
+              <TabsTrigger value="recommendations" className="text-xs font-heading gap-1.5">
+                <Sparkles className="h-3.5 w-3.5" /> {isEs ? 'Para ti' : 'For You'}
+              </TabsTrigger>
             </TabsList>
           </div>
 
