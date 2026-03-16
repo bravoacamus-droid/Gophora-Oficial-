@@ -66,6 +66,7 @@ const ExplorerDashboard = () => {
   const [selectedApp, setSelectedApp] = useState<ApplicationWithMission | null>(null);
   const [profile, setProfile] = useState<{ username: string | null; full_name: string | null } | null>(null);
   const [missionTab, setMissionTab] = useState('active');
+  const [mainTab, setMainTab] = useState('dashboard');
 
   useEffect(() => {
     if (!user) return;
