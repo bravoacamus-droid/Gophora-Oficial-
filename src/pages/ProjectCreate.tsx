@@ -760,6 +760,7 @@ const ProjectCreate = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };
