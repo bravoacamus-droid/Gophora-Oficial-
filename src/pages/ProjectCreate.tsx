@@ -237,8 +237,19 @@ const ProjectCreate = () => {
   const overBudget = totalCost > budgetNum;
 
   return (
-    <div className="container py-8 max-w-4xl">
-      <h1 className="text-2xl md:text-3xl font-heading font-bold mb-8">{t('project.create_title')}</h1>
+    <div
+      className="min-h-screen bg-background/80 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) navigate(-1);
+      }}
+    >
+      <div className="container py-8 max-w-4xl">
+        <div className="flex items-center gap-3 mb-8">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold">{t('project.create_title')}</h1>
+        </div>
 
       {!analyzed ? (
         <form onSubmit={handleAnalyze} className="space-y-6 rounded-xl border border-border/50 bg-card p-6">
