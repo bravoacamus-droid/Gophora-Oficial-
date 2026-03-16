@@ -40,6 +40,10 @@ export type Database = {
           title: string
           title_es: string | null
           tool: string | null
+          total_exam_attempts: number | null
+          total_followers: number | null
+          total_passed: number | null
+          total_students: number | null
           views_count: number | null
         }
         Insert: {
@@ -67,6 +71,10 @@ export type Database = {
           title: string
           title_es?: string | null
           tool?: string | null
+          total_exam_attempts?: number | null
+          total_followers?: number | null
+          total_passed?: number | null
+          total_students?: number | null
           views_count?: number | null
         }
         Update: {
@@ -94,6 +102,10 @@ export type Database = {
           title?: string
           title_es?: string | null
           tool?: string | null
+          total_exam_attempts?: number | null
+          total_followers?: number | null
+          total_passed?: number | null
+          total_students?: number | null
           views_count?: number | null
         }
         Relationships: [
@@ -211,6 +223,47 @@ export type Database = {
         }
         Relationships: []
       }
+      certificates: {
+        Row: {
+          certificate_code: string
+          course_id: string
+          course_title: string
+          explorer_id: string
+          explorer_name: string | null
+          id: string
+          issued_at: string
+          tutor_name: string | null
+        }
+        Insert: {
+          certificate_code?: string
+          course_id: string
+          course_title: string
+          explorer_id: string
+          explorer_name?: string | null
+          id?: string
+          issued_at?: string
+          tutor_name?: string | null
+        }
+        Update: {
+          certificate_code?: string
+          course_id?: string
+          course_title?: string
+          explorer_id?: string
+          explorer_name?: string | null
+          id?: string
+          issued_at?: string
+          tutor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificates_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "academy_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_exam_questions: {
         Row: {
           correct_index: number
@@ -313,6 +366,100 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      explorer_exam_attempts: {
+        Row: {
+          attempt_number: number
+          completed_at: string
+          course_id: string
+          explorer_id: string
+          id: string
+          passed: boolean
+          score: number
+        }
+        Insert: {
+          attempt_number?: number
+          completed_at?: string
+          course_id: string
+          explorer_id: string
+          id?: string
+          passed?: boolean
+          score?: number
+        }
+        Update: {
+          attempt_number?: number
+          completed_at?: string
+          course_id?: string
+          explorer_id?: string
+          id?: string
+          passed?: boolean
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "explorer_exam_attempts_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "academy_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      explorer_favorite_courses: {
+        Row: {
+          course_id: string
+          created_at: string
+          explorer_id: string
+          id: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          explorer_id: string
+          id?: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          explorer_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "explorer_favorite_courses_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "academy_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      explorer_skills: {
+        Row: {
+          explorer_id: string
+          id: string
+          skill_level: number
+          skill_name: string
+          updated_at: string
+          verified_by_exam: boolean
+        }
+        Insert: {
+          explorer_id: string
+          id?: string
+          skill_level?: number
+          skill_name: string
+          updated_at?: string
+          verified_by_exam?: boolean
+        }
+        Update: {
+          explorer_id?: string
+          id?: string
+          skill_level?: number
+          skill_name?: string
+          updated_at?: string
+          verified_by_exam?: boolean
+        }
+        Relationships: []
       }
       messages: {
         Row: {
@@ -594,6 +741,27 @@ export type Database = {
           reviewed_by?: string | null
           status?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      tutor_followers: {
+        Row: {
+          created_at: string
+          explorer_id: string
+          id: string
+          tutor_id: string
+        }
+        Insert: {
+          created_at?: string
+          explorer_id: string
+          id?: string
+          tutor_id: string
+        }
+        Update: {
+          created_at?: string
+          explorer_id?: string
+          id?: string
+          tutor_id?: string
         }
         Relationships: []
       }
