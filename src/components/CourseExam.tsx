@@ -70,6 +70,8 @@ export default function CourseExam({ course, isEs, onPass, onClose }: CourseExam
 
   const handleAnswer = (optionIndex: number) => {
     if (showResults) return;
+    // Prevent double-click from changing state unexpectedly
+    if (selectedAnswers[currentQ] === optionIndex) return;
     const updated = [...selectedAnswers];
     updated[currentQ] = optionIndex;
     setSelectedAnswers(updated);
