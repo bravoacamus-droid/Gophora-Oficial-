@@ -19,6 +19,44 @@ import { toast } from 'sonner';
 import ExplorerOnboarding from '@/components/ExplorerOnboarding';
 import { motion } from 'framer-motion';
 import SkillPassport from '@/components/SkillPassport';
+import DailyMissions from '@/components/DailyMissions';
+import StreakTracker from '@/components/StreakTracker';
+import SocialProof from '@/components/SocialProof';
+import SmartRecommendations from '@/components/SmartRecommendations';
+import { useEngagementData, getXPLevel, useTrackActivity } from '@/hooks/useEngagement';
+
+interface Application {
+  id: string;
+  user_id: string;
+  mission_id: string;
+  status: string;
+  delivery_url: string | null;
+  delivered_at: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  created_at: string;
+}
+
+interface Mission {
+  id: string;
+  created_at: string;
+  title: string;
+  title_es: string | null;
+  description: string | null;
+  description_es: string | null;
+  reward: number;
+  skill: string;
+  project_id: string;
+  hours: number;
+  hourly_rate: number;
+}
+
+interface Project {
+  id: string;
+  created_at: string;
+  title: string;
+  resource_link: string | null;
+}
 
 interface ApplicationWithMission {
   id: string;
@@ -41,14 +79,6 @@ interface ApplicationWithMission {
   review_note: string | null;
 }
 
-const levelConfig = [
-  { name: 'Rookie', nameEs: 'Novato', threshold: 0, icon: '🌱' },
-  { name: 'Explorer', nameEs: 'Explorador', threshold: 3, icon: '🧭' },
-  { name: 'Specialist', nameEs: 'Especialista', threshold: 10, icon: '⚡' },
-  { name: 'Elite Operator', nameEs: 'Operador Élite', threshold: 25, icon: '🔥' },
-  { name: 'Legend', nameEs: 'Leyenda', threshold: 50, icon: '👑' },
-];
-
 const fadeIn = {
   hidden: { opacity: 0, y: 12 },
   visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.06, duration: 0.4 } }),
@@ -67,6 +97,16 @@ const ExplorerDashboard = () => {
   const [profile, setProfile] = useState<{ username: string | null; full_name: string | null } | null>(null);
   const [missionTab, setMissionTab] = useState('active');
   const [mainTab, setMainTab] = useState('dashboard');
+
+  const { data: engagement } = useEngagementData();
+  const trackActivity = useTrackActivity();
+
+  // Track daily login
+  useEffect(() => {
+    if (user) {
+      trackActivity.mutate('course_view'); // register activity on dashboard visit
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -175,6 +215,7 @@ const ExplorerDashboard = () => {
       if (error) throw error;
       toast.success(isEs ? 'Entrega enviada correctamente' : 'Delivery submitted successfully');
       setDeliveryUrls((prev) => ({ ...prev, [appId]: '' }));
+      trackActivity.mutate('mission_delivered');
       loadData();
     } catch (err: any) {
       toast.error(err.message || (isEs ? 'Error al enviar' : 'Submission error'));
@@ -188,18 +229,7 @@ const ExplorerDashboard = () => {
   const completedMissions = applications.filter((a) => a.status === 'completed' || a.status === 'funds_released');
   const totalEarnings = completedMissions.reduce((sum, a) => sum + a.missionReward, 0);
 
-  const currentLevel = levelConfig.reduce((lvl, l) => (completedCount >= l.threshold ? l : lvl), levelConfig[0]);
-  const nextLevel = levelConfig[levelConfig.indexOf(currentLevel) + 1];
-  const progressToNext = nextLevel
-    ? ((completedCount - currentLevel.threshold) / (nextLevel.threshold - currentLevel.threshold)) * 100
-    : 100;
-
-  const badges = [
-    { name: isEs ? 'Explorador' : 'Explorer', icon: Compass, earned: applications.length >= 1, desc: isEs ? 'Primera misión activada' : 'First mission activated' },
-    { name: isEs ? 'Especialista' : 'Specialist', icon: Star, earned: completedCount >= 5, desc: isEs ? '5 misiones completadas' : '5 missions completed' },
-    { name: isEs ? 'Operador Élite' : 'Elite Operator', icon: Trophy, earned: completedCount >= 25, desc: isEs ? '25 misiones completadas' : '25 missions completed' },
-    { name: isEs ? 'Velocista' : 'Speed Runner', icon: Zap, earned: completedCount >= 10, desc: isEs ? '10 misiones completadas' : '10 missions completed' },
-  ];
+  const xpLevel = engagement ? getXPLevel(engagement.totalXP) : null;
 
   const statusLabel = (status: string) => {
     const map: Record<string, string> = isEs
@@ -254,11 +284,20 @@ const ExplorerDashboard = () => {
               {displayName}
             </h1>
             <div className="flex items-center gap-2 mt-2">
-              <span className="text-lg">{currentLevel.icon}</span>
-              <span className="text-sm font-heading font-semibold text-primary">
-                {isEs ? currentLevel.nameEs : currentLevel.name}
-              </span>
-              <span className="text-xs text-muted-foreground">• Level {levelConfig.indexOf(currentLevel) + 1}</span>
+              {xpLevel && (
+                <>
+                  <span className="text-lg">{xpLevel.icon}</span>
+                  <span className="text-sm font-heading font-semibold text-primary">
+                    {isEs ? xpLevel.nameEs : xpLevel.name}
+                  </span>
+                  <span className="text-xs text-muted-foreground">• Lv.{xpLevel.level}</span>
+                  {engagement && engagement.streak > 0 && (
+                    <span className="text-xs text-primary font-heading font-bold ml-1">
+                      🔥 {engagement.streak}
+                    </span>
+                  )}
+                </>
+              )}
             </div>
           </div>
           <div className="flex gap-2">
@@ -290,7 +329,7 @@ const ExplorerDashboard = () => {
               value="passport"
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3 font-heading text-sm gap-1.5"
             >
-              🛂 {isEs ? 'Skill Passport' : 'Skill Passport'}
+              🛂 Skill Passport
             </TabsTrigger>
           </TabsList>
 
@@ -306,17 +345,27 @@ const ExplorerDashboard = () => {
           </div>
         ) : (
           <>
+            {/* ─── Engagement Row: Streak + Daily Missions ─── */}
+            <div className="grid md:grid-cols-5 gap-4">
+              <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={0} className="md:col-span-2">
+                <StreakTracker />
+              </motion.div>
+              <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={1} className="md:col-span-3">
+                <DailyMissions />
+              </motion.div>
+            </div>
+
             {/* ─── Stats Grid ─── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
               {[
                 { icon: Target, label: isEs ? 'Misiones Activas' : 'Active Missions', value: String(activeMissions.length), accent: true },
                 { icon: CheckCircle, label: isEs ? 'Completadas' : 'Completed', value: String(completedCount), accent: false },
                 { icon: DollarSign, label: isEs ? 'Ganancias' : 'Earnings', value: `$${totalEarnings.toLocaleString()}`, accent: false },
-                { icon: TrendingUp, label: isEs ? 'Nivel' : 'Level', value: `L${levelConfig.indexOf(currentLevel) + 1}`, accent: false },
+                { icon: Zap, label: 'XP', value: engagement ? engagement.totalXP.toLocaleString() : '0', accent: false },
               ].map((stat, i) => (
                 <motion.div
                   key={stat.label}
-                  custom={i}
+                  custom={i + 2}
                   initial="hidden"
                   animate="visible"
                   variants={fadeIn}
@@ -331,82 +380,18 @@ const ExplorerDashboard = () => {
               ))}
             </div>
 
-            {/* ─── Level + Badges Row ─── */}
+            {/* ─── Recommendations + Social Proof ─── */}
             <div className="grid md:grid-cols-5 gap-4">
-              {/* Level Progress */}
-              <motion.div
-                initial="hidden"
-                animate="visible"
-                variants={fadeIn}
-                custom={4}
-                className="md:col-span-3 rounded-xl border border-border/50 bg-card p-5"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-heading font-bold text-sm">{isEs ? 'Progreso de Nivel' : 'Level Progress'}</h2>
-                  <Badge variant="outline" className="font-heading text-xs">
-                    {completedCount} / {nextLevel ? nextLevel.threshold : currentLevel.threshold} {isEs ? 'misiones' : 'missions'}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-14 h-14 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-2xl shrink-0">
-                    {currentLevel.icon}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-heading font-bold text-lg">{isEs ? currentLevel.nameEs : currentLevel.name}</p>
-                    <Progress value={Math.min(progressToNext, 100)} className="h-2 mt-2" />
-                    {nextLevel && (
-                      <p className="text-xs text-muted-foreground mt-1.5 font-body">
-                        {nextLevel.threshold - completedCount} {isEs ? 'misiones más para' : 'more missions to'}{' '}
-                        <span className="font-semibold text-foreground">{isEs ? nextLevel.nameEs : nextLevel.name}</span>
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {/* Mini level roadmap */}
-                <div className="flex items-center gap-1 mt-2">
-                  {levelConfig.map((lvl, i) => {
-                    const isActive = levelConfig.indexOf(currentLevel) >= i;
-                    return (
-                      <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                        <div className={`w-full h-1.5 rounded-full ${isActive ? 'bg-primary' : 'bg-muted'}`} />
-                        <span className={`text-[10px] font-body ${isActive ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
-                          L{i + 1}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
+              <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={6} className="md:col-span-3">
+                <SmartRecommendations />
               </motion.div>
-
-              {/* Badges */}
-              <motion.div
-                initial="hidden"
-                animate="visible"
-                variants={fadeIn}
-                custom={5}
-                className="md:col-span-2 rounded-xl border border-border/50 bg-card p-5"
-              >
-                <h2 className="font-heading font-bold text-sm mb-4">{isEs ? 'Insignias' : 'Badges'}</h2>
-                <div className="grid grid-cols-2 gap-2">
-                  {badges.map((badge, i) => (
-                    <div
-                      key={i}
-                      className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border text-center transition-all ${
-                        badge.earned
-                          ? 'border-primary/30 bg-primary/5 hover:bg-primary/10'
-                          : 'border-border/30 opacity-35 grayscale'
-                      }`}
-                    >
-                      <badge.icon className={`h-5 w-5 ${badge.earned ? 'text-primary' : 'text-muted-foreground'}`} />
-                      <span className="text-xs font-heading font-semibold leading-tight">{badge.name}</span>
-                    </div>
-                  ))}
-                </div>
+              <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={7} className="md:col-span-2">
+                <SocialProof />
               </motion.div>
             </div>
 
             {/* ─── Balance Section ─── */}
-            <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={6}>
+            <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={8}>
               <div className="rounded-xl border border-border/50 bg-card p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <Wallet className="h-4 w-4 text-primary" />
@@ -417,7 +402,7 @@ const ExplorerDashboard = () => {
             </motion.div>
 
             {/* ─── Missions Section with Tabs ─── */}
-            <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={7}>
+            <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={9}>
               <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
                 <div className="p-5 pb-0">
                   <div className="flex items-center justify-between mb-4">
