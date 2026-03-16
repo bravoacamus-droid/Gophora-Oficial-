@@ -202,7 +202,7 @@ export default function CourseExam({ course, isEs, onPass, onClose }: CourseExam
         </div>
       </div>
 
-      <Progress value={((currentQ + 1) / questions.length) * 100} className="h-2" />
+      <Progress value={(answeredCount / questions.length) * 100} className="h-2" />
 
       <Card>
         <CardHeader className="pb-3">
