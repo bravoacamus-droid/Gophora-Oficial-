@@ -18,6 +18,7 @@ import BalanceModule from '@/components/BalanceModule';
 import { toast } from 'sonner';
 import ExplorerOnboarding from '@/components/ExplorerOnboarding';
 import { motion } from 'framer-motion';
+import SkillPassport from '@/components/SkillPassport';
 
 interface ApplicationWithMission {
   id: string;
