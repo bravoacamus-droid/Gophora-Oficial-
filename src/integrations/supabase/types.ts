@@ -332,6 +332,36 @@ export type Database = {
         }
         Relationships: []
       }
+      explorer_badges: {
+        Row: {
+          badge_icon: string
+          badge_key: string
+          badge_name: string
+          badge_name_es: string | null
+          earned_at: string
+          explorer_id: string
+          id: string
+        }
+        Insert: {
+          badge_icon?: string
+          badge_key: string
+          badge_name: string
+          badge_name_es?: string | null
+          earned_at?: string
+          explorer_id: string
+          id?: string
+        }
+        Update: {
+          badge_icon?: string
+          badge_key?: string
+          badge_name?: string
+          badge_name_es?: string | null
+          earned_at?: string
+          explorer_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
       explorer_course_progress: {
         Row: {
           completed: boolean
@@ -436,27 +466,33 @@ export type Database = {
       }
       explorer_skills: {
         Row: {
+          category: string
           explorer_id: string
           id: string
           skill_level: number
           skill_name: string
           updated_at: string
+          verification_source: string
           verified_by_exam: boolean
         }
         Insert: {
+          category?: string
           explorer_id: string
           id?: string
           skill_level?: number
           skill_name: string
           updated_at?: string
+          verification_source?: string
           verified_by_exam?: boolean
         }
         Update: {
+          category?: string
           explorer_id?: string
           id?: string
           skill_level?: number
           skill_name?: string
           updated_at?: string
+          verification_source?: string
           verified_by_exam?: boolean
         }
         Relationships: []
