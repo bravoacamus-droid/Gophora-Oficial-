@@ -298,43 +298,7 @@ const ExplorerDashboard = () => {
             <SkillPassport />
           </TabsContent>
 
-          <TabsContent value="dashboard">
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="flex flex-col md:flex-row md:items-end justify-between gap-4"
-        >
-          <div>
-            <p className="text-sm text-muted-foreground font-body mb-1">
-              {isEs ? 'Bienvenido de vuelta' : 'Welcome back'}
-            </p>
-            <h1 className="text-3xl md:text-4xl font-heading font-black tracking-tight">
-              {displayName}
-            </h1>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-lg">{currentLevel.icon}</span>
-              <span className="text-sm font-heading font-semibold text-primary">
-                {isEs ? currentLevel.nameEs : currentLevel.name}
-              </span>
-              <span className="text-xs text-muted-foreground">• Level {levelConfig.indexOf(currentLevel) + 1}</span>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Link to="/academy">
-              <Button variant="outline" size="sm" className="gap-2 font-heading">
-                <GraduationCap className="h-4 w-4" />
-                {isEs ? 'Academia' : 'Academy'}
-              </Button>
-            </Link>
-            <Link to="/marketplace">
-              <Button variant="hero" size="sm" className="gap-2">
-                <Compass className="h-4 w-4" />
-                {isEs ? 'Explorar Misiones' : 'Browse Missions'}
-              </Button>
-            </Link>
-          </div>
-        </motion.div>
+          <TabsContent value="dashboard" className="space-y-8">
 
         {loading ? (
           <div className="flex justify-center py-16">
