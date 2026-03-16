@@ -18,6 +18,7 @@ import BalanceModule from '@/components/BalanceModule';
 import { toast } from 'sonner';
 import ExplorerOnboarding from '@/components/ExplorerOnboarding';
 import { motion } from 'framer-motion';
+import SkillPassport from '@/components/SkillPassport';
 
 interface ApplicationWithMission {
   id: string;
@@ -65,6 +66,7 @@ const ExplorerDashboard = () => {
   const [selectedApp, setSelectedApp] = useState<ApplicationWithMission | null>(null);
   const [profile, setProfile] = useState<{ username: string | null; full_name: string | null } | null>(null);
   const [missionTab, setMissionTab] = useState('active');
+  const [mainTab, setMainTab] = useState('dashboard');
 
   useEffect(() => {
     if (!user) return;
@@ -275,6 +277,29 @@ const ExplorerDashboard = () => {
           </div>
         </motion.div>
 
+        {/* ─── Main Tabs ─── */}
+        <Tabs value={mainTab} onValueChange={setMainTab}>
+          <TabsList className="w-full justify-start bg-transparent p-0 h-auto border-b border-border/50 rounded-none gap-0 mb-6">
+            <TabsTrigger
+              value="dashboard"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3 font-heading text-sm"
+            >
+              {isEs ? 'Panel' : 'Dashboard'}
+            </TabsTrigger>
+            <TabsTrigger
+              value="passport"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3 font-heading text-sm gap-1.5"
+            >
+              🛂 {isEs ? 'Skill Passport' : 'Skill Passport'}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="passport">
+            <SkillPassport />
+          </TabsContent>
+
+          <TabsContent value="dashboard" className="space-y-8">
+
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
@@ -474,6 +499,8 @@ const ExplorerDashboard = () => {
             </motion.div>
           </>
         )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* ─── Mission Detail Dialog ─── */}

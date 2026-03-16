@@ -22,6 +22,7 @@ import AcademyDashboard from "@/pages/AcademyDashboard";
 import AuthCallback from "@/pages/AuthCallback";
 import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "./pages/NotFound";
+import PublicPassport from "./pages/PublicPassport";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const App = () => (
                 <Route path="/academy" element={<AcademyDashboard />} />
               </Route>
 
+              <Route path="/passport/:explorerId" element={<PublicPassport />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
