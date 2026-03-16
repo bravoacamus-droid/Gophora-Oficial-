@@ -397,6 +397,42 @@ export type Database = {
           },
         ]
       }
+      explorer_daily_activity: {
+        Row: {
+          activity_date: string
+          courses_viewed: number
+          created_at: string
+          exams_taken: number
+          explorer_id: string
+          id: string
+          missions_activated: number
+          missions_delivered: number
+          xp_earned: number
+        }
+        Insert: {
+          activity_date?: string
+          courses_viewed?: number
+          created_at?: string
+          exams_taken?: number
+          explorer_id: string
+          id?: string
+          missions_activated?: number
+          missions_delivered?: number
+          xp_earned?: number
+        }
+        Update: {
+          activity_date?: string
+          courses_viewed?: number
+          created_at?: string
+          exams_taken?: number
+          explorer_id?: string
+          id?: string
+          missions_activated?: number
+          missions_delivered?: number
+          xp_earned?: number
+        }
+        Relationships: []
+      }
       explorer_exam_attempts: {
         Row: {
           attempt_number: number
