@@ -80,6 +80,7 @@ const AcademyDashboard = () => {
   const upsertSkills = useUpsertSkills();
   const recordAttempt = useRecordExamAttempt();
   const issueCert = useIssueCertificate();
+  const { data: aiRecs = [], isLoading: recsLoading, refetch: refetchRecs } = useAIRecommendations();
 
   const [activeTab, setActiveTab] = useState('courses');
   const [courseSearch, setCourseSearch] = useState('');
