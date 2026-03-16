@@ -104,6 +104,7 @@ export default function CourseExam({ course, isEs, onPass, onClose }: CourseExam
   const correctCount = selectedAnswers.filter((a, i) => a === questions[i].correctIndex).length;
   const score = Math.round((correctCount / questions.length) * 100);
   const allAnswered = selectedAnswers.every(a => a !== null);
+  const answeredCount = selectedAnswers.filter(a => a !== null).length;
   const q = questions[currentQ];
 
   // Show info badge about exam source
