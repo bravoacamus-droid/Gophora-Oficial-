@@ -535,6 +535,8 @@ const ExplorerDashboard = () => {
             </motion.div>
           </>
         )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* ─── Mission Detail Dialog ─── */}
