@@ -36,6 +36,7 @@ import {
 } from '@/hooks/useAcademySocial';
 import CourseExam from '@/components/CourseExam';
 import CertificateCard from '@/components/CertificateCard';
+import { useAIRecommendations } from '@/hooks/useRecommendations';
 import YouTubeVideoPlayer, { isYouTubeUrl, extractYouTubeId, getYouTubeThumbnail } from '@/components/YouTubeVideoPlayer';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
