@@ -70,6 +70,8 @@ export default function CourseExam({ course, isEs, onPass, onClose }: CourseExam
 
   const handleAnswer = (optionIndex: number) => {
     if (showResults) return;
+    // Prevent double-click from changing state unexpectedly
+    if (selectedAnswers[currentQ] === optionIndex) return;
     const updated = [...selectedAnswers];
     updated[currentQ] = optionIndex;
     setSelectedAnswers(updated);
@@ -102,6 +104,7 @@ export default function CourseExam({ course, isEs, onPass, onClose }: CourseExam
   const correctCount = selectedAnswers.filter((a, i) => a === questions[i].correctIndex).length;
   const score = Math.round((correctCount / questions.length) * 100);
   const allAnswered = selectedAnswers.every(a => a !== null);
+  const answeredCount = selectedAnswers.filter(a => a !== null).length;
   const q = questions[currentQ];
 
   // Show info badge about exam source
@@ -199,7 +202,7 @@ export default function CourseExam({ course, isEs, onPass, onClose }: CourseExam
         </div>
       </div>
 
-      <Progress value={((currentQ + 1) / questions.length) * 100} className="h-2" />
+      <Progress value={(answeredCount / questions.length) * 100} className="h-2" />
 
       <Card>
         <CardHeader className="pb-3">
