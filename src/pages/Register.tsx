@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Rocket, Building2, Compass, Mail, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Building2, Compass, Mail, ShieldCheck, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Register = () => {
