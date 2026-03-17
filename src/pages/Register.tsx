@@ -77,7 +77,7 @@ const Register = () => {
         email,
         password,
         options: {
-          emailRedirectTo: (window.location.origin.includes('localhost') ? window.location.origin : 'https://gophora.lovable.app') + '/auth/callback',
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: { account_type: accountType, username: accountType === 'explorer' ? username.toLowerCase() : undefined },
         },
       });
@@ -112,7 +112,6 @@ const Register = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
-            <Rocket className="h-8 w-8 text-primary" />
             <span className="font-heading text-2xl font-bold tracking-wider">GOPHORA</span>
           </div>
           {step === 'register' ? (
@@ -130,11 +129,10 @@ const Register = () => {
                 <button
                   type="button"
                   onClick={() => setAccountType('company')}
-                  className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-all ${
-                    accountType === 'company'
-                      ? 'border-primary bg-primary/10 glow-primary'
-                      : 'border-border hover:border-primary/30'
-                  }`}
+                  className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-all ${accountType === 'company'
+                    ? 'border-primary bg-primary/10 glow-primary'
+                    : 'border-border hover:border-primary/30'
+                    }`}
                 >
                   <Building2 className={`h-6 w-6 ${accountType === 'company' ? 'text-primary' : 'text-muted-foreground'}`} />
                   <span className={`text-sm font-heading font-semibold ${accountType === 'company' ? 'text-primary' : 'text-muted-foreground'}`}>
@@ -144,11 +142,10 @@ const Register = () => {
                 <button
                   type="button"
                   onClick={() => setAccountType('explorer')}
-                  className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-all ${
-                    accountType === 'explorer'
-                      ? 'border-primary bg-primary/10 glow-primary'
-                      : 'border-border hover:border-primary/30'
-                  }`}
+                  className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-all ${accountType === 'explorer'
+                    ? 'border-primary bg-primary/10 glow-primary'
+                    : 'border-border hover:border-primary/30'
+                    }`}
                 >
                   <Compass className={`h-6 w-6 ${accountType === 'explorer' ? 'text-primary' : 'text-muted-foreground'}`} />
                   <span className={`text-sm font-heading font-semibold ${accountType === 'explorer' ? 'text-primary' : 'text-muted-foreground'}`}>

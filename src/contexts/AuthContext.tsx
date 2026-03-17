@@ -28,29 +28,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-      if (session?.user) {
-        setTimeout(() => checkAdminRole(session.user.id), 0);
-      } else {
-        setIsAdmin(false);
-      }
-    });
+  const checkSession = async () => {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    setSession(currentSession);
+    setUser(currentSession?.user ?? null);
+    if (currentSession?.user) {
+      checkAdminRole(currentSession.user.id);
+      await supabase.rpc('update_login_heartbeat', { _user_id: currentSession.user.id });
+    }
+    setLoading(false);
+  };
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-      if (session?.user) {
-        checkAdminRole(session.user.id);
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    setSession(session);
+    setUser(session?.user ?? null);
+    setLoading(false);
+    if (session?.user) {
+      checkAdminRole(session.user.id);
+      if (event === 'SIGNED_IN') {
+        await supabase.rpc('update_login_heartbeat', { _user_id: session.user.id });
       }
-    });
+    } else {
+      setIsAdmin(false);
+    }
+  });
 
-    return () => subscription.unsubscribe();
-  }, []);
+  checkSession();
+
+  // Heartbeat interval (every 4 minutes, since timeout is 5m)
+  const interval = setInterval(async () => {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (currentSession?.user) {
+      await supabase.rpc('update_login_heartbeat', { _user_id: currentSession.user.id });
+    }
+  }, 1000 * 60 * 4);
+
+  return () => {
+    subscription.unsubscribe();
+    clearInterval(interval);
+  };
 
   const logout = async () => {
     await supabase.auth.signOut();

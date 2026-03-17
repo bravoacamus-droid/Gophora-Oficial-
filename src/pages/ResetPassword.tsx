@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { Rocket, ShieldCheck, Loader2 } from 'lucide-react';
+import { ShieldCheck, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ResetPassword = () => {
@@ -74,7 +74,6 @@ const ResetPassword = () => {
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 mb-4">
-            <Rocket className="h-8 w-8 text-primary animate-pulse" />
             <span className="font-heading text-2xl font-bold tracking-wider">GOPHORA</span>
           </div>
           <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
@@ -89,7 +88,6 @@ const ResetPassword = () => {
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="w-full max-w-md text-center space-y-4">
           <div className="inline-flex items-center gap-2 mb-4">
-            <Rocket className="h-8 w-8 text-primary" />
             <span className="font-heading text-2xl font-bold tracking-wider">GOPHORA</span>
           </div>
           <p className="text-muted-foreground font-body">
@@ -108,7 +106,6 @@ const ResetPassword = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
-            <Rocket className="h-8 w-8 text-primary" />
             <span className="font-heading text-2xl font-bold tracking-wider">GOPHORA</span>
           </div>
           <h1 className="text-2xl font-heading font-bold">Nueva contraseña</h1>

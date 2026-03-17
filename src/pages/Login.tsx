@@ -21,8 +21,21 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     try {
+      // Point 1: Check if already logged in elsewhere
+      const { data: isAlreadyLoggedIn, error: checkError } = await supabase.rpc('check_is_logged_in', { _email: email });
+
+      if (!checkError && isAlreadyLoggedIn) {
+        toast.error('Sesión activa en otro dispositivo. Por favor cierra la otra sesión primero.');
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+
+      // Update heartbeat after successful login
+      await supabase.rpc('update_login_heartbeat', { _user_id: data.user.id });
+
       const accountType = data.user?.user_metadata?.account_type || 'company';
       navigate(accountType === 'explorer' ? '/explorer' : '/company');
     } catch (err: any) {
@@ -40,8 +53,8 @@ const Login = () => {
     }
     setResetLoading(true);
     try {
-      const siteUrl = window.location.origin.includes('localhost') 
-        ? window.location.origin 
+      const siteUrl = window.location.origin.includes('localhost')
+        ? window.location.origin
         : 'https://gophora.lovable.app';
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${siteUrl}/reset-password`,
@@ -61,7 +74,6 @@ const Login = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
-            <Rocket className="h-8 w-8 text-primary" />
             <span className="font-heading text-2xl font-bold tracking-wider">GOPHORA</span>
           </div>
           <h1 className="text-2xl font-heading font-bold">{t('auth.welcome_back')} GOPHORA</h1>
