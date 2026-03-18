@@ -39,34 +39,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   };
 
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-    setSession(session);
-    setUser(session?.user ?? null);
-    setLoading(false);
-    if (session?.user) {
-      checkAdminRole(session.user.id);
-      if (event === 'SIGNED_IN') {
-        await supabase.rpc('update_login_heartbeat', { _user_id: session.user.id });
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+      if (session?.user) {
+        checkAdminRole(session.user.id);
+        if (event === 'SIGNED_IN') {
+          await supabase.rpc('update_login_heartbeat', { _user_id: session.user.id });
+        }
+      } else {
+        setIsAdmin(false);
       }
-    } else {
-      setIsAdmin(false);
-    }
-  });
+    });
 
-  checkSession();
+    checkSession();
 
-  // Heartbeat interval (every 4 minutes, since timeout is 5m)
-  const interval = setInterval(async () => {
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
-    if (currentSession?.user) {
-      await supabase.rpc('update_login_heartbeat', { _user_id: currentSession.user.id });
-    }
-  }, 1000 * 60 * 4);
+    // Heartbeat interval (every 4 minutes, since timeout is 5m)
+    const intervalId = setInterval(async () => {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (currentSession?.user) {
+        await supabase.rpc('update_login_heartbeat', { _user_id: currentSession.user.id });
+      }
+    }, 1000 * 60 * 4);
 
-  return () => {
-    subscription.unsubscribe();
-    clearInterval(interval);
-  };
+    return () => {
+      subscription.unsubscribe();
+      clearInterval(intervalId);
+    };
+  }, []);
 
   const logout = async () => {
     await supabase.auth.signOut();
