@@ -59,14 +59,14 @@ Select the top 6 most relevant courses for this explorer. Prioritize:
 3. Higher rated and popular courses
 4. Courses that fill skill gaps`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch("https://api.x.ai/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "grok-beta",
         messages: [
           { role: "system", content: "You are a course recommendation engine." },
           { role: "user", content: prompt },
@@ -120,7 +120,7 @@ Select the top 6 most relevant courses for this explorer. Prioritize:
 
     const aiData = await aiResponse.json();
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    
+
     let recommendations: any[] = [];
     if (toolCall?.function?.arguments) {
       const parsed = JSON.parse(toolCall.function.arguments);

@@ -41,14 +41,14 @@ Available for Talent: $${Math.floor(budget / 1.10)} USD
 
 Analyze this project completely. Identify every module, phase, and task needed. Break it into atomic micro-missions. Be thorough — if this is a full project, generate all necessary missions even if there are many.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.x.ai/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "grok-beta",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -108,7 +108,7 @@ Analyze this project completely. Identify every module, phase, and task needed. 
 
     const data = await response.json();
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    
+
     if (!toolCall) {
       console.error("No tool call in response:", JSON.stringify(data));
       return new Response(JSON.stringify({ error: "AI did not return structured missions" }), {
@@ -117,7 +117,7 @@ Analyze this project completely. Identify every module, phase, and task needed. 
     }
 
     const args = JSON.parse(toolCall.function.arguments);
-    
+
     // Enforce minimum $20/hr and recalculate rewards
     const missions = args.missions.map((m: any) => ({
       title: m.title,
