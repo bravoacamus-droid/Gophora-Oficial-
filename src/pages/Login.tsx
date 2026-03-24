@@ -51,7 +51,7 @@ const Login = () => {
       if (error) throw error;
 
       // Update heartbeat after successful login
-      await supabase.rpc('update_login_heartbeat', { _user_id: data.user.id });
+      await (supabase.rpc as any)('update_login_heartbeat', { _user_id: data.user.id });
 
       const accountType = data.user?.user_metadata?.account_type || 'company';
       navigate(accountType === 'explorer' ? '/explorer' : '/company');
