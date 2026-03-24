@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const intervalId = setInterval(async () => {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       if (currentSession?.user) {
-        await supabase.rpc('update_login_heartbeat', { _user_id: currentSession.user.id });
+        await (supabase.rpc as any)('update_login_heartbeat', { _user_id: currentSession.user.id });
       }
     }, 1000 * 60 * 4);
 
