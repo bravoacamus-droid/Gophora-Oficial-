@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(currentSession?.user ?? null);
     if (currentSession?.user) {
       checkAdminRole(currentSession.user.id);
-      await supabase.rpc('update_login_heartbeat', { _user_id: currentSession.user.id });
+      await (supabase.rpc as any)('update_login_heartbeat', { _user_id: currentSession.user.id });
     }
     setLoading(false);
   };
