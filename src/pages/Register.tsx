@@ -107,7 +107,7 @@ const Register = () => {
     setLoading(true);
     try {
       // Check if email already exists securely
-      const { data: emailExists, error: emailError } = await supabase.rpc('check_email_exists', { lookup_email: email });
+      const { data: emailExists, error: emailError } = await (supabase.rpc as any)('check_email_exists', { lookup_email: email });
       if (emailError) {
         console.error('Error verificando correo:', emailError);
       } else if (emailExists) {

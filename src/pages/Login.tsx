@@ -39,7 +39,7 @@ const Login = () => {
     setLoading(true);
     try {
       // Point 1: Check if already logged in elsewhere
-      const { data: isAlreadyLoggedIn, error: checkError } = await supabase.rpc('check_is_logged_in', { _email: email });
+      const { data: isAlreadyLoggedIn, error: checkError } = await (supabase.rpc as any)('check_is_logged_in', { _email: email });
 
       if (!checkError && isAlreadyLoggedIn) {
         toast.error('Sesión activa en otro dispositivo. Por favor cierra la otra sesión primero.');
@@ -51,7 +51,7 @@ const Login = () => {
       if (error) throw error;
 
       // Update heartbeat after successful login
-      await supabase.rpc('update_login_heartbeat', { _user_id: data.user.id });
+      await (supabase.rpc as any)('update_login_heartbeat', { _user_id: data.user.id });
 
       const accountType = data.user?.user_metadata?.account_type || 'company';
       navigate(accountType === 'explorer' ? '/explorer' : '/company');

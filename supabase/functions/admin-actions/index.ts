@@ -144,7 +144,7 @@ serve(async (req) => {
         if (missionsError) throw missionsError;
 
         const projectIds = [...new Set((missionRows || []).map((mission) => mission.project_id))];
-        const projectsById = new Map<string, { title: string; user_id: string | null; payment_status: string }>();
+        const projectsById = new Map<string, { title: string; user_id: string | null; payment_status: string; payment_screenshot_url: string | null; tx_hash: string | null }>();
 
         if (projectIds.length > 0) {
           const { data: projectRows, error: projectsError } = await supabase
