@@ -43,7 +43,9 @@ const Register = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: window.location.hostname === 'localhost'
+            ? `${window.location.origin}/auth/callback`
+            : 'https://gophora.vercel.app/auth/callback',
           queryParams: {
             account_type: accountType
           }
@@ -252,14 +254,14 @@ const Register = () => {
                       <div
                         key={level}
                         className={`flex-1 rounded-full transition-all duration-300 ${passwordStats.score >= level
-                            ? passwordStats.score === 4
-                              ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]'
-                              : passwordStats.score === 3
-                                ? 'bg-yellow-400'
-                                : passwordStats.score === 2
-                                  ? 'bg-orange-500'
-                                  : 'bg-red-500'
-                            : 'bg-muted-foreground/20'
+                          ? passwordStats.score === 4
+                            ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]'
+                            : passwordStats.score === 3
+                              ? 'bg-yellow-400'
+                              : passwordStats.score === 2
+                                ? 'bg-orange-500'
+                                : 'bg-red-500'
+                          : 'bg-muted-foreground/20'
                           }`}
                       />
                     ))}

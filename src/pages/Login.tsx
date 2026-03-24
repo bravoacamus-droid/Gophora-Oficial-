@@ -19,10 +19,13 @@ const Login = () => {
 
   const handleSocialLogin = async (provider: 'google' | 'github') => {
     try {
+      const redirectTo = window.location.hostname === 'localhost'
+        ? `${window.location.origin}/auth/callback`
+        : 'https://gophora.vercel.app/auth/callback';
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo,
         }
       });
       if (error) throw error;
