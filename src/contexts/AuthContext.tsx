@@ -71,6 +71,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const logout = async () => {
+    // Delete heartbeat record so user can log in again immediately from any device
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (currentSession?.user) {
+      await supabase.rpc('delete_login_heartbeat', { _user_id: currentSession.user.id });
+    }
     await supabase.auth.signOut();
     setIsAdmin(false);
   };
