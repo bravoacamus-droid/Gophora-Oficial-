@@ -101,7 +101,7 @@ const Header = () => {
               </Link>
             ))}
             {user ? (
-              <Button variant="ghost" onClick={() => { logout(); setMobileOpen(false); }} className="w-full justify-start font-heading text-sm">
+              <Button variant="ghost" onClick={logout} className="w-full justify-start font-heading text-sm">
                 {t('nav.logout')}
               </Button>
             ) : (
