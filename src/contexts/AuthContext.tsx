@@ -23,44 +23,63 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
       setIsAdmin(!!data);
-    } catch {
+    } catch (err) {
+      console.error('Error checking admin role:', err);
       setIsAdmin(false);
     }
   };
 
   const checkSession = async () => {
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
-    setSession(currentSession);
-    setUser(currentSession?.user ?? null);
-    if (currentSession?.user) {
-      checkAdminRole(currentSession.user.id);
-      await (supabase.rpc as any)('update_login_heartbeat', { _user_id: currentSession.user.id });
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      if (currentSession?.user) {
+        checkAdminRole(currentSession.user.id);
+        // Start heartbeat but don't block the initial load
+        (supabase.rpc as any)('update_login_heartbeat', { _user_id: currentSession.user.id })
+          .catch((err: any) => {
+            console.error('Heartbeat error:', err);
+          });
+      }
+    } catch (err) {
+      console.error('Session check error:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setLoading(false);
+
       if (session?.user) {
         checkAdminRole(session.user.id);
         if (event === 'SIGNED_IN') {
-          await (supabase.rpc as any)('update_login_heartbeat', { _user_id: session.user.id });
+          try {
+            await (supabase.rpc as any)('update_login_heartbeat', { _user_id: session.user.id });
+          } catch (err) {
+            console.error('Sign-in heartbeat error:', err);
+          }
         }
       } else {
         setIsAdmin(false);
       }
+      setLoading(false);
     });
 
     checkSession();
 
     // Heartbeat interval (every 4 minutes, since timeout is 5m)
     const intervalId = setInterval(async () => {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      if (currentSession?.user) {
-        await (supabase.rpc as any)('update_login_heartbeat', { _user_id: currentSession.user.id });
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (currentSession?.user) {
+          await (supabase.rpc as any)('update_login_heartbeat', { _user_id: currentSession.user.id });
+        }
+      } catch (err) {
+        console.error('Interval heartbeat error:', err);
       }
     }, 1000 * 60 * 4);
 
@@ -75,7 +94,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       if (currentSession?.user) {
         // Try deleting heartbeat, but don't block logout if it fails
-        await supabase.rpc('delete_login_heartbeat', { _user_id: currentSession.user.id });
+        await (supabase.rpc as any)('delete_login_heartbeat', { _user_id: currentSession.user.id });
       }
     } catch (error) {
       console.error('Logout error:', error);
