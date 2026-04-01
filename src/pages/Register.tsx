@@ -43,9 +43,7 @@ const Register = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: window.location.hostname === 'localhost'
-            ? `${window.location.origin}/auth/callback`
-            : 'https://gophora.vercel.app/auth/callback',
+          redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
             account_type: accountType,
             access_type: 'offline',

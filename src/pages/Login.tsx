@@ -19,9 +19,7 @@ const Login = () => {
 
   const handleSocialLogin = async (provider: 'google' | 'github') => {
     try {
-      const redirectTo = window.location.hostname === 'localhost'
-        ? `${window.location.origin}/auth/callback`
-        : 'https://gophora.vercel.app/auth/callback';
+      const redirectTo = `${window.location.origin}/auth/callback`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -38,7 +36,8 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      // Point 1: Check if already logged in elsewhere
+      /* 
+      // Desactivado temporalmente para evitar bloqueos de sesión
       const { data: isAlreadyLoggedIn, error: checkError } = await (supabase.rpc as any)('check_is_logged_in', { _email: email });
 
       if (!checkError && isAlreadyLoggedIn) {
@@ -46,6 +45,7 @@ const Login = () => {
         setLoading(false);
         return;
       }
+      */
 
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
@@ -70,9 +70,7 @@ const Login = () => {
     }
     setResetLoading(true);
     try {
-      const siteUrl = window.location.origin.includes('localhost')
-        ? window.location.origin
-        : 'https://gophora.lovable.app';
+      const siteUrl = window.location.origin;
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${siteUrl}/reset-password`,
       });

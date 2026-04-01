@@ -178,17 +178,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       if (currentSession?.user) {
-        // Try deleting heartbeat, but don't block logout if it fails
-        await (supabase.rpc as any)('delete_login_heartbeat', { _user_id: currentSession.user.id });
+        // Run heartbeat deletion in background, don't await if it hangs
+        (supabase.rpc as any)('delete_login_heartbeat', { _user_id: currentSession.user.id }).catch(() => { });
       }
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Logout heartbeat error:', error);
     } finally {
-      await supabase.auth.signOut();
+      // Clear ALL local state immediately
       setUser(null);
       setSession(null);
       setIsAdmin(false);
-      // Force reload or navigation if needed, but onAuthStateChange should handle it
+      setExplorerProfile(null);
+      setCompanyProfile(null);
+
+      await supabase.auth.signOut();
+
+      // Force return to landing
       window.location.href = '/';
     }
   };
