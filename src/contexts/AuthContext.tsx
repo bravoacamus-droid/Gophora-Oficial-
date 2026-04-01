@@ -7,8 +7,15 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   accountType: 'company' | 'explorer';
+  explorerProfile: any | null;
+  companyProfile: any | null;
+  userProfile: any | null;
+  onboardingCompleted: boolean;
   isAdmin: boolean;
+  isInvestor: boolean;
   logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
+  toggleInvestorMode: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,6 +25,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [explorerProfile, setExplorerProfile] = useState<any | null>(null);
+  const [companyProfile, setCompanyProfile] = useState<any | null>(null);
+  const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
+  const [isInvestor, setIsInvestor] = useState(false);
 
   const checkAdminRole = async (userId: string) => {
     try {
@@ -29,15 +41,60 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const refreshProfile = async () => {
+    if (!user) return;
+
+    try {
+      const type = (user?.user_metadata?.account_type as 'company' | 'explorer') || 'company';
+
+      if (type === 'explorer') {
+        const { data, error } = await (supabase
+          .from('explorer_profiles' as any)
+          .select('*')
+          .eq('user_id', user.id)
+          .single() as any);
+
+        if (!error) setExplorerProfile(data);
+      } else {
+        const { data, error } = await (supabase
+          .from('company_profiles' as any)
+          .select('*')
+          .eq('user_id', user.id)
+          .single() as any);
+
+        if (!error) {
+          setCompanyProfile(data);
+          setIsInvestor(!!data?.is_investor);
+        }
+      }
+    } catch (err) {
+      console.error('Error refreshing profile:', err);
+    }
+  };
+
   const checkSession = async () => {
     try {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      if (currentSession?.user) {
-        checkAdminRole(currentSession.user.id);
+      const currentUser = currentSession?.user ?? null;
+      setUser(currentUser);
+
+      if (currentUser) {
+        checkAdminRole(currentUser.id);
+
+        // Fetch specific profile
+        const type = (currentUser?.user_metadata?.account_type as 'company' | 'explorer') || 'company';
+        if (type === 'explorer') {
+          const { data } = await (supabase.from('explorer_profiles' as any).select('*').eq('user_id', currentUser.id).single() as any);
+          setExplorerProfile(data);
+        } else {
+          const { data } = await (supabase.from('company_profiles' as any).select('*').eq('user_id', currentUser.id).single() as any);
+          setCompanyProfile(data);
+          setIsInvestor(!!data?.is_investor);
+        }
+
         // Start heartbeat but don't block the initial load
-        (supabase.rpc as any)('update_login_heartbeat', { _user_id: currentSession.user.id })
+        (supabase.rpc as any)('update_login_heartbeat', { _user_id: currentUser.id })
           .catch((err: any) => {
             console.error('Heartbeat error:', err);
           });
@@ -56,6 +113,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (session?.user) {
         checkAdminRole(session.user.id);
+
+        // Fetch profile on auth change
+        const type = (session.user?.user_metadata?.account_type as 'company' | 'explorer') || 'company';
+        if (type === 'explorer') {
+          const { data } = await (supabase.from('explorer_profiles' as any).select('*').eq('user_id', session.user.id).single() as any);
+          setExplorerProfile(data);
+        } else {
+          const { data } = await (supabase.from('company_profiles' as any).select('*').eq('user_id', session.user.id).single() as any);
+          setCompanyProfile(data);
+          setIsInvestor(!!data?.is_investor);
+        }
+
         if (event === 'SIGNED_IN') {
           try {
             await (supabase.rpc as any)('update_login_heartbeat', { _user_id: session.user.id });
@@ -89,6 +158,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  const toggleInvestorMode = async () => {
+    if (!user || (user?.user_metadata?.account_type !== 'company' && (user as any).account_type !== 'company')) return;
+    try {
+      const newStatus = !isInvestor;
+      const { error } = await (supabase
+        .from('company_profiles' as any)
+        .update({ is_investor: newStatus })
+        .eq('user_id', user.id) as any);
+
+      if (error) throw error;
+      setIsInvestor(newStatus);
+    } catch (err) {
+      console.error('Error toggling investor mode:', err);
+    }
+  };
+
   const logout = async () => {
     try {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -111,7 +196,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const accountType = (user?.user_metadata?.account_type as 'company' | 'explorer') || 'company';
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, accountType, isAdmin, logout }}>
+    <AuthContext.Provider value={{
+      user,
+      session,
+      loading,
+      accountType,
+      userProfile,
+      onboardingCompleted,
+      explorerProfile,
+      companyProfile,
+      isAdmin,
+      isInvestor,
+      logout,
+      refreshProfile,
+      toggleInvestorMode
+    }}>
       {children}
     </AuthContext.Provider>
   );

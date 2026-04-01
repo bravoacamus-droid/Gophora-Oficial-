@@ -105,14 +105,22 @@ export default function SkillPassport({ explorerId, isPublic }: SkillPassportPro
                     </span>
                   </div>
                   <h2 className="text-2xl font-heading font-black mt-1">{displayName}</h2>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className={`text-sm font-heading font-bold ${levelColors[stats.level] || 'text-foreground'}`}>
-                      {isEs ? stats.levelEs : stats.level}
-                    </span>
-                    <span className="text-xs text-muted-foreground">•</span>
-                    <span className="text-xs text-muted-foreground font-body">
-                      {isEs ? 'Puntuación de Preparación' : 'Readiness Score'}: {stats.readinessScore}%
-                    </span>
+                  <div className="flex flex-col gap-1 mt-1">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default" className="bg-primary text-primary-foreground font-heading font-bold text-[10px] h-5 px-1.5">
+                        Lvl {stats.calculatedLevel || 1}
+                      </Badge>
+                      <span className={`text-sm font-heading font-bold ${levelColors[stats.level] || 'text-foreground'}`}>
+                        {isEs ? stats.levelEs : stats.level}
+                      </span>
+                    </div>
+                    <div className="w-full md:w-48 space-y-1 mt-1">
+                      <div className="flex justify-between text-[9px] font-heading font-bold uppercase tracking-wider text-muted-foreground">
+                        <span>XP Progress</span>
+                        <span>{stats.levelProgress}%</span>
+                      </div>
+                      <Progress value={stats.levelProgress} className="h-1.5 bg-primary/10" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -132,6 +140,7 @@ export default function SkillPassport({ explorerId, isPublic }: SkillPassportPro
                 { icon: Target, label: isEs ? 'Misiones' : 'Missions', value: stats.missionsCompleted },
                 { icon: Star, label: isEs ? 'Habilidades' : 'Skills', value: stats.skills.length },
                 { icon: Award, label: isEs ? 'Insignias' : 'Badges', value: (badges || []).length },
+                { icon: Zap, label: 'Total XP', value: stats.totalXP || 0 },
               ].map((stat, i) => (
                 <div key={stat.label} className="flex items-center gap-2 p-3 rounded-xl bg-muted/50 border border-border/30">
                   <stat.icon className="h-4 w-4 text-primary shrink-0" />
@@ -263,11 +272,10 @@ export default function SkillPassport({ explorerId, isPublic }: SkillPassportPro
                 return (
                   <div
                     key={def.key}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border text-center transition-all ${
-                      earned
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border text-center transition-all ${earned
                         ? 'border-primary/30 bg-primary/5 hover:bg-primary/10'
                         : 'border-border/20 opacity-30 grayscale'
-                    }`}
+                      }`}
                   >
                     <span className="text-2xl">{def.icon}</span>
                     <span className="text-xs font-heading font-bold leading-tight">

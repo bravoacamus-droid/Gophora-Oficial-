@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
   FolderOpen, Zap, CheckCircle, DollarSign, Plus, ExternalLink,
-  CheckCircle2, XCircle, Wallet, TrendingDown, ChevronRight,
+  CheckCircle2, XCircle, Wallet, TrendingUp, TrendingDown, ChevronRight,
   Users, Clock, ArrowUpRight, BarChart3, Target, Calendar, FileText,
   AlertCircle, Sparkles, Activity
 } from 'lucide-react';
@@ -70,7 +70,7 @@ const fadeUp = {
 const CompanyDashboard = () => {
   const { language } = useLanguage();
   const isEs = language === 'es';
-  const { user } = useAuth();
+  const { user, isInvestor, toggleInvestorMode } = useAuth();
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [missions, setMissions] = useState<MissionRow[]>([]);
   const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
@@ -88,12 +88,12 @@ const CompanyDashboard = () => {
     if (!user) return;
     setLoading(true);
 
-    const [{ data: profileData }, { data: projectRows }] = await Promise.all([
-      supabase.from('profiles').select('full_name, username').eq('id', user.id).single(),
+    const [{ data: compProfile }, { data: projectRows }] = await Promise.all([
+      (supabase.from('company_profiles' as any).select('name').eq('user_id', user.id).single() as any),
       supabase.from('projects').select('id, title, budget, status, payment_status, description, category, priority, deadline, resource_link, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
     ]);
 
-    setProfile(profileData);
+    setProfile({ full_name: compProfile?.name });
     const pRows = (projectRows || []) as ProjectRow[];
     setProjects(pRows);
 
@@ -105,35 +105,38 @@ const CompanyDashboard = () => {
 
       if (mRows.length > 0) {
         const missionIds = mRows.map((m) => m.id);
-        const { data: appRows } = await supabase.from('mission_applications').select('id, status, delivery_url, delivered_at, mission_id, user_id').in('mission_id', missionIds);
-        const apps = appRows || [];
-        const userIds = [...new Set(apps.map((a) => a.user_id))];
+        const { data: assignRows } = await (supabase
+          .from('mission_assignments' as any)
+          .select('id, status, delivery_url, delivered_at, mission_id, explorer_id')
+          .in('mission_id', missionIds) as any);
+        const assigns = assignRows || [];
+        const explorerIds = [...new Set(assigns.map((a: any) => a.explorer_id))];
 
-        let profileMap = new Map<string, string>();
-        if (userIds.length > 0) {
-          const { data: profileRows } = await supabase.from('profiles').select('id, username, full_name').in('id', userIds);
-          profileMap = new Map((profileRows || []).map((p: any) => [p.id, p.username || p.full_name || 'Explorer']));
+        let explorerMap = new Map<string, string>();
+        if (explorerIds.length > 0) {
+          const { data: explorerRows } = await (supabase.from('explorer_profiles' as any).select('id, name').in('id', explorerIds) as any);
+          explorerMap = new Map((explorerRows || []).map((p: any) => [p.id, p.name || 'Explorer']));
         }
 
         const missionMap = new Map(mRows.map((m) => [m.id, m]));
         const projectMap = new Map(pRows.map((p) => [p.id, p.title]));
 
-        const deliveryApps = apps.filter((a) => ['delivered', 'completed', 'rejected'].includes(a.status));
-        setDeliveries(deliveryApps.map((a) => {
+        const deliveryAssigns = assigns.filter((a: any) => ['delivered', 'approved', 'rejected', 'paid'].includes(a.status));
+        setDeliveries(deliveryAssigns.map((a: any) => {
           const mission = missionMap.get(a.mission_id);
           return {
             id: a.id, status: a.status, delivery_url: a.delivery_url, delivered_at: a.delivered_at,
-            mission_id: a.mission_id, user_id: a.user_id,
-            explorerName: profileMap.get(a.user_id) || 'Explorer',
+            mission_id: a.mission_id, user_id: a.explorer_id,
+            explorerName: explorerMap.get(a.explorer_id) || 'Explorer',
             missionTitle: mission?.title || 'Mission',
             missionReward: Number(mission?.reward || 0),
             projectTitle: mission ? (projectMap.get(mission.project_id) || 'Project') : 'Project',
           };
         }));
 
-        setApplications(apps.map((a) => ({
-          id: a.id, status: a.status, user_id: a.user_id, mission_id: a.mission_id,
-          explorerName: profileMap.get(a.user_id) || 'Explorer',
+        setApplications(assigns.map((a: any) => ({
+          id: a.id, status: a.status, user_id: a.explorer_id, mission_id: a.mission_id,
+          explorerName: explorerMap.get(a.explorer_id) || 'Explorer',
         })));
       } else {
         setDeliveries([]);
@@ -149,12 +152,19 @@ const CompanyDashboard = () => {
 
   useEffect(() => { loadData(); }, [user]);
 
-  const handleReview = async (appId: string, newStatus: 'completed' | 'rejected') => {
+  const handleReview = async (appId: string, newStatus: 'approved' | 'rejected') => {
     setReviewingId(appId);
     try {
-      const { error } = await supabase.from('mission_applications').update({ status: newStatus, reviewed_at: new Date().toISOString(), review_note: reviewNotes[appId] || null }).eq('id', appId);
+      const { error } = await (supabase
+        .from('mission_assignments' as any)
+        .update({
+          status: newStatus,
+          reviewed_at: new Date().toISOString(),
+          review_note: reviewNotes[appId] || null
+        })
+        .eq('id', appId) as any);
       if (error) throw error;
-      toast.success(newStatus === 'completed' ? (isEs ? 'Entrega aprobada' : 'Delivery approved') : (isEs ? 'Entrega rechazada' : 'Delivery rejected'));
+      toast.success(newStatus === 'approved' ? (isEs ? 'Entrega aprobada' : 'Delivery approved') : (isEs ? 'Entrega rechazada' : 'Delivery rejected'));
       loadData();
     } catch (err: any) {
       toast.error(err.message || 'Error');
@@ -180,12 +190,12 @@ const CompanyDashboard = () => {
 
   const activeProjects = projects.filter((p) => p.status === 'active');
   const completedMissions = missions.filter((m) => m.status === 'approved');
-  const inProgressMissions = missions.filter((m) => m.status === 'open');
+  const inProgressMissions = missions.filter((m) => m.status === 'assigned');
   const totalBudget = missions.reduce((sum, m) => sum + Number(m.reward || 0), 0);
-  const usedBudget = missions.filter(m => m.status === 'completed' || m.status === 'approved').reduce((sum, m) => sum + Number(m.reward || 0), 0);
+  const usedBudget = missions.filter(m => ['approved', 'paid'].includes(m.status)).reduce((sum, m) => sum + Number(m.reward || 0), 0);
   const balance = totalBudget - usedBudget;
   const pendingDeliveries = deliveries.filter((d) => d.status === 'delivered');
-  const uniqueExplorersTotal = new Set(applications.filter(a => ['accepted', 'delivered', 'completed'].includes(a.status)).map(a => a.user_id));
+  const uniqueExplorersTotal = new Set(applications.filter(a => ['assigned', 'delivered', 'approved', 'paid'].includes(a.status)).map(a => a.user_id));
 
   const getMissionsForProject = (projectId: string) => missions.filter((m) => m.project_id === projectId);
   const getAppsForProject = (projectId: string) => {
@@ -241,9 +251,18 @@ const CompanyDashboard = () => {
                 }
               </p>
             </motion.div>
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.4 }}>
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.4 }} className="flex gap-3">
+              <Button
+                variant={isInvestor ? "default" : "outline"}
+                size="sm"
+                onClick={toggleInvestorMode}
+                className={`gap-2 font-heading text-xs transition-all ${isInvestor ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'border-amber-500/30 text-amber-600 hover:bg-amber-50'}`}
+              >
+                <TrendingUp className="h-4 w-4" />
+                {isInvestor ? (isEs ? 'Modo Inversor Activo' : 'Investor Mode Active') : (isEs ? 'Activar Modo Inversor' : 'Activate Investor Mode')}
+              </Button>
               <Link to="/projects/create">
-                <Button variant="hero" size="lg" className="gap-2">
+                <Button variant="hero" size="sm" className="gap-2">
                   <Plus className="h-4 w-4" /> {isEs ? 'Nuevo Proyecto' : 'New Project'}
                 </Button>
               </Link>
@@ -269,16 +288,54 @@ const CompanyDashboard = () => {
               variants={fadeUp}
               initial="hidden"
               animate="visible"
-              className={`rounded-xl border p-4 transition-all hover:shadow-md ${stat.accent ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-card'}`}
+              className={`rounded-xl border p-4 transition-all hover:shadow-md ${stat.accent ? (isInvestor && stat.label === (isEs ? 'Balance' : 'Balance') ? 'border-amber-500/30 bg-amber-500/5' : 'border-primary/30 bg-primary/5') : 'border-border/50 bg-card'}`}
             >
               <div className="flex items-center gap-2 mb-2">
-                <stat.icon className={`h-4 w-4 ${stat.accent ? 'text-primary' : 'text-muted-foreground'}`} />
+                <stat.icon className={`h-4 w-4 ${stat.accent ? (isInvestor && stat.label === (isEs ? 'Balance' : 'Balance') ? 'text-amber-600' : 'text-primary') : 'text-muted-foreground'}`} />
                 <span className="text-xs text-muted-foreground font-body">{stat.label}</span>
               </div>
               <p className="text-2xl font-heading font-bold">{stat.value}</p>
             </motion.div>
           ))}
         </div>
+
+        {isInvestor && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <BarChart3 className="h-4 w-4 text-amber-600" />
+                <h2 className="font-heading font-bold text-sm">{isEs ? 'Rendimiento (ROI)' : 'Investment ROI'}</h2>
+              </div>
+              <div className="flex items-end gap-2 mb-2">
+                <span className="text-3xl font-heading font-black text-amber-600">+12.4%</span>
+                <span className="text-xs text-muted-foreground font-body mb-1">PROMEDIO ANUAL</span>
+              </div>
+              <Progress value={65} className="h-2 bg-amber-200" />
+              <p className="text-xs text-muted-foreground font-body mt-3">
+                {isEs ? 'Basado en el éxito de tus misiones asignadas y calidad de entrega.' : 'Based on mission success rate and delivery quality.'}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/50 bg-card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Wallet className="h-4 w-4 text-primary" />
+                <h2 className="font-heading font-bold text-sm">{isEs ? 'Portafolio de Inversión' : 'Investment Portfolio'}</h2>
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground font-body">{isEs ? 'Proyectos Propios' : 'Own Projects'}</span>
+                  <span className="font-heading font-bold">{projects.length}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground font-body">{isEs ? 'Proyectos Participados' : 'Venture Projects'}</span>
+                  <span className="font-heading font-bold">0</span>
+                </div>
+                <Button variant="outline" size="sm" className="w-full text-[10px] h-8 border-amber-500/30 text-amber-600 hover:bg-amber-50">
+                  {isEs ? 'Explorar Proyectos para Invertir' : 'Browse Projects to Invest'}
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Budget Overview Bar */}
         {totalBudget > 0 && (
@@ -345,7 +402,7 @@ const CompanyDashboard = () => {
                         className="flex-1 text-sm"
                       />
                       <div className="flex gap-2">
-                        <Button size="sm" className="gap-1.5 font-heading text-xs" onClick={() => handleReview(d.id, 'completed')} disabled={reviewingId === d.id}>
+                        <Button size="sm" className="gap-1.5 font-heading text-xs" onClick={() => handleReview(d.id, 'approved')} disabled={reviewingId === d.id}>
                           <CheckCircle2 className="h-3.5 w-3.5" /> {isEs ? 'Aprobar' : 'Approve'}
                         </Button>
                         <Button size="sm" variant="outline" className="gap-1.5 font-heading text-xs text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => handleReview(d.id, 'rejected')} disabled={reviewingId === d.id}>
@@ -463,8 +520,8 @@ const CompanyDashboard = () => {
                     <p className="text-sm font-heading font-semibold truncate">{d.missionTitle}</p>
                     <p className="text-xs text-muted-foreground font-body">@{d.explorerName} • {d.projectTitle}</p>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-heading font-semibold border ${d.status === 'completed' ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' : d.status === 'rejected' ? 'bg-destructive/15 text-destructive border-destructive/30' : 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30'}`}>
-                    {d.status === 'completed' ? (isEs ? 'Aprobada' : 'Approved') : d.status === 'rejected' ? (isEs ? 'Rechazada' : 'Rejected') : (isEs ? 'Pendiente' : 'Pending')}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-heading font-semibold border ${['approved', 'paid'].includes(d.status) ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' : d.status === 'rejected' ? 'bg-destructive/15 text-destructive border-destructive/30' : 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30'}`}>
+                    {['approved', 'paid'].includes(d.status) ? (isEs ? 'Aprobada' : 'Approved') : d.status === 'rejected' ? (isEs ? 'Rechazada' : 'Rejected') : (isEs ? 'Pendiente' : 'Pending')}
                   </span>
                 </div>
               ))}

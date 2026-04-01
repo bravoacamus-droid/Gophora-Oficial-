@@ -82,7 +82,7 @@ export function usePassportStats(explorerId?: string | null) {
         db.from('certificates').select('*').eq('explorer_id', id),
         db.from('explorer_course_progress').select('*').eq('user_id', id).eq('completed', true),
         db.from('explorer_exam_attempts').select('*').eq('explorer_id', id).eq('passed', true),
-        db.from('mission_applications').select('*').eq('user_id', id).in('status', ['completed', 'funds_released']),
+        db.from('mission_assignments').select('*').eq('explorer_id', id).in('status', ['approved', 'paid']),
         db.from('profiles').select('full_name, username, avatar_url, bio, account_type').eq('id', id).single(),
       ]);
 
@@ -99,8 +99,19 @@ export function usePassportStats(explorerId?: string | null) {
         ? examsPassed.reduce((s: number, e: any) => s + (e.score || 0), 0) / examsPassed.length
         : 0;
 
+      // Gamified Level Logic (XP)
+      const missionXP = missionsCompleted.length * 100;
+      const courseXP = coursesCompleted.length * 50;
+      const examXP = examsPassed.length * 75;
+      const totalXP = missionXP + courseXP + examXP;
+
+      const XP_PER_LEVEL = 500;
+      const calculatedLevel = Math.floor(totalXP / XP_PER_LEVEL) + 1;
+      const currentLevelXP = totalXP % XP_PER_LEVEL;
+      const levelProgress = Math.round((currentLevelXP / XP_PER_LEVEL) * 100);
+
       // Mission readiness (equal weights)
-      const courseScore = Math.min((coursesCompleted.length / Math.max(1, 1)) * 20, 100);
+      const courseScore = Math.min((coursesCompleted.length / 5) * 100, 100);
       const skillScore = Math.min(skills.length * 15, 100);
       const examScore = avgExamScore;
       const missionScore = Math.min(missionsCompleted.length * 10, 100);
@@ -108,12 +119,12 @@ export function usePassportStats(explorerId?: string | null) {
         (courseScore * 0.25) + (skillScore * 0.25) + (examScore * 0.25) + (missionScore * 0.25)
       );
 
-      // Level
+      // Level Labels
       let level = 'Explorer';
       let levelEs = 'Explorador';
-      if (readinessScore >= 80) { level = 'Legendary Explorer'; levelEs = 'Explorador Legendario'; }
-      else if (readinessScore >= 60) { level = 'Elite Explorer'; levelEs = 'Explorador Élite'; }
-      else if (readinessScore >= 40) { level = 'Advanced Explorer'; levelEs = 'Explorador Avanzado'; }
+      if (calculatedLevel >= 10) { level = 'Legendary Explorer'; levelEs = 'Explorador Legendario'; }
+      else if (calculatedLevel >= 5) { level = 'Elite Explorer'; levelEs = 'Explorador Élite'; }
+      else if (calculatedLevel >= 3) { level = 'Advanced Explorer'; levelEs = 'Explorador Avanzado'; }
 
       // Skill categories
       const categories: Record<string, any[]> = {};
@@ -135,6 +146,9 @@ export function usePassportStats(explorerId?: string | null) {
         readinessScore,
         level,
         levelEs,
+        calculatedLevel,
+        levelProgress,
+        totalXP,
         categories,
         totalEarnings: missionsCompleted.reduce((s: number, m: any) => s + Number(m.reward || 0), 0),
       };

@@ -16,6 +16,18 @@ const ProtectedRoute = () => {
     return <Navigate to="/login" replace />;
   }
 
+  const { onboardingCompleted } = useAuth();
+  const isAtOnboarding = window.location.pathname === '/onboarding';
+
+  if (!onboardingCompleted && !isAtOnboarding) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  if (onboardingCompleted && isAtOnboarding) {
+    const { accountType } = useAuth();
+    return <Navigate to={accountType === 'company' ? '/company' : '/explorer'} replace />;
+  }
+
   return <Outlet />;
 };
 

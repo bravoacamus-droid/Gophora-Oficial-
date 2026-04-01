@@ -21,6 +21,7 @@ import AdminPanel from "@/pages/AdminPanel";
 import AcademyDashboard from "@/pages/AcademyDashboard";
 import AuthCallback from "@/pages/AuthCallback";
 import ResetPassword from "@/pages/ResetPassword";
+import Onboarding from "@/pages/Onboarding";
 import NotFound from "./pages/NotFound";
 import PublicPassport from "./pages/PublicPassport";
 
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/reset-password" element={<ResetPassword />} />
 
               <Route element={<ProtectedRoute />}>
+                <Route path="/onboarding" element={<Onboarding />} />
                 <Route path="/company" element={<CompanyDashboard />} />
                 <Route path="/explorer" element={<ExplorerDashboard />} />
                 <Route path="/marketplace" element={<Marketplace />} />

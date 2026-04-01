@@ -18,7 +18,7 @@ const Register = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [accountType, setAccountType] = useState<'company' | 'explorer'>(
-    (searchParams.get('type') as 'company' | 'explorer') || 'company'
+    (searchParams.get('role') as 'company' | 'explorer') || 'explorer'
   );
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'register' | 'verify'>('register');
@@ -47,7 +47,9 @@ const Register = () => {
             ? `${window.location.origin}/auth/callback`
             : 'https://gophora.vercel.app/auth/callback',
           queryParams: {
-            account_type: accountType
+            account_type: accountType,
+            access_type: 'offline',
+            prompt: 'consent'
           }
         }
       });

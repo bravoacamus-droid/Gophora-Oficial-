@@ -97,18 +97,30 @@ const Landing = () => {
             transition={{ duration: 0.5, delay: 0.65 }}
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
-            <Link to="/register">
-              <Button variant="hero" size="lg" className="w-full sm:w-auto gap-2">
-                {t('landing.hero.cta_start')} <ArrowRight className="h-4 w-4" />
+            <Link to="/register?role=explorer">
+              <Button variant="hero" size="lg" className="w-full sm:w-auto gap-2 bg-primary hover:bg-primary/90 text-white min-w-[200px]">
+                🚀 Soy Explorer <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
+            <Link to="/register?role=company">
+              <Button variant="hero-outline" size="lg" className="w-full sm:w-auto gap-2 border-primary text-primary hover:bg-primary/5 min-w-[200px]">
+                🏢 Soy Empresa <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1 }}
+            className="mt-8"
+          >
             <Button
-              variant="hero-outline"
-              size="lg"
-              className="w-full sm:w-auto gap-2"
+              variant="link"
+              size="sm"
+              className="text-muted-foreground hover:text-primary"
               onClick={() => setShowCalendar(true)}
             >
-              {t('landing.hero.cta_demo')} <Calendar className="h-4 w-4" />
+              ¿Quieres ver una demo primero? <Calendar className="ml-2 h-4 w-4" />
             </Button>
           </motion.div>
         </div>
@@ -422,19 +434,16 @@ const Landing = () => {
             {t('landing.cta.desc')}
           </motion.p>
           <motion.div variants={fadeUp} custom={2} className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/register">
+            <Link to="/register?role=explorer">
               <Button variant="hero" size="lg" className="w-full sm:w-auto gap-2">
-                {t('landing.cta.start')} <ArrowRight className="h-4 w-4" />
+                Empieza como Explorer <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Button
-              variant="hero-outline"
-              size="lg"
-              className="w-full sm:w-auto gap-2"
-              onClick={() => setShowCalendar(true)}
-            >
-              {t('landing.cta.demo')} <Calendar className="h-4 w-4" />
-            </Button>
+            <Link to="/register?role=company">
+              <Button variant="hero-outline" size="lg" className="w-full sm:w-auto gap-2">
+                Empieza como Empresa <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
           </motion.div>
         </motion.div>
       </section>

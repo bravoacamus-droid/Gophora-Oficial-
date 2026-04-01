@@ -87,14 +87,13 @@ const fadeIn = {
 const ExplorerDashboard = () => {
   const { t, language } = useLanguage();
   const isEs = language === 'es';
-  const { user } = useAuth();
+  const { user, explorerProfile } = useAuth();
   const [applications, setApplications] = useState<ApplicationWithMission[]>([]);
   const [loading, setLoading] = useState(true);
   const [deliveryUrls, setDeliveryUrls] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
   const [selectedApp, setSelectedApp] = useState<ApplicationWithMission | null>(null);
-  const [profile, setProfile] = useState<{ username: string | null; full_name: string | null } | null>(null);
   const [missionTab, setMissionTab] = useState('active');
   const [mainTab, setMainTab] = useState('dashboard');
 
@@ -112,32 +111,31 @@ const ExplorerDashboard = () => {
     if (!user) return;
     supabase
       .from('profiles')
-      .select('onboarding_completed, username, full_name')
+      .select('onboarding_completed')
       .eq('id', user.id)
       .single()
       .then(({ data }) => {
         setOnboardingDone(data?.onboarding_completed ?? false);
-        setProfile({ username: data?.username ?? null, full_name: data?.full_name ?? null });
       });
   }, [user]);
 
   const loadData = async () => {
-    if (!user) return;
+    if (!user || !explorerProfile) return;
     setLoading(true);
-    const { data: appRows } = await supabase
-      .from('mission_applications')
+    const { data: assignRows } = await (supabase
+      .from('mission_assignments' as any)
       .select('id, status, created_at, mission_id, delivery_url, delivered_at, reviewed_at, review_note')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+      .eq('explorer_id', explorerProfile.id)
+      .order('created_at', { ascending: false }) as any);
 
-    const apps = appRows || [];
+    const assigns = assignRows || [];
 
-    if (apps.length > 0) {
-      const missionIds = [...new Set(apps.map((a) => a.mission_id))];
+    if (assigns.length > 0) {
+      const missionIds = [...new Set(assigns.map((a: any) => a.mission_id))];
       const { data: missionRows } = await supabase
         .from('missions')
         .select('id, title, title_es, description, description_es, reward, skill, project_id, hours, hourly_rate')
-        .in('id', missionIds);
+        .in('id', missionIds as any);
 
       const mRows = missionRows || [];
       const projectIds = [...new Set(mRows.map((m) => m.project_id))];
@@ -153,7 +151,7 @@ const ExplorerDashboard = () => {
 
       const missionMap = new Map(mRows.map((m) => [m.id, m]));
 
-      const mapped: ApplicationWithMission[] = apps.map((a) => {
+      const mapped: ApplicationWithMission[] = assigns.map((a: any) => {
         const mission = missionMap.get(a.mission_id);
         const project = mission ? projectMap.get(mission.project_id) : undefined;
         return {
@@ -203,14 +201,14 @@ const ExplorerDashboard = () => {
 
     setSubmittingId(appId);
     try {
-      const { error } = await supabase
-        .from('mission_applications')
+      const { error } = await (supabase
+        .from('mission_assignments' as any)
         .update({
           delivery_url: url,
           delivered_at: new Date().toISOString(),
           status: 'delivered',
         })
-        .eq('id', appId);
+        .eq('id', appId) as any);
 
       if (error) throw error;
       toast.success(isEs ? 'Entrega enviada correctamente' : 'Delivery submitted successfully');
@@ -224,27 +222,28 @@ const ExplorerDashboard = () => {
     }
   };
 
-  const completedCount = applications.filter((a) => a.status === 'completed' || a.status === 'funds_released').length;
-  const activeMissions = applications.filter((a) => a.status === 'pending' || a.status === 'delivered' || a.status === 'rejected');
-  const completedMissions = applications.filter((a) => a.status === 'completed' || a.status === 'funds_released');
+  const activeMissions = applications.filter((a) => ['assigned', 'in_progress', 'delivered', 'rejected'].includes(a.status));
+  const completedMissions = applications.filter((a) => ['approved', 'paid'].includes(a.status));
+  const completedCount = completedMissions.length;
   const totalEarnings = completedMissions.reduce((sum, a) => sum + a.missionReward, 0);
 
   const xpLevel = engagement ? getXPLevel(engagement.totalXP) : null;
 
   const statusLabel = (status: string) => {
     const map: Record<string, string> = isEs
-      ? { pending: 'ACTIVA', delivered: 'EN REVISIÓN', completed: 'COMPLETADA', rejected: 'RECHAZADA', funds_released: 'PAGADA' }
-      : { pending: 'ACTIVE', delivered: 'IN REVIEW', completed: 'COMPLETED', rejected: 'REJECTED', funds_released: 'PAID' };
+      ? { assigned: 'ASIGNADA', in_progress: 'EN PROGRESO', delivered: 'EN REVISIÓN', approved: 'APROBADA', rejected: 'RECHAZADA', paid: 'PAGADA' }
+      : { assigned: 'ASSIGNED', in_progress: 'IN PROGRESS', delivered: 'IN REVIEW', approved: 'APPROVED', rejected: 'REJECTED', paid: 'PAID' };
     return map[status] || status.toUpperCase();
   };
 
   const statusColor = (status: string) => {
     const map: Record<string, string> = {
-      pending: 'bg-primary/10 text-primary',
+      assigned: 'bg-primary/10 text-primary',
+      in_progress: 'bg-primary/10 text-primary',
       delivered: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
-      completed: 'bg-green-500/10 text-green-600 dark:text-green-400',
+      approved: 'bg-green-500/10 text-green-600 dark:text-green-400',
+      paid: 'bg-green-500/10 text-green-600 dark:text-green-400',
       rejected: 'bg-destructive/10 text-destructive',
-      funds_released: 'bg-green-500/10 text-green-600 dark:text-green-400',
     };
     return map[status] || 'bg-muted text-muted-foreground';
   };
@@ -261,7 +260,7 @@ const ExplorerDashboard = () => {
     return <ExplorerOnboarding onComplete={() => setOnboardingDone(true)} />;
   }
 
-  const displayName = profile?.username ? `@${profile.username}` : profile?.full_name || user?.email?.split('@')[0] || 'Explorer';
+  const displayName = explorerProfile?.name || user?.email?.split('@')[0] || 'Explorer';
 
   const filteredMissions = missionTab === 'active' ? activeMissions : completedMissions;
 
@@ -339,151 +338,151 @@ const ExplorerDashboard = () => {
 
           <TabsContent value="dashboard" className="space-y-8">
 
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          </div>
-        ) : (
-          <>
-            {/* ─── Engagement Row: Streak + Daily Missions ─── */}
-            <div className="grid md:grid-cols-5 gap-4">
-              <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={0} className="md:col-span-2">
-                <StreakTracker />
-              </motion.div>
-              <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={1} className="md:col-span-3">
-                <DailyMissions />
-              </motion.div>
-            </div>
-
-            {/* ─── Stats Grid ─── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-              {[
-                { icon: Target, label: isEs ? 'Misiones Activas' : 'Active Missions', value: String(activeMissions.length), accent: true },
-                { icon: CheckCircle, label: isEs ? 'Completadas' : 'Completed', value: String(completedCount), accent: false },
-                { icon: DollarSign, label: isEs ? 'Ganancias' : 'Earnings', value: `$${totalEarnings.toLocaleString()}`, accent: false },
-                { icon: Zap, label: 'XP', value: engagement ? engagement.totalXP.toLocaleString() : '0', accent: false },
-              ].map((stat, i) => (
-                <motion.div
-                  key={stat.label}
-                  custom={i + 2}
-                  initial="hidden"
-                  animate="visible"
-                  variants={fadeIn}
-                  className={`rounded-xl border p-4 md:p-5 transition-all hover:shadow-md ${stat.accent ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-card'}`}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <stat.icon className={`h-4 w-4 ${stat.accent ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <span className="text-xs text-muted-foreground font-body truncate">{stat.label}</span>
-                  </div>
-                  <div className="text-2xl md:text-3xl font-heading font-bold">{stat.value}</div>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* ─── Recommendations + Social Proof ─── */}
-            <div className="grid md:grid-cols-5 gap-4">
-              <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={6} className="md:col-span-3">
-                <SmartRecommendations />
-              </motion.div>
-              <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={7} className="md:col-span-2">
-                <SocialProof />
-              </motion.div>
-            </div>
-
-            {/* ─── Balance Section ─── */}
-            <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={8}>
-              <div className="rounded-xl border border-border/50 bg-card p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <Wallet className="h-4 w-4 text-primary" />
-                  <h2 className="font-heading font-bold text-sm">{isEs ? 'Balance y Retiros' : 'Balance & Withdrawals'}</h2>
-                </div>
-                <BalanceModule />
+            {loading ? (
+              <div className="flex justify-center py-16">
+                <div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
               </div>
-            </motion.div>
+            ) : (
+              <>
+                {/* ─── Engagement Row: Streak + Daily Missions ─── */}
+                <div className="grid md:grid-cols-5 gap-4">
+                  <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={0} className="md:col-span-2">
+                    <StreakTracker />
+                  </motion.div>
+                  <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={1} className="md:col-span-3">
+                    <DailyMissions />
+                  </motion.div>
+                </div>
 
-            {/* ─── Missions Section with Tabs ─── */}
-            <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={9}>
-              <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
-                <div className="p-5 pb-0">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <Rocket className="h-4 w-4 text-primary" />
-                      <h2 className="font-heading font-bold text-sm">{isEs ? 'Mis Misiones' : 'My Missions'}</h2>
-                    </div>
-                    <Badge variant="secondary" className="font-heading text-xs">
-                      {applications.length} {isEs ? 'total' : 'total'}
-                    </Badge>
-                  </div>
-                  <Tabs value={missionTab} onValueChange={setMissionTab}>
-                    <TabsList className="w-full justify-start bg-transparent p-0 h-auto border-b border-border/50 rounded-none gap-0">
-                      <TabsTrigger
-                        value="active"
-                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3 font-heading text-sm"
-                      >
-                        {isEs ? 'Activas' : 'Active'} ({activeMissions.length})
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="completed"
-                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3 font-heading text-sm"
-                      >
-                        {isEs ? 'Completadas' : 'Completed'} ({completedMissions.length})
-                      </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value={missionTab} className="mt-0">
-                      <div className="divide-y divide-border/50">
-                        {filteredMissions.length === 0 && (
-                          <div className="p-10 text-center">
-                            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
-                              {missionTab === 'active' ? <Target className="h-5 w-5 text-muted-foreground" /> : <CheckCircle className="h-5 w-5 text-muted-foreground" />}
-                            </div>
-                            <p className="text-sm text-muted-foreground font-body">
-                              {missionTab === 'active'
-                                ? (isEs ? 'No tienes misiones activas.' : 'No active missions.')
-                                : (isEs ? 'Aún no has completado misiones.' : 'No completed missions yet.')}
-                            </p>
-                            {missionTab === 'active' && (
-                              <Link to="/marketplace">
-                                <Button variant="outline" size="sm" className="mt-3 gap-2 font-heading text-xs">
-                                  <Compass className="h-3.5 w-3.5" />
-                                  {isEs ? 'Explorar Marketplace' : 'Browse Marketplace'}
-                                </Button>
-                              </Link>
-                            )}
-                          </div>
-                        )}
-                        {filteredMissions.map((app) => (
-                          <div
-                            key={app.id}
-                            className="p-4 md:px-5 flex items-center gap-4 cursor-pointer hover:bg-muted/40 transition-colors group"
-                            onClick={() => setSelectedApp(app)}
-                          >
-                            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                              <Award className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-heading font-semibold text-sm truncate">
-                                {isEs && app.missionTitleEs ? app.missionTitleEs : app.missionTitle}
-                              </p>
-                              <p className="text-xs text-muted-foreground font-body truncate">{app.projectTitle}</p>
-                            </div>
-                            <div className="flex items-center gap-3 shrink-0">
-                              <span className={`text-[10px] font-heading font-bold px-2 py-1 rounded-full ${statusColor(app.status)}`}>
-                                {statusLabel(app.status)}
-                              </span>
-                              <span className="text-sm font-heading font-bold text-primary hidden sm:block">${app.missionReward.toLocaleString()}</span>
-                              <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                          </div>
-                        ))}
+                {/* ─── Stats Grid ─── */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                  {[
+                    { icon: Target, label: isEs ? 'Misiones Activas' : 'Active Missions', value: String(activeMissions.length), accent: true },
+                    { icon: CheckCircle, label: isEs ? 'Completadas' : 'Completed', value: String(completedCount), accent: false },
+                    { icon: DollarSign, label: isEs ? 'Ganancias' : 'Earnings', value: `$${totalEarnings.toLocaleString()}`, accent: false },
+                    { icon: Zap, label: 'XP', value: engagement ? engagement.totalXP.toLocaleString() : '0', accent: false },
+                  ].map((stat, i) => (
+                    <motion.div
+                      key={stat.label}
+                      custom={i + 2}
+                      initial="hidden"
+                      animate="visible"
+                      variants={fadeIn}
+                      className={`rounded-xl border p-4 md:p-5 transition-all hover:shadow-md ${stat.accent ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-card'}`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <stat.icon className={`h-4 w-4 ${stat.accent ? 'text-primary' : 'text-muted-foreground'}`} />
+                        <span className="text-xs text-muted-foreground font-body truncate">{stat.label}</span>
                       </div>
-                    </TabsContent>
-                  </Tabs>
+                      <div className="text-2xl md:text-3xl font-heading font-bold">{stat.value}</div>
+                    </motion.div>
+                  ))}
                 </div>
-              </div>
-            </motion.div>
-          </>
-        )}
+
+                {/* ─── Recommendations + Social Proof ─── */}
+                <div className="grid md:grid-cols-5 gap-4">
+                  <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={6} className="md:col-span-3">
+                    <SmartRecommendations />
+                  </motion.div>
+                  <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={7} className="md:col-span-2">
+                    <SocialProof />
+                  </motion.div>
+                </div>
+
+                {/* ─── Balance Section ─── */}
+                <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={8}>
+                  <div className="rounded-xl border border-border/50 bg-card p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Wallet className="h-4 w-4 text-primary" />
+                      <h2 className="font-heading font-bold text-sm">{isEs ? 'Balance y Retiros' : 'Balance & Withdrawals'}</h2>
+                    </div>
+                    <BalanceModule />
+                  </div>
+                </motion.div>
+
+                {/* ─── Missions Section with Tabs ─── */}
+                <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={9}>
+                  <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+                    <div className="p-5 pb-0">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <Rocket className="h-4 w-4 text-primary" />
+                          <h2 className="font-heading font-bold text-sm">{isEs ? 'Mis Misiones' : 'My Missions'}</h2>
+                        </div>
+                        <Badge variant="secondary" className="font-heading text-xs">
+                          {applications.length} {isEs ? 'total' : 'total'}
+                        </Badge>
+                      </div>
+                      <Tabs value={missionTab} onValueChange={setMissionTab}>
+                        <TabsList className="w-full justify-start bg-transparent p-0 h-auto border-b border-border/50 rounded-none gap-0">
+                          <TabsTrigger
+                            value="active"
+                            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3 font-heading text-sm"
+                          >
+                            {isEs ? 'Activas' : 'Active'} ({activeMissions.length})
+                          </TabsTrigger>
+                          <TabsTrigger
+                            value="completed"
+                            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3 font-heading text-sm"
+                          >
+                            {isEs ? 'Completadas' : 'Completed'} ({completedMissions.length})
+                          </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value={missionTab} className="mt-0">
+                          <div className="divide-y divide-border/50">
+                            {filteredMissions.length === 0 && (
+                              <div className="p-10 text-center">
+                                <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
+                                  {missionTab === 'active' ? <Target className="h-5 w-5 text-muted-foreground" /> : <CheckCircle className="h-5 w-5 text-muted-foreground" />}
+                                </div>
+                                <p className="text-sm text-muted-foreground font-body">
+                                  {missionTab === 'active'
+                                    ? (isEs ? 'No tienes misiones activas.' : 'No active missions.')
+                                    : (isEs ? 'Aún no has completado misiones.' : 'No completed missions yet.')}
+                                </p>
+                                {missionTab === 'active' && (
+                                  <Link to="/marketplace">
+                                    <Button variant="outline" size="sm" className="mt-3 gap-2 font-heading text-xs">
+                                      <Compass className="h-3.5 w-3.5" />
+                                      {isEs ? 'Explorar Marketplace' : 'Browse Marketplace'}
+                                    </Button>
+                                  </Link>
+                                )}
+                              </div>
+                            )}
+                            {filteredMissions.map((app) => (
+                              <div
+                                key={app.id}
+                                className="p-4 md:px-5 flex items-center gap-4 cursor-pointer hover:bg-muted/40 transition-colors group"
+                                onClick={() => setSelectedApp(app)}
+                              >
+                                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                                  <Award className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-heading font-semibold text-sm truncate">
+                                    {isEs && app.missionTitleEs ? app.missionTitleEs : app.missionTitle}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground font-body truncate">{app.projectTitle}</p>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0">
+                                  <span className={`text-[10px] font-heading font-bold px-2 py-1 rounded-full ${statusColor(app.status)}`}>
+                                    {statusLabel(app.status)}
+                                  </span>
+                                  <span className="text-sm font-heading font-bold text-primary hidden sm:block">${app.missionReward.toLocaleString()}</span>
+                                  <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+                  </div>
+                </motion.div>
+              </>
+            )}
           </TabsContent>
         </Tabs>
       </div>
