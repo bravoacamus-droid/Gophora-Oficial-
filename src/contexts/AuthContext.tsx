@@ -42,10 +42,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const refreshProfile = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('refreshProfile: No user found');
+      return;
+    }
 
     try {
       const type = (user?.user_metadata?.account_type as 'company' | 'explorer') || 'company';
+      console.log('refreshProfile: Refreshing for type:', type);
 
       if (type === 'explorer') {
         const { data, error } = await (supabase
@@ -74,10 +78,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const checkSession = async () => {
     try {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      console.log('checkSession: Getting session...');
+      const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        console.error('checkSession: Supabase getSession error:', sessionError);
+        throw sessionError;
+      }
+
       setSession(currentSession);
       const currentUser = currentSession?.user ?? null;
       setUser(currentUser);
+      console.log('checkSession: Current user:', !!currentUser);
 
       if (currentUser) {
         checkAdminRole(currentUser.id);
@@ -135,6 +147,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         setIsAdmin(false);
       }
+      console.log('AuthState changed. event:', event, 'session:', !!session);
       setLoading(false);
     });
 
