@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Building2, Compass, Mail, ShieldCheck, RefreshCw, Github } from 'lucide-react';
+import { Building2, Compass, Mail, ShieldCheck, RefreshCw, Github, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Register = () => {
@@ -23,6 +23,8 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'register' | 'verify'>('register');
   const [resending, setResending] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordStats, setPasswordStats] = useState({ score: 0, reqs: { length: false, letter: false, number: false, symbol: false } });
 
   // Handle password strength
@@ -246,7 +248,23 @@ const Register = () => {
             </div>
             <div>
               <Label htmlFor="password" className="font-heading text-xs tracking-wider uppercase">{t('auth.password')}</Label>
-              <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required className="mt-1.5" />
+              <div className="relative mt-1.5">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               {password.length > 0 && (
                 <div className="mt-3 space-y-2 p-3 bg-muted/30 rounded-lg border border-border/40">
                   <div className="flex gap-1 h-1.5">
@@ -285,7 +303,23 @@ const Register = () => {
             </div>
             <div>
               <Label htmlFor="confirm" className="font-heading text-xs tracking-wider uppercase">{t('auth.confirm_password')}</Label>
-              <Input id="confirm" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="mt-1.5" />
+              <div className="relative mt-1.5">
+                <Input
+                  id="confirm"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  required
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <Button type="submit" className="w-full font-heading tracking-wide" disabled={loading}>
               {loading ? 'Creando cuenta...' : t('auth.register')}
