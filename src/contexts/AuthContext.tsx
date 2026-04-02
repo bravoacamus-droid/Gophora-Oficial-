@@ -85,12 +85,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (error) log(`Explorer profile fetch error: ${error.message}`);
         setExplorerProfile(data);
         log(`Explorer profile: ${data ? 'Found' : 'Missing'}`);
+
+        // Repair logic: If base says done but specific is missing, force re-onboard
+        if (!data && baseProfile?.onboarding_completed) {
+          log('Inconsistent state: Base onboarding is true but Explorer profile is missing. Forcing local re-onboard.');
+          setOnboardingCompleted(false);
+        }
       } else {
         const { data, error } = await (supabase.from('company_profiles' as any).select('*').eq('user_id', currentUser.id).maybeSingle() as any);
         if (error) log(`Company profile fetch error: ${error.message}`);
         setCompanyProfile(data);
         setIsInvestor(!!data?.is_investor);
         log(`Company profile: ${data ? 'Found' : 'Missing'}, Investor: ${!!data?.is_investor}`);
+
+        // Repair logic: If base says done but specific is missing, force re-onboard
+        if (!data && baseProfile?.onboarding_completed) {
+          log('Inconsistent state: Base onboarding is true but Company profile is missing. Forcing local re-onboard.');
+          setOnboardingCompleted(false);
+        }
       }
     } catch (err) {
       log(`Profile fetch error: ${err}`);

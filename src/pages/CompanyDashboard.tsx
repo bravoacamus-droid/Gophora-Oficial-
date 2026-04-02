@@ -89,11 +89,11 @@ const CompanyDashboard = () => {
     setLoading(true);
 
     const [{ data: compProfile }, { data: projectRows }] = await Promise.all([
-      (supabase.from('company_profiles' as any).select('name').eq('user_id', user.id).single() as any),
+      supabase.from('company_profiles' as any).select('company_name').eq('user_id', user.id).maybeSingle() as any,
       supabase.from('projects').select('id, title, budget, status, payment_status, description, category, priority, deadline, resource_link, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
     ]);
 
-    setProfile({ full_name: compProfile?.name });
+    setProfile({ full_name: compProfile?.company_name });
     const pRows = (projectRows || []) as ProjectRow[];
     setProjects(pRows);
 
