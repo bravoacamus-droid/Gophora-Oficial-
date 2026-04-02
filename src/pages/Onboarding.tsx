@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 const Onboarding = () => {
     const { user, accountType, refreshProfile, updateAccountType } = useAuth();
     const navigate = useNavigate();
-    const [step, setStep] = useState(user?.user_metadata?.account_type ? 1 : 0);
+    const [step, setStep] = useState(0);
     const [loading, setLoading] = useState(false);
     const [aiAnalyzing, setAiAnalyzing] = useState(false);
 
@@ -203,12 +203,20 @@ const Onboarding = () => {
                             <p className="text-muted-foreground font-body">
                                 Vamos a configurar tu perfil usando IA para que empieces a {accountType === 'explorer' ? 'ganar' : 'crecer'} hoy mismo.
                             </p>
-                            <div className="flex justify-center py-8">
+                            <div className="flex flex-col gap-4 items-center py-6">
                                 {accountType === 'explorer' ? (
-                                    <User className="h-24 w-24 text-primary animate-pulse" />
+                                    <User className="h-20 w-20 text-primary animate-pulse" />
                                 ) : (
-                                    <Building2 className="h-24 w-24 text-primary animate-pulse" />
+                                    <Building2 className="h-20 w-20 text-primary animate-pulse" />
                                 )}
+                                <Button
+                                    variant="link"
+                                    size="sm"
+                                    onClick={() => setStep(0)}
+                                    className="text-muted-foreground hover:text-primary text-xs uppercase tracking-tighter"
+                                >
+                                    ¿Equivocado? Cambiar de rol o tipo de cuenta
+                                </Button>
                             </div>
                             <Button size="lg" className="w-full font-heading tracking-wide h-14 text-lg" onClick={nextStep}>
                                 Comenzar Configuración <ArrowRight className="ml-2 h-5 w-5" />
