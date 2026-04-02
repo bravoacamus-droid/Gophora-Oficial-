@@ -1,13 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { User, Session } from '@supabase/supabase-js';
+import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 
-// Helper to wrap Supabase calls with a timeout (using <T,> for TSX compatibility)
-const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number = 8000): Promise<T> => {
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('Supabase request timeout')), timeoutMs)
-  );
-  return Promise.race([promise, timeoutPromise]);
+// Debug logging system
+const authLog: string[] = [];
+const log = (msg: string) => {
+  const timestamp = new Date().toLocaleTimeString();
+  const entry = `[${timestamp}] ${msg}`;
+  authLog.push(entry);
+  console.log(`%cAuthDebug: ${msg}`, 'color: #3b82f6; font-weight: bold');
+  // Keep only last 50 logs
+  if (authLog.length > 50) authLog.shift();
 };
 
 interface AuthContextType {
@@ -24,6 +27,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   toggleInvestorMode: () => Promise<void>;
+  debugLogs: string[];
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,141 +47,85 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
       setIsAdmin(!!data);
+      log(`Admin check: ${!!data}`);
     } catch (err) {
-      console.error('Error checking admin role:', err);
+      log(`Admin check error: ${err}`);
       setIsAdmin(false);
     }
   };
 
-  const refreshProfile = async () => {
-    if (!user) {
-      console.log('refreshProfile: No user found');
-      return;
-    }
+  const fetchProfileData = async (currentUser: User) => {
+    const type = (currentUser?.user_metadata?.account_type as 'company' | 'explorer') || 'company';
+    log(`Fetching profile for: ${type}`);
 
     try {
-      const type = (user?.user_metadata?.account_type as 'company' | 'explorer') || 'company';
-      console.log('refreshProfile: Refreshing for type:', type);
-
       if (type === 'explorer') {
-        const { data, error } = await (supabase
-          .from('explorer_profiles' as any)
-          .select('*')
-          .eq('user_id', user.id)
-          .single() as any);
-
-        if (!error) setExplorerProfile(data);
+        const { data } = await (supabase.from('explorer_profiles' as any).select('*').eq('user_id', currentUser.id).single() as any);
+        setExplorerProfile(data);
+        log(`Explorer profile: ${data ? 'Found' : 'Missing'}`);
       } else {
-        const { data, error } = await (supabase
-          .from('company_profiles' as any)
-          .select('*')
-          .eq('user_id', user.id)
-          .single() as any);
-
-        if (!error) {
-          setCompanyProfile(data);
-          setIsInvestor(!!data?.is_investor);
-        }
+        const { data } = await (supabase.from('company_profiles' as any).select('*').eq('user_id', currentUser.id).single() as any);
+        setCompanyProfile(data);
+        setIsInvestor(!!data?.is_investor);
+        log(`Company profile: ${data ? 'Found' : 'Missing'}, Investor: ${!!data?.is_investor}`);
       }
     } catch (err) {
-      console.error('Error refreshing profile:', err);
+      log(`Profile fetch error: ${err}`);
     }
   };
 
-  const checkSession = async () => {
-    try {
-      console.log('checkSession: Getting session with timeout...');
-      // Use race condition to avoid hanging forever if Supabase is unreachable
-      const { data: { session: currentSession } } = await withTimeout(supabase.auth.getSession());
+  const handleAuthStateChange = async (event: AuthChangeEvent, currentSession: Session | null) => {
+    log(`Event: ${event} | Session: ${!!currentSession}`);
 
-      setSession(currentSession);
-      const currentUser = currentSession?.user ?? null;
-      setUser(currentUser);
-      console.log('checkSession: Current user found:', !!currentUser);
+    setSession(currentSession);
+    const currentUser = currentSession?.user ?? null;
+    setUser(currentUser);
 
-      if (currentUser) {
-        checkAdminRole(currentUser.id);
-
-        // Fetch specific profile
-        const type = (currentUser?.user_metadata?.account_type as 'company' | 'explorer') || 'company';
-        if (type === 'explorer') {
-          const { data } = await (supabase.from('explorer_profiles' as any).select('*').eq('user_id', currentUser.id).single() as any);
-          setExplorerProfile(data);
-        } else {
-          const { data } = await (supabase.from('company_profiles' as any).select('*').eq('user_id', currentUser.id).single() as any);
-          setCompanyProfile(data);
-          setIsInvestor(!!data?.is_investor);
-        }
-
-        // Start heartbeat but don't block the initial load
-        (supabase.rpc as any)('update_login_heartbeat', { _user_id: currentUser.id })
-          .catch((err: any) => {
-            console.error('Heartbeat error:', err);
-          });
-      }
-    } catch (err) {
-      console.error('checkSession error or timeout:', err);
-      // Even on error, we must set loading to false to show the app
-      setSession(null);
-      setUser(null);
-    } finally {
-      console.log('checkSession: Finishing, setting loading false');
-      setLoading(false);
+    if (currentUser) {
+      await checkAdminRole(currentUser.id);
+      await fetchProfileData(currentUser);
+    } else {
+      setExplorerProfile(null);
+      setCompanyProfile(null);
+      setIsAdmin(false);
+      setIsInvestor(false);
     }
+
+    setLoading(false);
+    log('State update complete. Loading: false');
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    log('Initializing AuthProvider...');
 
-      if (session?.user) {
-        checkAdminRole(session.user.id);
-
-        // Fetch profile on auth change
-        const type = (session.user?.user_metadata?.account_type as 'company' | 'explorer') || 'company';
-        if (type === 'explorer') {
-          const { data } = await (supabase.from('explorer_profiles' as any).select('*').eq('user_id', session.user.id).single() as any);
-          setExplorerProfile(data);
-        } else {
-          const { data } = await (supabase.from('company_profiles' as any).select('*').eq('user_id', session.user.id).single() as any);
-          setCompanyProfile(data);
-          setIsInvestor(!!data?.is_investor);
-        }
-
-        if (event === 'SIGNED_IN') {
-          try {
-            await (supabase.rpc as any)('update_login_heartbeat', { _user_id: session.user.id });
-          } catch (err) {
-            console.error('Sign-in heartbeat error:', err);
-          }
-        }
-      } else {
-        setIsAdmin(false);
+    // 1. Initial check
+    const init = async () => {
+      try {
+        log('Running initial getSession...');
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        await handleAuthStateChange('INITIAL_SESSION' as AuthChangeEvent, initialSession);
+      } catch (err) {
+        log(`Initial check error: ${err}`);
+        setLoading(false);
       }
-      console.log('AuthState changed. event:', event, 'session:', !!session);
-      setLoading(false);
+    };
+
+    init();
+
+    // 2. Subscribe to changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      handleAuthStateChange(event, session);
     });
 
-    checkSession();
-
-    // Heartbeat interval (every 4 minutes, since timeout is 5m)
-    const intervalId = setInterval(async () => {
-      try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        if (currentSession?.user) {
-          await (supabase.rpc as any)('update_login_heartbeat', { _user_id: currentSession.user.id });
-        }
-      } catch (err) {
-        console.error('Interval heartbeat error:', err);
-      }
-    }, 1000 * 60 * 4);
-
     return () => {
+      log('Unmounting AuthProvider, unsubscribing.');
       subscription.unsubscribe();
-      clearInterval(intervalId);
     };
   }, []);
+
+  const refreshProfile = async () => {
+    if (user) await fetchProfileData(user);
+  };
 
   const toggleInvestorMode = async () => {
     if (!user || user?.user_metadata?.account_type !== 'company') return;
@@ -190,34 +138,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) throw error;
       setIsInvestor(newStatus);
+      log(`Investor mode toggled: ${newStatus}`);
     } catch (err) {
-      console.error('Error toggling investor mode:', err);
+      log(`Toggle investor error: ${err}`);
     }
   };
 
   const logout = async () => {
-    console.log('Logout initiated...');
+    log('--- Logout Started ---');
     try {
-      // Clear ALL local state immediately so UI updates before any network calls
+      // Clear state BEFORE calling Supabase to decouple UI from network hang
       setUser(null);
       setSession(null);
-      setIsAdmin(false);
-      setExplorerProfile(null);
-      setCompanyProfile(null);
+      setLoading(false);
 
-      // Attempt to clear session on server, but with a short timeout
-      const sessionData = await withTimeout(supabase.auth.getSession(), 2000).catch(() => null);
-      if (sessionData?.data?.session?.user) {
-        (supabase.rpc as any)('delete_login_heartbeat', { _user_id: sessionData.data.session.user.id }).catch(() => { });
-      }
+      const { error } = await supabase.auth.signOut();
+      if (error) log(`SignOut error: ${error.message}`);
 
-      await withTimeout(supabase.auth.signOut(), 3000).catch(() => { });
-    } catch (error) {
-      console.error('Logout process warning:', error);
-    } finally {
-      // Force return to landing no matter what
-      console.log('Logout complete, redirecting.');
-      window.location.href = '/';
+      log('SignOut complete. Soft redirecting.');
+      window.location.replace('/'); // replace instead of href to avoid back loop
+    } catch (err) {
+      log(`Logout crash: ${err}`);
+      window.location.replace('/');
     }
   };
 
@@ -237,9 +179,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isInvestor,
       logout,
       refreshProfile,
-      toggleInvestorMode
+      toggleInvestorMode,
+      debugLogs: authLog
     }}>
       {children}
+      {/* Visual Debug Overlay (Hidden by default, enable with ?debug=true) */}
+      {window.location.search.includes('debug=true') && (
+        <div className="fixed bottom-0 left-0 right-0 max-h-64 overflow-y-auto bg-black/90 text-green-400 font-mono text-[10px] p-2 z-[9999] border-t border-green-500/30">
+          <div className="flex justify-between border-b border-green-900 pb-1 mb-1">
+            <span>Auth Debug Console</span>
+            <span>User: {user ? user.email : 'null'}</span>
+          </div>
+          {authLog.map((l, i) => <div key={i}>{l}</div>)}
+        </div>
+      )}
     </AuthContext.Provider>
   );
 };
