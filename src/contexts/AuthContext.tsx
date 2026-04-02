@@ -2,6 +2,14 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 
+// Helper to wrap Supabase calls with a timeout (using <T,> for TSX compatibility)
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number = 8000): Promise<T> => {
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Supabase request timeout')), timeoutMs)
+  );
+  return Promise.race([promise, timeoutPromise]);
+};
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -78,18 +86,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const checkSession = async () => {
     try {
-      console.log('checkSession: Getting session...');
-      const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
-
-      if (sessionError) {
-        console.error('checkSession: Supabase getSession error:', sessionError);
-        throw sessionError;
-      }
+      console.log('checkSession: Getting session with timeout...');
+      // Use race condition to avoid hanging forever if Supabase is unreachable
+      const { data: { session: currentSession } } = await withTimeout(supabase.auth.getSession());
 
       setSession(currentSession);
       const currentUser = currentSession?.user ?? null;
       setUser(currentUser);
-      console.log('checkSession: Current user:', !!currentUser);
+      console.log('checkSession: Current user found:', !!currentUser);
 
       if (currentUser) {
         checkAdminRole(currentUser.id);
@@ -112,8 +116,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           });
       }
     } catch (err) {
-      console.error('Session check error:', err);
+      console.error('checkSession error or timeout:', err);
+      // Even on error, we must set loading to false to show the app
+      setSession(null);
+      setUser(null);
     } finally {
+      console.log('checkSession: Finishing, setting loading false');
       setLoading(false);
     }
   };
@@ -172,7 +180,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const toggleInvestorMode = async () => {
-    if (!user || (user?.user_metadata?.account_type !== 'company' && (user as any).account_type !== 'company')) return;
+    if (!user || user?.user_metadata?.account_type !== 'company') return;
     try {
       const newStatus = !isInvestor;
       const { error } = await (supabase
@@ -188,25 +196,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
+    console.log('Logout initiated...');
     try {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      if (currentSession?.user) {
-        // Run heartbeat deletion in background, don't await if it hangs
-        (supabase.rpc as any)('delete_login_heartbeat', { _user_id: currentSession.user.id }).catch(() => { });
-      }
-    } catch (error) {
-      console.error('Logout heartbeat error:', error);
-    } finally {
-      // Clear ALL local state immediately
+      // Clear ALL local state immediately so UI updates before any network calls
       setUser(null);
       setSession(null);
       setIsAdmin(false);
       setExplorerProfile(null);
       setCompanyProfile(null);
 
-      await supabase.auth.signOut();
+      // Attempt to clear session on server, but with a short timeout
+      const sessionData = await withTimeout(supabase.auth.getSession(), 2000).catch(() => null);
+      if (sessionData?.data?.session?.user) {
+        (supabase.rpc as any)('delete_login_heartbeat', { _user_id: sessionData.data.session.user.id }).catch(() => { });
+      }
 
-      // Force return to landing
+      await withTimeout(supabase.auth.signOut(), 3000).catch(() => { });
+    } catch (error) {
+      console.error('Logout process warning:', error);
+    } finally {
+      // Force return to landing no matter what
+      console.log('Logout complete, redirecting.');
       window.location.href = '/';
     }
   };
