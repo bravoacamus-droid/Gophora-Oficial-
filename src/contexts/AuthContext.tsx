@@ -9,7 +9,6 @@ const log = (msg: string) => {
   const entry = `[${timestamp}] ${msg}`;
   authLog.push(entry);
   console.log(`%cAuthDebug: ${msg}`, 'color: #3b82f6; font-weight: bold');
-  // Keep only last 50 logs
   if (authLog.length > 50) authLog.shift();
 };
 
@@ -27,6 +26,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   toggleInvestorMode: () => Promise<void>;
+  updateAccountType: (type: 'company' | 'explorer') => Promise<void>;
   debugLogs: string[];
 }
 
@@ -42,6 +42,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [userProfile, setUserProfile] = useState<any | null>(null);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [isInvestor, setIsInvestor] = useState(false);
+  const [localAccountType, setLocalAccountType] = useState<'company' | 'explorer' | null>(null);
 
   const checkAdminRole = async (userId: string) => {
     try {
@@ -55,16 +56,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const fetchProfileData = async (currentUser: User) => {
-    const type = (currentUser?.user_metadata?.account_type as 'company' | 'explorer') || 'company';
-    log(`Fetching profile for: ${type}`);
-
     try {
+      // 1. Fetch base profile
+      const { data: baseProfile, error: baseError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .maybeSingle();
+
+      if (!baseError && baseProfile) {
+        log(`Base profile found. Onboarding: ${baseProfile.onboarding_completed}`);
+        setUserProfile(baseProfile);
+        setOnboardingCompleted(!!baseProfile.onboarding_completed);
+      } else {
+        log(`Base profile missing or error: ${baseError?.message}`);
+        setOnboardingCompleted(false);
+      }
+
+      // 2. Fetch specific profile based on metadata or base profile
+      const type = (currentUser?.user_metadata?.account_type as 'company' | 'explorer') ||
+        (baseProfile?.account_type as 'company' | 'explorer') ||
+        'company';
+
+      log(`Fetching specific profile for: ${type}`);
+
       if (type === 'explorer') {
-        const { data } = await (supabase.from('explorer_profiles' as any).select('*').eq('user_id', currentUser.id).single() as any);
+        const { data, error } = await (supabase.from('explorer_profiles' as any).select('*').eq('user_id', currentUser.id).maybeSingle() as any);
+        if (error) log(`Explorer profile fetch error: ${error.message}`);
         setExplorerProfile(data);
         log(`Explorer profile: ${data ? 'Found' : 'Missing'}`);
       } else {
-        const { data } = await (supabase.from('company_profiles' as any).select('*').eq('user_id', currentUser.id).single() as any);
+        const { data, error } = await (supabase.from('company_profiles' as any).select('*').eq('user_id', currentUser.id).maybeSingle() as any);
+        if (error) log(`Company profile fetch error: ${error.message}`);
         setCompanyProfile(data);
         setIsInvestor(!!data?.is_investor);
         log(`Company profile: ${data ? 'Found' : 'Missing'}, Investor: ${!!data?.is_investor}`);
@@ -87,8 +110,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } else {
       setExplorerProfile(null);
       setCompanyProfile(null);
+      setUserProfile(null);
       setIsAdmin(false);
       setIsInvestor(false);
+      setOnboardingCompleted(false);
     }
 
     setLoading(false);
@@ -98,7 +123,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     log('Initializing AuthProvider...');
 
-    // 1. Initial check
     const init = async () => {
       try {
         log('Running initial getSession...');
@@ -112,7 +136,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     init();
 
-    // 2. Subscribe to changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       handleAuthStateChange(event, session);
     });
@@ -127,8 +150,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (user) await fetchProfileData(user);
   };
 
+  const updateAccountType = async (type: 'company' | 'explorer') => {
+    if (!user) return;
+    try {
+      log(`Updating account type to: ${type}`);
+      // Update Supabase Auth metadata
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { account_type: type }
+      });
+      if (authError) throw authError;
+
+      // Update public.profiles if it exists, or it will be created in onboarding
+      await supabase.from('profiles').update({ account_type: type }).eq('id', user.id);
+
+      setLocalAccountType(type);
+      log('Account type updated successfully');
+    } catch (err) {
+      log(`Update account type error: ${err}`);
+    }
+  };
+
   const toggleInvestorMode = async () => {
-    if (!user || user?.user_metadata?.account_type !== 'company') return;
+    if (!user || accountType !== 'company') return;
     try {
       const newStatus = !isInvestor;
       const { error } = await (supabase
@@ -147,7 +190,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     log('--- Logout Started ---');
     try {
-      // Clear state BEFORE calling Supabase to decouple UI from network hang
       setUser(null);
       setSession(null);
       setLoading(false);
@@ -156,14 +198,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (error) log(`SignOut error: ${error.message}`);
 
       log('SignOut complete. Soft redirecting.');
-      window.location.replace('/'); // replace instead of href to avoid back loop
+      window.location.replace('/');
     } catch (err) {
       log(`Logout crash: ${err}`);
       window.location.replace('/');
     }
   };
 
-  const accountType = (user?.user_metadata?.account_type as 'company' | 'explorer') || 'company';
+  // Precedence: Local change -> Metadata -> Default
+  const accountType = localAccountType ||
+    (user?.user_metadata?.account_type as 'company' | 'explorer') ||
+    'company';
 
   return (
     <AuthContext.Provider value={{
@@ -180,15 +225,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       logout,
       refreshProfile,
       toggleInvestorMode,
+      updateAccountType,
       debugLogs: authLog
     }}>
       {children}
-      {/* Visual Debug Overlay (Hidden by default, enable with ?debug=true) */}
       {window.location.search.includes('debug=true') && (
         <div className="fixed bottom-0 left-0 right-0 max-h-64 overflow-y-auto bg-black/90 text-green-400 font-mono text-[10px] p-2 z-[9999] border-t border-green-500/30">
           <div className="flex justify-between border-b border-green-900 pb-1 mb-1">
             <span>Auth Debug Console</span>
-            <span>User: {user ? user.email : 'null'}</span>
+            <span>User: {user ? user.email : 'null'} | Onboarding: {onboardingCompleted ? 'Yes' : 'No'}</span>
           </div>
           {authLog.map((l, i) => <div key={i}>{l}</div>)}
         </div>

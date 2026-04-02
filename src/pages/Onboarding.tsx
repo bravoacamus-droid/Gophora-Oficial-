@@ -12,9 +12,9 @@ import { Rocket, Building2, User, Sparkles, CheckCircle2, ArrowRight } from 'luc
 import { toast } from 'sonner';
 
 const Onboarding = () => {
-    const { user, accountType, refreshProfile } = useAuth();
+    const { user, accountType, refreshProfile, updateAccountType } = useAuth();
     const navigate = useNavigate();
-    const [step, setStep] = useState(1);
+    const [step, setStep] = useState(user?.user_metadata?.account_type ? 1 : 0);
     const [loading, setLoading] = useState(false);
     const [aiAnalyzing, setAiAnalyzing] = useState(false);
 
@@ -30,6 +30,18 @@ const Onboarding = () => {
     const [budget, setBudget] = useState('');
 
     const nextStep = () => setStep(s => s + 1);
+
+    const handleSelectRole = async (role: 'company' | 'explorer') => {
+        setLoading(true);
+        try {
+            await updateAccountType(role);
+            setStep(1);
+        } catch (err) {
+            toast.error('Error al seleccionar rol');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleExplorerOnboarding = async () => {
         setLoading(true);
@@ -50,18 +62,20 @@ const Onboarding = () => {
             const bio = aiResponse.split('|')[0]?.replace('Bio:', '').trim();
             const skillsArray = aiResponse.split('|')[1]?.replace('Skills:', '').split(',').map(s => s.trim()) || [];
 
-            // Save to public.profiles
-            await supabase.from('profiles').update({
+            // 1. Create/Update public.profiles
+            await supabase.from('profiles').upsert({
+                id: user?.id,
                 bio: bio,
-                onboarding_completed: true
-            }).eq('id', user?.id);
+                onboarding_completed: true,
+                account_type: 'explorer'
+            });
 
-            // Save to public.explorer_profiles
+            // 2. Save to public.explorer_profiles
             const { data: expProfile, error: expError } = await (supabase
                 .from('explorer_profiles' as any)
-                .insert({
+                .upsert({
                     user_id: user?.id,
-                    name: user?.user_metadata?.username || user?.email?.split('@')[0],
+                    name: user?.user_metadata?.username || user?.user_metadata?.full_name || user?.email?.split('@')[0],
                     skills: skillsArray,
                     availability_hours: parseInt(availability) || 0
                 })
@@ -70,8 +84,8 @@ const Onboarding = () => {
 
             if (expError) throw expError;
 
-            // Initialize Skill Passport
-            await (supabase.from('skill_passports' as any).insert({
+            // 3. Initialize Skill Passport
+            await (supabase.from('skill_passports' as any).upsert({
                 explorer_id: expProfile.id,
                 skills_verified: []
             }) as any);
@@ -105,16 +119,18 @@ const Onboarding = () => {
             const aiResponse = await getGroqCompletion(prompt, "You are a GOPHORA Business Consultant.");
             const strategy = aiResponse.replace('Strategy:', '').trim();
 
-            // Save to public.profiles
-            await supabase.from('profiles').update({
+            // 1. Create/Update public.profiles
+            await supabase.from('profiles').upsert({
+                id: user?.id,
                 bio: strategy,
-                onboarding_completed: true
-            }).eq('id', user?.id);
+                onboarding_completed: true,
+                account_type: 'company'
+            });
 
-            // Save to public.company_profiles
+            // 2. Save to public.company_profiles
             await (supabase
                 .from('company_profiles' as any)
-                .insert({
+                .upsert({
                     user_id: user?.id,
                     company_name: companyName,
                     industry: industry,
@@ -137,6 +153,39 @@ const Onboarding = () => {
         <div className="min-h-screen pt-20 pb-12 px-4 flex items-center justify-center bg-gradient-to-b from-background to-card/50">
             <div className="w-full max-w-xl">
                 <AnimatePresence mode="wait">
+                    {step === 0 && (
+                        <motion.div
+                            key="step0"
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="space-y-8 text-center"
+                        >
+                            <div className="space-y-2">
+                                <h1 className="text-3xl font-heading font-black">Bienvenido a GOPHORA</h1>
+                                <p className="text-muted-foreground font-body">Elige cómo quieres usar la plataforma</p>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <button
+                                    onClick={() => handleSelectRole('explorer')}
+                                    className="p-6 rounded-2xl border-2 border-border hover:border-primary transition-all text-left group"
+                                >
+                                    <User className="h-10 w-10 text-primary mb-4 group-hover:scale-110 transition-transform" />
+                                    <h3 className="font-heading font-bold text-lg">Soy Explorer</h3>
+                                    <p className="text-sm text-muted-foreground mt-1">Quiero completar misiones y ganar dinero con mis habilidades.</p>
+                                </button>
+                                <button
+                                    onClick={() => handleSelectRole('company')}
+                                    className="p-6 rounded-2xl border-2 border-border hover:border-primary transition-all text-left group"
+                                >
+                                    <Building2 className="h-10 w-10 text-primary mb-4 group-hover:scale-110 transition-transform" />
+                                    <h3 className="font-heading font-bold text-lg">Soy Empresa</h3>
+                                    <p className="text-sm text-muted-foreground mt-1">Quiero delegar tareas y escalar mi negocio con talento verificado.</p>
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+
                     {step === 1 && (
                         <motion.div
                             key="step1"
