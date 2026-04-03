@@ -27,19 +27,27 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    const authHeader = req.headers.get('authorization');
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
+    let token = '';
 
-    if (!authHeader?.startsWith('Bearer ')) {
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.replace('Bearer ', '');
+    } else if (authHeader) {
+      token = authHeader;
+    }
+
+    if (!token) {
+      console.error('Auth error: Missing token');
       return jsonResponse({ error: 'Unauthorized: Missing token' }, 401);
     }
 
-    const token = authHeader.replace('Bearer ', '');
     const {
       data: { user: caller },
       error: authError,
     } = await supabase.auth.getUser(token);
 
     if (authError || !caller) {
+      console.error('Auth error from getUser:', authError?.message || 'No user found');
       return jsonResponse({ error: `Unauthorized: ${authError?.message || 'Invalid user'}` }, 401);
     }
 
@@ -64,11 +72,11 @@ serve(async (req) => {
 
     switch (action) {
       case 'get_stats': {
-        const [profiles, projects, missions, applications] = await Promise.all([
+        const [profiles, projects, missions, deliverables] = await Promise.all([
           supabase.from('profiles').select('id', { count: 'exact', head: true }),
           supabase.from('projects').select('budget, payment_status'),
           supabase.from('missions').select('id', { count: 'exact', head: true }),
-          supabase.from('mission_applications').select('id', { count: 'exact', head: true }),
+          supabase.from('deliverables').select('id', { count: 'exact', head: true }),
         ]);
 
         const projectRows = projects.data || [];
@@ -81,7 +89,7 @@ serve(async (req) => {
           totalUsers: profiles.count || 0,
           totalProjects: projectRows.length,
           totalMissions: missions.count || 0,
-          totalApplications: applications.count || 0,
+          totalApplications: deliverables.count || 0,
           totalBudget,
           paidBudget,
           commission: Math.round(paidBudget * 0.1),
@@ -165,17 +173,17 @@ serve(async (req) => {
 
       case 'get_pending_releases': {
         const { data, error } = await supabase
-          .from('mission_applications')
+          .from('deliverables')
           .select(`
-            id, status, delivery_url, delivered_at, reviewed_at, review_note,
+            id, status, delivery_url, submitted_at, reviewed_at, review_note,
             missionTitle:missions(title),
             missionReward:missions(reward),
             projectTitle:missions(projects(title)),
             explorerEmail:profiles(email),
             explorerName:profiles(full_name)
           `)
-          .eq('status', 'completed')
-          .order('reviewed_at', { ascending: false });
+          .in('status', ['submitted', 'delivered', 'pending'])
+          .order('submitted_at', { ascending: false });
 
         if (error) throw error;
         result = data || [];
@@ -184,10 +192,14 @@ serve(async (req) => {
 
       case 'release_funds': {
         const { application_id } = params;
-        // Update application
+        // Update deliverable
         const { data: appData, error: updateErr } = await supabase
-          .from('mission_applications')
-          .update({ status: 'funds_released', funds_released_at: new Date().toISOString(), funds_released_by: caller.id })
+          .from('deliverables')
+          .update({
+            status: 'funds_released',
+            reviewed_at: new Date().toISOString(),
+            reviewed_by: caller.id
+          })
           .eq('id', application_id)
           .select('mission_id')
           .single();
@@ -305,9 +317,9 @@ serve(async (req) => {
 
       case 'get_payment_history': {
         const { data, error } = await supabase
-          .from('mission_applications')
+          .from('deliverables')
           .select(`
-            id, status, delivery_url, delivered_at, reviewed_at, review_note,
+            id, status, delivery_url, submitted_at, reviewed_at, review_note,
             missionTitle:missions(title),
             missionReward:missions(reward),
             projectTitle:missions(projects(title)),
