@@ -11,7 +11,13 @@ serve(async (req) => {
   try {
     const { title, description, category, budget, priority } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    console.log("Analyzing project with following data:", { title, category, priority, budget });
+
+    if (!LOVABLE_API_KEY) {
+      console.error("CRITICAL: LOVABLE_API_KEY is not configured in Supabase Secrets");
+      throw new Error("LOVABLE_API_KEY is not configured");
+    }
 
     const systemPrompt = `You are GOPHORA's AI Mission Architect. You analyze projects and break them down into executable micro-missions.
 
@@ -19,7 +25,7 @@ RULES:
 - Minimum hourly rate is $20 USD
 - GOPHORA charges a 10% commission on top of talent costs
 - The client's total budget (including commission) is $${budget} USD
-- Available talent budget (after 10% commission) = $${Math.floor(budget / 1.10)} USD
+- Available talent budget (after 10% commission) = $${Math.floor(budget / 1.1)} USD
 - Each mission must have realistic hour estimates
 - Skills must be one of: Marketing, Web Development, Design, Data, Research, Operations
 - Break the project into ALL necessary missions — be thorough and complete
@@ -37,10 +43,11 @@ Category: ${category}
 Priority: ${priority}
 Description: ${description}
 Total Budget: $${budget} USD (includes 10% GOPHORA commission)
-Available for Talent: $${Math.floor(budget / 1.10)} USD
+Available for Talent: $${Math.floor(budget / 1.1)} USD
 
 Analyze this project completely. Identify every module, phase, and task needed. Break it into atomic micro-missions. Be thorough — if this is a full project, generate all necessary missions even if there are many.`;
 
+    console.log("Sending request to X.AI Gateway...");
     const response = await fetch("https://api.x.ai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -89,6 +96,9 @@ Analyze this project completely. Identify every module, phase, and task needed. 
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("X.AI Error (" + response.status + "):", errorText);
+
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -99,9 +109,8 @@ Analyze this project completely. Identify every module, phase, and task needed. 
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "AI analysis failed" }), {
+
+      return new Response(JSON.stringify({ error: "AI analysis failed: " + errorText }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -128,11 +137,13 @@ Analyze this project completely. Identify every module, phase, and task needed. 
       reward: Math.max(1, Math.round(m.hours)) * Math.max(20, Math.round(m.hourly_rate)),
     }));
 
+    console.log("Successfully generated " + missions.length + " missions.");
+
     return new Response(JSON.stringify({ missions }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("analyze-project error:", e);
+    console.error("Uncaught analyze-project error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
