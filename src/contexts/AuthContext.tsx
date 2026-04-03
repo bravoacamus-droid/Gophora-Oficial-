@@ -65,12 +65,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .maybeSingle();
 
       if (!baseError && baseProfile) {
-        log(`Base profile found. Onboarding: ${baseProfile.onboarding_completed}`);
+        log(`Base profile found. Onboarding (db): ${baseProfile.onboarding_completed}`);
         setUserProfile(baseProfile);
-        setOnboardingCompleted(!!baseProfile.onboarding_completed);
       } else {
         log(`Base profile missing or error: ${baseError?.message}`);
-        setOnboardingCompleted(false);
       }
 
       // 2. Fetch specific profile based on metadata or base profile
@@ -78,7 +76,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         (baseProfile?.account_type as 'company' | 'explorer') ||
         'company';
 
-      log(`Fetching specific profile for: ${type}`);
+      let isActualOnboardingCompleted = !!baseProfile?.onboarding_completed;
 
       if (type === 'explorer') {
         const { data, error } = await (supabase.from('explorer_profiles' as any).select('*').eq('user_id', currentUser.id).maybeSingle() as any);
@@ -87,9 +85,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         log(`Explorer profile: ${data ? 'Found' : 'Missing'}`);
 
         // Repair logic: If base says done but specific is missing, force re-onboard
-        if (!data && baseProfile?.onboarding_completed) {
+        if (!data && isActualOnboardingCompleted) {
           log('Inconsistent state: Base onboarding is true but Explorer profile is missing. Forcing local re-onboard.');
-          setOnboardingCompleted(false);
+          isActualOnboardingCompleted = false;
         }
       } else {
         const { data, error } = await (supabase.from('company_profiles' as any).select('*').eq('user_id', currentUser.id).maybeSingle() as any);
@@ -99,11 +97,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         log(`Company profile: ${data ? 'Found' : 'Missing'}, Investor: ${!!data?.is_investor}`);
 
         // Repair logic: If base says done but specific is missing, force re-onboard
-        if (!data && baseProfile?.onboarding_completed) {
+        if (!data && isActualOnboardingCompleted) {
           log('Inconsistent state: Base onboarding is true but Company profile is missing. Forcing local re-onboard.');
-          setOnboardingCompleted(false);
+          isActualOnboardingCompleted = false;
         }
       }
+
+      setOnboardingCompleted(isActualOnboardingCompleted);
     } catch (err) {
       log(`Profile fetch error: ${err}`);
     }

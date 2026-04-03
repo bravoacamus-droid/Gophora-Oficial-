@@ -74,6 +74,7 @@ const Onboarding = () => {
             const { data: expProfile, error: expError } = await (supabase
                 .from('explorer_profiles' as any)
                 .upsert({
+                    id: user?.id,
                     user_id: user?.id,
                     name: user?.user_metadata?.username || user?.user_metadata?.full_name || user?.email?.split('@')[0],
                     skills: skillsArray,
@@ -131,6 +132,7 @@ const Onboarding = () => {
             await (supabase
                 .from('company_profiles' as any)
                 .upsert({
+                    id: user?.id,
                     user_id: user?.id,
                     company_name: companyName,
                     industry: industry,
