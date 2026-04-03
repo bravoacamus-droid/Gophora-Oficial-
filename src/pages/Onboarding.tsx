@@ -12,8 +12,16 @@ import { Rocket, Building2, User, Sparkles, CheckCircle2, ArrowRight } from 'luc
 import { toast } from 'sonner';
 
 const Onboarding = () => {
-    const { user, accountType, refreshProfile, updateAccountType } = useAuth();
+    const { user, accountType, refreshProfile, updateAccountType, isAdmin, onboardingCompleted } = useAuth();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        if (isAdmin) {
+            navigate('/admin');
+        } else if (onboardingCompleted) {
+            navigate(accountType === 'explorer' ? '/explorer' : '/company');
+        }
+    }, [isAdmin, onboardingCompleted, accountType, navigate]);
     const [step, setStep] = useState(0);
     const [loading, setLoading] = useState(false);
     const [aiAnalyzing, setAiAnalyzing] = useState(false);

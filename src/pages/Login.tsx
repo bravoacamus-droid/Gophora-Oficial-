@@ -54,6 +54,17 @@ const Login = () => {
       // Update heartbeat after successful login
       await (supabase.rpc as any)('update_login_heartbeat', { _user_id: data.user.id });
 
+      // Check if user is admin via RPC directly for immediate redirect
+      const { data: isAdmin } = await (supabase.rpc as any)('verify_user_role', {
+        _user_id: data.user.id,
+        _role: 'admin'
+      });
+
+      if (isAdmin) {
+        navigate('/admin');
+        return;
+      }
+
       const accountType = data.user?.user_metadata?.account_type || 'company';
       navigate(accountType === 'explorer' ? '/explorer' : '/company');
     } catch (err: any) {

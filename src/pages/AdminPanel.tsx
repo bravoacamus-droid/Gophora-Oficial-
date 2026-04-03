@@ -38,7 +38,7 @@ const AdminPanel = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [missions, setMissions] = useState<any[]>([]);
-  const [missionFilter, setMissionFilter] = useState<string>('active');
+  const [missionFilter, setMissionFilter] = useState<string>('pending');
   const [pendingReleases, setPendingReleases] = useState<any[]>([]);
   const [withdrawalRequests, setWithdrawalRequests] = useState<any[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
@@ -305,7 +305,7 @@ const AdminPanel = () => {
         {tabs.map(tab => {
           const Icon = tabIcons[tab];
           const count = tab === 'Fund Releases' ? pendingReleases.length :
-                        tab === 'Withdrawals' ? withdrawalRequests.filter((w: any) => w.status === 'pending').length : 0;
+            tab === 'Withdrawals' ? withdrawalRequests.filter((w: any) => w.status === 'pending').length : 0;
           return (
             <Button key={tab} variant={activeTab === tab ? 'default' : 'outline'} size="sm"
               onClick={() => setActiveTab(tab)} className="font-heading text-xs gap-2 whitespace-nowrap relative">
@@ -878,9 +878,8 @@ const AdminPanel = () => {
                         <td className="p-4 text-xs text-muted-foreground font-body">{p.delivered_at ? new Date(p.delivered_at).toLocaleDateString() : '—'}</td>
                         <td className="p-4 text-xs text-muted-foreground font-body">{p.reviewed_at ? new Date(p.reviewed_at).toLocaleDateString() : '—'}</td>
                         <td className="p-4">
-                          <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${
-                            p.status === 'funds_released' ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary'
-                          }`}>{p.status === 'funds_released' ? 'PAGADO' : p.status.toUpperCase()}</span>
+                          <span className={`text-xs font-heading font-semibold px-2 py-1 rounded-full ${p.status === 'funds_released' ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary'
+                            }`}>{p.status === 'funds_released' ? 'PAGADO' : p.status.toUpperCase()}</span>
                         </td>
                       </tr>
                     ))}

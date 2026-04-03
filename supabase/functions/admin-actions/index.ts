@@ -43,7 +43,7 @@ serve(async (req) => {
       return jsonResponse({ error: 'Unauthorized' }, 401);
     }
 
-    const { data: isAdmin, error: roleError } = await supabase.rpc('has_role', {
+    const { data: isAdmin, error: roleError } = await supabase.rpc('verify_user_role', {
       _user_id: caller.id,
       _role: 'admin',
     });
