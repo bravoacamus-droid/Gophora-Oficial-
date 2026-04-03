@@ -78,7 +78,13 @@ const Header = () => {
                 <Button variant="ghost" size="sm" className="font-heading text-xs">{t('nav.login')}</Button>
               </Link>
               <Link to="/register">
-                <Button variant="default" size="sm" className="font-heading text-xs">{t('nav.register')}</Button>
+                <Button
+                  variant={isActive('/register') ? 'default' : 'ghost'}
+                  size="sm"
+                  className="font-heading text-xs"
+                >
+                  {t('nav.register')}
+                </Button>
               </Link>
             </div>
           )}

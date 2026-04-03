@@ -103,7 +103,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
-      setOnboardingCompleted(isActualOnboardingCompleted);
+      // Final decision on onboarding completion
+      let finalOnboardingStatus = isActualOnboardingCompleted;
+
+      // Admin bypass: If user is admin, they shouldn't be forced to re-onboard 
+      // just because they don't have a specific explorer/company profile
+      if (isAdmin) {
+        log('Admin detected: Bypassing specialized profile check for onboarding status.');
+        finalOnboardingStatus = true;
+      }
+
+      setOnboardingCompleted(finalOnboardingStatus);
     } catch (err) {
       log(`Profile fetch error: ${err}`);
     }

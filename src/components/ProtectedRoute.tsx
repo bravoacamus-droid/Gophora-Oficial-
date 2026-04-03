@@ -16,10 +16,11 @@ const ProtectedRoute = () => {
     return <Navigate to="/login" replace />;
   }
 
-  const { onboardingCompleted } = useAuth();
+  const { onboardingCompleted, isAdmin } = useAuth();
   const isAtOnboarding = window.location.pathname === '/onboarding';
+  const isAtAdmin = window.location.pathname.startsWith('/admin');
 
-  if (!onboardingCompleted && !isAtOnboarding) {
+  if (!onboardingCompleted && !isAtOnboarding && !isAtAdmin && !isAdmin) {
     return <Navigate to="/onboarding" replace />;
   }
 
