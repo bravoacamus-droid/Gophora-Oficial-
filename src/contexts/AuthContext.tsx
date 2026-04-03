@@ -46,17 +46,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const checkAdminRole = async (userId: string) => {
     try {
-      const { data } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
+      log(`Checking admin role for user: ${userId}`);
+      const { data, error } = await supabase.rpc('has_role', {
+        _user_id: userId,
+        _role: 'admin'
+      });
+
+      if (error) {
+        log(`Admin check RPC error: ${JSON.stringify(error)}`);
+        setIsAdmin(false);
+        return false;
+      }
+
+      log(`Admin check result: ${data}`);
       setIsAdmin(!!data);
-      log(`Admin check: ${!!data}`);
+      return !!data;
     } catch (err) {
-      log(`Admin check error: ${err}`);
+      log(`Admin check exception: ${err}`);
       setIsAdmin(false);
+      return false;
     }
   };
 
-  const fetchProfileData = async (currentUser: User) => {
+  const fetchProfileData = async (currentUser: User, isActualAdmin?: boolean) => {
     try {
+      const adminStatus = isActualAdmin !== undefined ? isActualAdmin : isAdmin;
+      // ... existing base profile fetch ...
       // 1. Fetch base profile
       const { data: baseProfile, error: baseError } = await supabase
         .from('profiles')
@@ -108,7 +123,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Admin bypass: If user is admin, they shouldn't be forced to re-onboard 
       // just because they don't have a specific explorer/company profile
-      if (isAdmin) {
+      if (adminStatus) {
         log('Admin detected: Bypassing specialized profile check for onboarding status.');
         finalOnboardingStatus = true;
       }
@@ -127,8 +142,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(currentUser);
 
     if (currentUser) {
-      await checkAdminRole(currentUser.id);
-      await fetchProfileData(currentUser);
+      const isActualAdmin = await checkAdminRole(currentUser.id);
+      await fetchProfileData(currentUser, isActualAdmin);
     } else {
       setExplorerProfile(null);
       setCompanyProfile(null);

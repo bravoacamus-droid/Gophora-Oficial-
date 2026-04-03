@@ -29,7 +29,7 @@ interface Mission {
 const ProjectCreate = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [analyzing, setAnalyzing] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -212,6 +212,7 @@ const ProjectCreate = () => {
         hours: m.hours,
         hourly_rate: m.hourlyRate,
         reward: m.reward,
+        status: isAdmin ? 'approved' : 'pending'
       }));
 
       const { error: missionsError } = await supabase
