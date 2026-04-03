@@ -16,7 +16,7 @@ serve(async (req) => {
     const commissionRate = 0.10;
     const availableBudget = Math.floor(budget / (1 + commissionRate));
 
-    const missionsList = missions.map((m: any, i: number) => 
+    const missionsList = missions.map((m: any, i: number) =>
       `${i + 1}. "${m.title}" - ${m.skill} - ${m.hours}h @ $${m.hourlyRate}/hr = $${m.reward}`
     ).join("\n");
 
@@ -42,14 +42,14 @@ ${missionsList}
 
 Select the most important missions that fit within the $${availableBudget} talent budget. Prioritize missions that deliver the most value.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Authorization": "Bearer " + LOVABLE_API_KEY,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -79,7 +79,7 @@ Select the most important missions that fit within the $${availableBudget} talen
             },
           },
         ],
-        tool_choice: { type: "function", function: { name: "select_missions" } },
+        tool_choice: "auto",
       }),
     });
 
@@ -102,7 +102,7 @@ Select the most important missions that fit within the $${availableBudget} talen
 
     const args = JSON.parse(toolCall.function.arguments);
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       kept_indices: args.kept_indices,
       reasoning: args.reasoning,
     }), {

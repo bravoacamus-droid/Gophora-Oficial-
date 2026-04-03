@@ -59,14 +59,14 @@ Select the top 6 most relevant courses for this explorer. Prioritize:
 3. Higher rated and popular courses
 4. Courses that fill skill gaps`;
 
-    const aiResponse = await fetch("https://api.x.ai/v1/chat/completions", {
+    const aiResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Authorization": "Bearer " + LOVABLE_API_KEY,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "grok-beta",
+        model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: "You are a course recommendation engine." },
           { role: "user", content: prompt },
@@ -99,7 +99,7 @@ Select the top 6 most relevant courses for this explorer. Prioritize:
             },
           },
         }],
-        tool_choice: { type: "function", function: { name: "recommend_courses" } },
+        tool_choice: "auto",
       }),
     });
 

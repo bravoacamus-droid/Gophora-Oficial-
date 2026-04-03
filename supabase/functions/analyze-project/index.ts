@@ -47,18 +47,19 @@ Available for Talent: $${Math.floor(budget / 1.1)} USD
 
 Analyze this project completely. Identify every module, phase, and task needed. Break it into atomic micro-missions. Be thorough — if this is a full project, generate all necessary missions even if there are many.`;
 
-    console.log("Sending request to X.AI Gateway...");
-    const response = await fetch("https://api.x.ai/v1/chat/completions", {
+    console.log("Sending request to Groq API...");
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
+        "Authorization": "Bearer " + LOVABLE_API_KEY,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "grok-beta",
+        model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
+          { role: "user", content: userPrompt }
         ],
         tools: [
           {
@@ -74,30 +75,28 @@ Analyze this project completely. Identify every module, phase, and task needed. 
                     items: {
                       type: "object",
                       properties: {
-                        title: { type: "string", description: "Mission title - clear and actionable" },
-                        description: { type: "string", description: "Brief description of deliverables" },
+                        title: { type: "string" },
+                        description: { type: "string" },
                         skill: { type: "string", enum: ["Marketing", "Web Development", "Design", "Data", "Research", "Operations"] },
-                        hours: { type: "number", description: "Estimated hours to complete (1-40)" },
-                        hourly_rate: { type: "number", description: "Hourly rate in USD (minimum 20)" },
+                        hours: { type: "number" },
+                        hourly_rate: { type: "number" }
                       },
-                      required: ["title", "description", "skill", "hours", "hourly_rate"],
-                      additionalProperties: false,
-                    },
-                  },
+                      required: ["title", "description", "skill", "hours", "hourly_rate"]
+                    }
+                  }
                 },
-                required: ["missions"],
-                additionalProperties: false,
-              },
-            },
-          },
+                required: ["missions"]
+              }
+            }
+          }
         ],
-        tool_choice: { type: "function", function: { name: "suggest_missions" } },
-      }),
+        tool_choice: "auto"
+      })
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("X.AI Error (" + response.status + "):", errorText);
+      console.error("Groq Error (" + response.status + "):", errorText);
 
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
@@ -144,7 +143,14 @@ Analyze this project completely. Identify every module, phase, and task needed. 
     });
   } catch (e) {
     console.error("Uncaught analyze-project error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+    if (e instanceof Error) {
+      console.error("Error stack:", e.stack);
+      console.error("Error name:", e.name);
+    }
+    return new Response(JSON.stringify({
+      error: e instanceof Error ? e.message : "Unknown error",
+      details: e instanceof Error ? e.stack : undefined
+    }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

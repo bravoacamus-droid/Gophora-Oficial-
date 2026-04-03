@@ -30,14 +30,14 @@ Extract ALL questions found. If multiple choice options aren't clearly labeled, 
 If answers are provided, use them. If not, determine the most likely correct answer.
 Course context: ${courseTitle || "AI Course"}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Authorization": "Bearer " + LOVABLE_API_KEY,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Parse these exam questions from a PDF:\n\n${pdfText}` },
@@ -76,7 +76,7 @@ Course context: ${courseTitle || "AI Course"}`;
             },
           },
         ],
-        tool_choice: { type: "function", function: { name: "extract_questions" } },
+        tool_choice: "auto",
       }),
     });
 
