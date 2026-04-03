@@ -114,12 +114,16 @@ serve(async (req) => {
           .select(`
             id, title, description, category, priority, budget, 
             payment_status, status, created_at, user_id,
-            profiles:user_id (id, email, full_name)
+            profiles (id, email, full_name)
           `)
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        result = data || [];
+        // The frontend expects `profiles.email` etc., map if necessary:
+        result = (data || []).map((p: any) => ({
+          ...p,
+          profiles: Array.isArray(p.profiles) ? p.profiles[0] : p.profiles
+        }));
         break;
       }
 
@@ -169,7 +173,7 @@ serve(async (req) => {
 
       case 'get_pending_releases': {
         const { data, error } = await supabase
-          .from('mission_applications')
+          .from('mission_assignments')
           .select(`
             id, status, delivery_url, delivered_at, reviewed_at, review_note,
             mission:mission_id (
@@ -177,7 +181,9 @@ serve(async (req) => {
               reward,
               project:project_id (title)
             ),
-            profile:user_id (email, full_name)
+            profile:explorer_profiles (
+              profiles (email, full_name)
+            )
           `)
           .in('status', ['submitted', 'approved'])
           .order('delivered_at', { ascending: false });
@@ -195,8 +201,8 @@ serve(async (req) => {
           missionTitle: app.mission?.title,
           missionReward: app.mission?.reward,
           projectTitle: app.mission?.project?.title,
-          explorerEmail: app.profile?.email,
-          explorerName: app.profile?.full_name
+          explorerEmail: app.profile?.profiles?.email,
+          explorerName: app.profile?.profiles?.full_name
         }));
         break;
       }
@@ -205,7 +211,7 @@ serve(async (req) => {
         const { application_id } = params;
         // Update application
         const { data: appData, error: updateErr } = await supabase
-          .from('mission_applications')
+          .from('mission_assignments')
           .update({
             status: 'funds_released',
             funds_released_at: new Date().toISOString(),
@@ -230,16 +236,15 @@ serve(async (req) => {
           .from('withdrawal_requests')
           .select(`
             *,
-            explorerEmail:profiles!withdrawal_requests_user_id_fkey(email),
-            explorerName:profiles!withdrawal_requests_user_id_fkey(full_name)
+            profiles(email, full_name)
           `)
           .order('created_at', { ascending: false });
 
         if (error) throw error;
         result = (data || []).map((w: any) => ({
           ...w,
-          explorerEmail: w.explorerEmail?.email || '',
-          explorerName: w.explorerName?.full_name || ''
+          explorerEmail: w.profiles?.email || '',
+          explorerName: w.profiles?.full_name || ''
         }));
         break;
       }
@@ -298,7 +303,7 @@ serve(async (req) => {
       case 'get_tutor_applications': {
         const { data, error } = await supabase
           .from('tutor_applications')
-          .select('*, profiles:user_id(email, full_name)')
+          .select('*, profiles(email, full_name)')
           .order('created_at', { ascending: false });
         if (error) throw error;
         result = (data || []).map((a: any) => ({
@@ -328,7 +333,7 @@ serve(async (req) => {
 
       case 'get_payment_history': {
         const { data, error } = await supabase
-          .from('mission_applications')
+          .from('mission_assignments')
           .select(`
             id, status, delivery_url, delivered_at, reviewed_at, review_note,
             mission:mission_id (
@@ -336,7 +341,9 @@ serve(async (req) => {
               reward,
               project:project_id (title)
             ),
-            profile:user_id (email, full_name)
+            profile:explorer_profiles (
+              profiles (email, full_name)
+            )
           `)
           .in('status', ['completed', 'funds_released'])
           .order('reviewed_at', { ascending: false });
@@ -354,8 +361,8 @@ serve(async (req) => {
           missionTitle: app.mission?.title,
           missionReward: app.mission?.reward,
           projectTitle: app.mission?.project?.title,
-          explorerEmail: app.profile?.email,
-          explorerName: app.profile?.full_name
+          explorerEmail: app.profile?.profiles?.email,
+          explorerName: app.profile?.profiles?.full_name
         }));
         break;
       }
