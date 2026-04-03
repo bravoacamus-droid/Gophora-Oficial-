@@ -46,14 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const checkAdminRole = async (userId: string, email?: string) => {
     try {
-      // Emergency Email Bypass (Hardcoded for the user)
-      if (email === 'luigigophora@yopmail.com') {
-        log('Admin email detected: Forcing isAdmin to true via bypass.');
-        setIsAdmin(true);
-        return true;
-      }
-
-      log(`Checking admin role for user: ${userId}`);
+      log(`Checking admin role for user: ${userId} (${email})`);
       const { data, error } = await supabase.rpc('has_role', {
         _user_id: userId,
         _role: 'admin'
