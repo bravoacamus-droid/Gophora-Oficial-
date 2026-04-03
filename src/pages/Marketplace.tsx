@@ -41,22 +41,38 @@ const Marketplace = () => {
   const loadMarketplaceData = async () => {
     setLoading(true);
     try {
-      const { data: missionRows, error: missionsError } = await supabase
+      let userProjectIds: string[] = [];
+      if (user) {
+        const { data: userProjects } = await supabase
+          .from('projects')
+          .select('id')
+          .eq('user_id', user.id);
+        userProjectIds = (userProjects || []).map(p => p.id);
+      }
+
+      let query = supabase
         .from('missions')
-        .select('id, title, title_es, skill, hours, reward, hourly_rate, description, description_es, project_id')
-        .eq('status', 'approved')
+        .select('id, title, title_es, skill, hours, reward, hourly_rate, description, description_es, project_id, status, created_at');
+
+      if (userProjectIds.length > 0) {
+        query = query.or(`status.eq.approved,project_id.in.(${userProjectIds.map(id => `"${id}"`).join(',')})`);
+      } else {
+        query = query.eq('status', 'approved');
+      }
+
+      const { data: missionRows, error: missionsError } = await query
         .order('created_at', { ascending: false });
 
       if (missionsError) throw missionsError;
 
-      const projectIds = [...new Set((missionRows || []).map((m) => m.project_id))];
+      const allProjectIds = [...new Set((missionRows || []).map((m) => m.project_id))];
       let projectMap = new Map<string, { title: string; resource_link: string | null }>();
 
-      if (projectIds.length > 0) {
+      if (allProjectIds.length > 0) {
         const { data: projectRows, error: projectsError } = await supabase
           .from('projects')
           .select('id, title, resource_link')
-          .in('id', projectIds);
+          .in('id', allProjectIds);
         if (projectsError) throw projectsError;
         projectMap = new Map((projectRows || []).map((p: any) => [p.id, { title: p.title, resource_link: p.resource_link || null }]));
       }

@@ -44,8 +44,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isInvestor, setIsInvestor] = useState(false);
   const [localAccountType, setLocalAccountType] = useState<'company' | 'explorer' | null>(null);
 
-  const checkAdminRole = async (userId: string) => {
+  const checkAdminRole = async (userId: string, email?: string) => {
     try {
+      // Emergency Email Bypass (Hardcoded for the user)
+      if (email === 'luigigophora@yopmail.com') {
+        log('Admin email detected: Forcing isAdmin to true via bypass.');
+        setIsAdmin(true);
+        return true;
+      }
+
       log(`Checking admin role for user: ${userId}`);
       const { data, error } = await supabase.rpc('has_role', {
         _user_id: userId,
@@ -142,7 +149,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(currentUser);
 
     if (currentUser) {
-      const isActualAdmin = await checkAdminRole(currentUser.id);
+      const isActualAdmin = await checkAdminRole(currentUser.id, currentUser.email);
       await fetchProfileData(currentUser, isActualAdmin);
     } else {
       setExplorerProfile(null);
