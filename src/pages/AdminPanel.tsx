@@ -644,6 +644,7 @@ const AdminPanel = () => {
               <div className="flex items-center gap-3 p-4 border-b border-border/50 bg-muted/30">
                 <span className="text-xs font-heading uppercase tracking-wider text-muted-foreground">Filtro:</span>
                 {[
+                  { value: 'pending', label: 'Pendientes' },
                   { value: 'active', label: 'Activas' },
                   { value: 'completed', label: 'Completadas' },
                   { value: 'rejected', label: 'Rechazadas' },
@@ -669,6 +670,7 @@ const AdminPanel = () => {
                   <tbody>
                     {missions
                       .filter(m => {
+                        if (missionFilter === 'pending') return m.status === 'pending';
                         if (missionFilter === 'active') return ['open', 'approved'].includes(m.status);
                         if (missionFilter === 'completed') return m.status === 'completed';
                         if (missionFilter === 'rejected') return m.status === 'rejected';
@@ -693,7 +695,7 @@ const AdminPanel = () => {
                             <td className="p-4">{statusBadge(m.projects?.payment_status || 'unpaid')}</td>
                             <td className="p-4">{statusBadge(m.status)}</td>
                             <td className="p-4" onClick={e => e.stopPropagation()}>
-                              {m.status === 'open' && (
+                              {(m.status === 'open' || m.status === 'pending') && (
                                 <div className="flex gap-2">
                                   <Button variant="ghost" size="sm" className="text-xs font-heading text-green-500 gap-1"
                                     onClick={() => handleApproveMission(m.id)} disabled={m.projects?.payment_status !== 'paid'}

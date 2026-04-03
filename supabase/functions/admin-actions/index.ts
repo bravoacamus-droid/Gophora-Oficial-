@@ -28,21 +28,22 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const authHeader = req.headers.get('authorization');
+
     if (!authHeader?.startsWith('Bearer ')) {
-      return jsonResponse({ error: 'Unauthorized' }, 401);
+      return jsonResponse({ error: 'Unauthorized: Missing token' }, 401);
     }
 
     const token = authHeader.replace('Bearer ', '');
-
     const {
       data: { user: caller },
       error: authError,
     } = await supabase.auth.getUser(token);
 
     if (authError || !caller) {
-      return jsonResponse({ error: 'Unauthorized' }, 401);
+      return jsonResponse({ error: `Unauthorized: ${authError?.message || 'Invalid user'}` }, 401);
     }
 
+    // Security check: Use verify_user_role RPC
     const { data: isAdmin, error: roleError } = await supabase.rpc('verify_user_role', {
       _user_id: caller.id,
       _role: 'admin',
@@ -64,28 +65,23 @@ serve(async (req) => {
     switch (action) {
       case 'get_stats': {
         const [profiles, projects, missions, applications] = await Promise.all([
-          supabase.from('profiles').select('id, created_at'),
-          supabase.from('projects').select('id, budget, payment_status, created_at'),
-          supabase.from('missions').select('id, created_at'),
-          supabase.from('mission_applications').select('id, created_at'),
+          supabase.from('profiles').select('id', { count: 'exact', head: true }),
+          supabase.from('projects').select('budget, payment_status'),
+          supabase.from('missions').select('id', { count: 'exact', head: true }),
+          supabase.from('mission_applications').select('id', { count: 'exact', head: true }),
         ]);
 
-        if (profiles.error) throw profiles.error;
-        if (projects.error) throw projects.error;
-        if (missions.error) throw missions.error;
-        if (applications.error) throw applications.error;
-
         const projectRows = projects.data || [];
-        const totalBudget = projectRows.reduce((sum, project) => sum + Number(project.budget || 0), 0);
+        const totalBudget = projectRows.reduce((sum, p) => sum + Number(p.budget || 0), 0);
         const paidBudget = projectRows
-          .filter((project) => project.payment_status === 'paid')
-          .reduce((sum, project) => sum + Number(project.budget || 0), 0);
+          .filter((p) => p.payment_status === 'paid')
+          .reduce((sum, p) => sum + Number(p.budget || 0), 0);
 
         result = {
-          totalUsers: profiles.data?.length || 0,
+          totalUsers: profiles.count || 0,
           totalProjects: projectRows.length,
-          totalMissions: missions.data?.length || 0,
-          totalApplications: applications.data?.length || 0,
+          totalMissions: missions.count || 0,
+          totalApplications: applications.count || 0,
           totalBudget,
           paidBudget,
           commission: Math.round(paidBudget * 0.1),
@@ -105,80 +101,38 @@ serve(async (req) => {
       }
 
       case 'get_projects': {
-        const { data: projectRows, error: projectsError } = await supabase
+        const { data, error } = await supabase
           .from('projects')
-          .select('id, title, description, category, priority, budget, payment_status, status, user_id, created_at')
+          .select(`
+            id, title, description, category, priority, budget, 
+            payment_status, status, created_at, user_id,
+            profiles:user_id (id, email, full_name)
+          `)
           .order('created_at', { ascending: false });
 
-        if (projectsError) throw projectsError;
-
-        const userIds = [...new Set((projectRows || []).map((project) => project.user_id).filter(Boolean))] as string[];
-        const profilesByUserId = new Map<string, { email: string | null; full_name: string | null }>();
-
-        if (userIds.length > 0) {
-          const { data: profileRows, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id, email, full_name')
-            .in('id', userIds);
-
-          if (profilesError) throw profilesError;
-
-          (profileRows || []).forEach((profile) => {
-            profilesByUserId.set(profile.id, { email: profile.email, full_name: profile.full_name });
-          });
-        }
-
-        result = (projectRows || []).map((project) => ({
-          ...project,
-          profiles: project.user_id ? profilesByUserId.get(project.user_id) || null : null,
-        }));
+        if (error) throw error;
+        result = data || [];
         break;
       }
 
       case 'get_missions': {
-        const { data: missionRows, error: missionsError } = await supabase
+        const { data, error } = await supabase
           .from('missions')
-          .select('id, title, description, skill, hours, hourly_rate, reward, status, project_id, approved_by, approved_at, created_at')
+          .select(`
+            id, title, description, skill, hours, hourly_rate, reward, 
+            status, project_id, approved_by, approved_at, created_at,
+            projects (id, title, user_id, payment_status, payment_screenshot_url, tx_hash)
+          `)
           .order('created_at', { ascending: false });
 
-        if (missionsError) throw missionsError;
-
-        const projectIds = [...new Set((missionRows || []).map((mission) => mission.project_id))];
-        const projectsById = new Map<string, { title: string; user_id: string | null; payment_status: string; payment_screenshot_url: string | null; tx_hash: string | null }>();
-
-        if (projectIds.length > 0) {
-          const { data: projectRows, error: projectsError } = await supabase
-            .from('projects')
-            .select('id, title, user_id, payment_status, payment_screenshot_url, tx_hash')
-            .in('id', projectIds);
-
-          if (projectsError) throw projectsError;
-
-          (projectRows || []).forEach((project) => {
-            projectsById.set(project.id, {
-              title: project.title,
-              user_id: project.user_id,
-              payment_status: project.payment_status,
-              payment_screenshot_url: project.payment_screenshot_url,
-              tx_hash: project.tx_hash,
-            });
-          });
-        }
-
-        result = (missionRows || []).map((mission) => ({
-          ...mission,
-          projects: projectsById.get(mission.project_id) || null,
-        }));
+        if (error) throw error;
+        result = data || [];
         break;
       }
 
       case 'update_payment_status': {
         const { project_id, payment_status } = params;
-
-        if (!project_id || !['paid', 'unpaid'].includes(payment_status)) {
-          return jsonResponse({ error: 'Invalid project_id or payment_status' }, 400);
-        }
-
+        if (!project_id || !payment_status) throw new Error('Missing parameters');
         const { error } = await supabase.from('projects').update({ payment_status }).eq('id', project_id);
         if (error) throw error;
         result = { success: true };
@@ -187,44 +141,11 @@ serve(async (req) => {
 
       case 'approve_mission': {
         const { mission_id } = params;
-
-        if (!mission_id) {
-          return jsonResponse({ error: 'mission_id is required' }, 400);
-        }
-
-        const { data: mission, error: missionError } = await supabase
-          .from('missions')
-          .select('project_id')
-          .eq('id', mission_id)
-          .single();
-
-        if (missionError || !mission) {
-          return jsonResponse({ error: 'Mission not found' }, 404);
-        }
-
-        const { data: project, error: projectError } = await supabase
-          .from('projects')
-          .select('payment_status')
-          .eq('id', mission.project_id)
-          .single();
-
-        if (projectError || !project) {
-          return jsonResponse({ error: 'Project not found' }, 404);
-        }
-
-        if (project.payment_status !== 'paid') {
-          return jsonResponse({ error: 'Project must be paid before approving missions' }, 400);
-        }
-
-        const { error } = await supabase
-          .from('missions')
-          .update({
-            status: 'approved',
-            approved_by: caller.id,
-            approved_at: new Date().toISOString(),
-          })
-          .eq('id', mission_id);
-
+        const { error } = await supabase.from('missions').update({
+          status: 'approved',
+          approved_by: caller.id,
+          approved_at: new Date().toISOString()
+        }).eq('id', mission_id);
         if (error) throw error;
         result = { success: true };
         break;
@@ -232,221 +153,82 @@ serve(async (req) => {
 
       case 'reject_mission': {
         const { mission_id } = params;
-
-        if (!mission_id) {
-          return jsonResponse({ error: 'mission_id is required' }, 400);
-        }
-
-        const { error } = await supabase
-          .from('missions')
-          .update({ status: 'rejected', approved_by: null, approved_at: null })
-          .eq('id', mission_id);
-
+        const { error } = await supabase.from('missions').update({
+          status: 'rejected',
+          approved_by: null,
+          approved_at: null
+        }).eq('id', mission_id);
         if (error) throw error;
         result = { success: true };
         break;
       }
 
       case 'get_pending_releases': {
-        const { data: appRows, error: appError } = await supabase
+        const { data, error } = await supabase
           .from('mission_applications')
-          .select('id, status, delivery_url, delivered_at, reviewed_at, review_note, mission_id, user_id')
+          .select(`
+            id, status, delivery_url, delivered_at, reviewed_at, review_note,
+            missionTitle:missions(title),
+            missionReward:missions(reward),
+            projectTitle:missions(projects(title)),
+            explorerEmail:profiles(email),
+            explorerName:profiles(full_name)
+          `)
           .eq('status', 'completed')
           .order('reviewed_at', { ascending: false });
 
-        if (appError) throw appError;
-        const apps = appRows || [];
-
-        if (apps.length === 0) {
-          result = [];
-          break;
-        }
-
-        const missionIds = [...new Set(apps.map((a) => a.mission_id))];
-        const userIds = [...new Set(apps.map((a) => a.user_id))];
-
-        const [missionsRes, profilesRes] = await Promise.all([
-          supabase.from('missions').select('id, title, reward, project_id').in('id', missionIds),
-          supabase.from('profiles').select('id, email, full_name').in('id', userIds),
-        ]);
-
-        if (missionsRes.error) throw missionsRes.error;
-        if (profilesRes.error) throw profilesRes.error;
-
-        const missionMap = new Map((missionsRes.data || []).map((m) => [m.id, m]));
-        const profileMap = new Map((profilesRes.data || []).map((p) => [p.id, p]));
-
-        const projectIds = [...new Set((missionsRes.data || []).map((m) => m.project_id))];
-        const { data: projectRows } = await supabase.from('projects').select('id, title').in('id', projectIds);
-        const projectMap = new Map((projectRows || []).map((p) => [p.id, p.title]));
-
-        result = apps.map((a) => {
-          const mission = missionMap.get(a.mission_id);
-          const profile = profileMap.get(a.user_id);
-          return {
-            ...a,
-            missionTitle: mission?.title || 'Mission',
-            missionReward: Number(mission?.reward || 0),
-            projectTitle: mission ? (projectMap.get(mission.project_id) || 'Project') : 'Project',
-            explorerEmail: profile?.email || '',
-            explorerName: profile?.full_name || '',
-          };
-        });
+        if (error) throw error;
+        result = data || [];
         break;
       }
 
       case 'release_funds': {
         const { application_id } = params;
-        if (!application_id) {
-          return jsonResponse({ error: 'application_id is required' }, 400);
-        }
-
-        // Get the mission_id before updating
-        const { data: appData, error: appFetchError } = await supabase
+        // Update application
+        const { data: appData, error: updateErr } = await supabase
           .from('mission_applications')
-          .select('mission_id')
+          .update({ status: 'funds_released', funds_released_at: new Date().toISOString(), funds_released_by: caller.id })
           .eq('id', application_id)
-          .eq('status', 'completed')
+          .select('mission_id')
           .single();
 
-        if (appFetchError || !appData) {
-          return jsonResponse({ error: 'Application not found or not in completed status' }, 404);
+        if (updateErr) throw updateErr;
+
+        // Mark mission as completed
+        if (appData?.mission_id) {
+          await supabase.from('missions').update({ status: 'completed' }).eq('id', appData.mission_id);
         }
-
-        const { error } = await supabase
-          .from('mission_applications')
-          .update({ status: 'funds_released' })
-          .eq('id', application_id)
-          .eq('status', 'completed');
-
-        if (error) throw error;
-
-        // Mark the mission as completed so it no longer appears in the marketplace
-        await supabase
-          .from('missions')
-          .update({ status: 'completed' })
-          .eq('id', appData.mission_id);
-
-        result = { success: true };
-        break;
-      }
-
-      case 'suspend_user': {
-        const { user_id } = params;
-
-        if (!user_id) {
-          return jsonResponse({ error: 'user_id is required' }, 400);
-        }
-
-        const { error } = await supabase.auth.admin.updateUserById(user_id, { ban_duration: '876000h' });
-        if (error) throw error;
-        result = { success: true };
-        break;
-      }
-
-      case 'activate_user': {
-        const { user_id } = params;
-
-        if (!user_id) {
-          return jsonResponse({ error: 'user_id is required' }, 400);
-        }
-
-        const { error } = await supabase.auth.admin.updateUserById(user_id, { ban_duration: 'none' });
-        if (error) throw error;
         result = { success: true };
         break;
       }
 
       case 'get_withdrawals': {
-        const { data: wRows, error: wError } = await supabase
+        const { data, error } = await supabase
           .from('withdrawal_requests')
-          .select('*')
+          .select(`
+            *,
+            explorerEmail:profiles!withdrawal_requests_user_id_fkey(email),
+            explorerName:profiles!withdrawal_requests_user_id_fkey(full_name)
+          `)
           .order('created_at', { ascending: false });
 
-        if (wError) throw wError;
-        const wApps = wRows || [];
-
-        if (wApps.length === 0) { result = []; break; }
-
-        const wUserIds = [...new Set(wApps.map(w => w.user_id))];
-        const { data: wProfiles } = await supabase
-          .from('profiles')
-          .select('id, email, full_name')
-          .in('id', wUserIds);
-
-        const wProfileMap = new Map((wProfiles || []).map(p => [p.id, p]));
-
-        result = wApps.map(w => ({
+        if (error) throw error;
+        result = (data || []).map((w: any) => ({
           ...w,
-          explorerEmail: wProfileMap.get(w.user_id)?.email || '',
-          explorerName: wProfileMap.get(w.user_id)?.full_name || '',
+          explorerEmail: w.explorerEmail?.email || '',
+          explorerName: w.explorerName?.full_name || ''
         }));
-        break;
-      }
-
-      case 'get_payment_history': {
-        // Get all completed or funds_released applications
-        const { data: paidApps, error: paidError } = await supabase
-          .from('mission_applications')
-          .select('id, status, delivery_url, delivered_at, reviewed_at, review_note, mission_id, user_id')
-          .in('status', ['completed', 'funds_released'])
-          .order('reviewed_at', { ascending: false });
-
-        if (paidError) throw paidError;
-        const pApps = paidApps || [];
-
-        if (pApps.length === 0) { result = []; break; }
-
-        const pMissionIds = [...new Set(pApps.map(a => a.mission_id))];
-        const pUserIds = [...new Set(pApps.map(a => a.user_id))];
-
-        const [pMissionsRes, pProfilesRes] = await Promise.all([
-          supabase.from('missions').select('id, title, reward, project_id').in('id', pMissionIds),
-          supabase.from('profiles').select('id, email, full_name').in('id', pUserIds),
-        ]);
-
-        if (pMissionsRes.error) throw pMissionsRes.error;
-        if (pProfilesRes.error) throw pProfilesRes.error;
-
-        const pMissionMap = new Map((pMissionsRes.data || []).map(m => [m.id, m]));
-        const pProfileMap = new Map((pProfilesRes.data || []).map(p => [p.id, p]));
-
-        const pProjectIds = [...new Set((pMissionsRes.data || []).map(m => m.project_id))];
-        const { data: pProjectRows } = await supabase.from('projects').select('id, title').in('id', pProjectIds);
-        const pProjectMap = new Map((pProjectRows || []).map(p => [p.id, p.title]));
-
-        result = pApps.map(a => {
-          const mission = pMissionMap.get(a.mission_id);
-          const profile = pProfileMap.get(a.user_id);
-          return {
-            ...a,
-            missionTitle: mission?.title || 'Mission',
-            missionReward: Number(mission?.reward || 0),
-            projectTitle: mission ? (pProjectMap.get(mission.project_id) || 'Project') : 'Project',
-            explorerEmail: profile?.email || '',
-            explorerName: profile?.full_name || '',
-          };
-        });
         break;
       }
 
       case 'process_withdrawal': {
         const { withdrawal_id, new_status, admin_note } = params;
-        if (!withdrawal_id || !['approved', 'rejected'].includes(new_status)) {
-          return jsonResponse({ error: 'Invalid withdrawal_id or status' }, 400);
-        }
-
-        const { error } = await supabase
-          .from('withdrawal_requests')
-          .update({
-            status: new_status,
-            admin_note: admin_note || null,
-            processed_at: new Date().toISOString(),
-            processed_by: caller.id,
-          })
-          .eq('id', withdrawal_id)
-          .eq('status', 'pending');
-
+        const { error } = await supabase.from('withdrawal_requests').update({
+          status: new_status,
+          admin_note: admin_note || null,
+          processed_at: new Date().toISOString(),
+          processed_by: caller.id
+        }).eq('id', withdrawal_id);
         if (error) throw error;
         result = { success: true };
         break;
@@ -455,45 +237,27 @@ serve(async (req) => {
       case 'get_academy_courses': {
         const { data, error } = await supabase
           .from('academy_courses')
-          .select('*')
+          .select(`*, path_title:academy_paths(title)`)
           .order('sort_order');
         if (error) throw error;
-
-        const { data: pathsData } = await supabase
-          .from('academy_paths')
-          .select('id, title');
-        const pathMap = new Map((pathsData || []).map((p: any) => [p.id, p.title]));
-
         result = (data || []).map((c: any) => ({
           ...c,
-          path_title: pathMap.get(c.path_id) || 'Unknown',
+          path_title: c.path_title?.title || 'Sin Ruta'
         }));
         break;
       }
 
       case 'get_academy_paths': {
-        const { data, error } = await supabase
-          .from('academy_paths')
-          .select('id, title')
-          .order('sort_order');
+        const { data, error } = await supabase.from('academy_paths').select('id, title').order('sort_order');
         if (error) throw error;
         result = data || [];
         break;
       }
 
       case 'create_course': {
-        const { title, title_es, description, description_es, platform, external_url, duration_minutes, skill_level, language: lang, skills_learned, category, tool: courseTool, path_id, sort_order, instructor_name, thumbnail_url, featured } = params;
-        if (!title || !path_id) {
-          return jsonResponse({ error: 'title and path_id are required' }, 400);
-        }
         const { error } = await supabase.from('academy_courses').insert({
-          title, title_es: title_es || null, description: description || null, description_es: description_es || null,
-          platform: platform || 'External', external_url: external_url || null,
-          duration_minutes: duration_minutes || 30, skill_level: skill_level || 'beginner',
-          language: lang || 'en', skills_learned: skills_learned || [], category: category || 'general',
-          tool: courseTool || null, path_id, sort_order: sort_order || 0,
-          instructor_name: instructor_name || null, thumbnail_url: thumbnail_url || null,
-          featured: featured || false, course_status: 'published',
+          ...params,
+          course_status: 'published'
         });
         if (error) throw error;
         result = { success: true };
@@ -502,49 +266,36 @@ serve(async (req) => {
 
       case 'delete_course': {
         const { course_id } = params;
-        if (!course_id) return jsonResponse({ error: 'course_id is required' }, 400);
-        await supabase.from('explorer_course_progress').delete().eq('course_id', course_id);
         const { error } = await supabase.from('academy_courses').delete().eq('id', course_id);
         if (error) throw error;
         result = { success: true };
         break;
       }
 
-      case 'update_course_status': {
-        const { course_id, status } = params;
-        if (!course_id || !status) return jsonResponse({ error: 'course_id and status required' }, 400);
-        const { error } = await supabase.from('academy_courses').update({ course_status: status }).eq('id', course_id);
-        if (error) throw error;
-        result = { success: true };
-        break;
-      }
-
-      case 'toggle_featured': {
-        const { course_id, featured } = params;
-        if (!course_id) return jsonResponse({ error: 'course_id required' }, 400);
-        const { error } = await supabase.from('academy_courses').update({ featured: !!featured }).eq('id', course_id);
-        if (error) throw error;
-        result = { success: true };
-        break;
-      }
-
       case 'get_tutor_applications': {
-        const { data, error } = await supabase.from('tutor_applications').select('*').order('created_at', { ascending: false });
+        const { data, error } = await supabase
+          .from('tutor_applications')
+          .select('*, profiles:user_id(email, full_name)')
+          .order('created_at', { ascending: false });
         if (error) throw error;
-        const userIds = [...new Set((data || []).map((a: any) => a.user_id))];
-        const { data: profiles } = await supabase.from('profiles').select('id, email, full_name').in('id', userIds);
-        const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
-        result = (data || []).map((a: any) => ({ ...a, email: profileMap.get(a.user_id)?.email, full_name: profileMap.get(a.user_id)?.full_name }));
+        result = (data || []).map((a: any) => ({
+          ...a,
+          email: a.profiles?.email,
+          full_name: a.profiles?.full_name
+        }));
         break;
       }
 
       case 'review_tutor': {
         const { application_id, status, admin_note } = params;
-        if (!application_id || !status) return jsonResponse({ error: 'application_id and status required' }, 400);
         const { data: app, error: fetchErr } = await supabase.from('tutor_applications').select('user_id').eq('id', application_id).single();
         if (fetchErr) throw fetchErr;
-        const { error } = await supabase.from('tutor_applications').update({ status, reviewed_at: new Date().toISOString(), reviewed_by: caller.id, admin_note: admin_note || null }).eq('id', application_id);
+
+        const { error } = await supabase.from('tutor_applications').update({
+          status, reviewed_at: new Date().toISOString(), reviewed_by: caller.id, admin_note: admin_note || null
+        }).eq('id', application_id);
         if (error) throw error;
+
         if (status === 'approved' && app) {
           await supabase.from('user_roles').upsert({ user_id: app.user_id, role: 'tutor' }, { onConflict: 'user_id,role' });
         }
@@ -552,13 +303,47 @@ serve(async (req) => {
         break;
       }
 
+      case 'get_payment_history': {
+        const { data, error } = await supabase
+          .from('mission_applications')
+          .select(`
+            id, status, delivery_url, delivered_at, reviewed_at, review_note,
+            missionTitle:missions(title),
+            missionReward:missions(reward),
+            projectTitle:missions(projects(title)),
+            explorerEmail:profiles(email),
+            explorerName:profiles(full_name)
+          `)
+          .in('status', ['completed', 'funds_released'])
+          .order('reviewed_at', { ascending: false });
+        if (error) throw error;
+        result = data || [];
+        break;
+      }
+
+      case 'suspend_user': {
+        const { user_id } = params;
+        const { error } = await supabase.auth.admin.updateUserById(user_id, { ban_duration: '876000h' });
+        if (error) throw error;
+        result = { success: true };
+        break;
+      }
+
+      case 'activate_user': {
+        const { user_id } = params;
+        const { error } = await supabase.auth.admin.updateUserById(user_id, { ban_duration: 'none' });
+        if (error) throw error;
+        result = { success: true };
+        break;
+      }
+
       default:
-        return jsonResponse({ error: 'Unknown action' }, 400);
+        return jsonResponse({ error: `Action '${action}' not implemented` }, 400);
     }
 
     return jsonResponse(result);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Internal server error';
-    return jsonResponse({ error: message }, 500);
+    console.error('Edge Function Error:', err);
+    return jsonResponse({ error: err instanceof Error ? err.message : 'Internal server error' }, 500);
   }
 });

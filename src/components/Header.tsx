@@ -79,7 +79,7 @@ const Header = () => {
               </Link>
               <Link to="/register">
                 <Button
-                  variant={isActive('/register') ? 'default' : 'ghost'}
+                  variant={isActive('/register') ? 'outline' : 'ghost'}
                   size="sm"
                   className="font-heading text-xs"
                 >
