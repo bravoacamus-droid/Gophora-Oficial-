@@ -72,24 +72,24 @@ serve(async (req) => {
 
     switch (action) {
       case 'get_stats': {
-        const [profiles, projects, missions, deliverables] = await Promise.all([
+        const [profiles, projects, missions, applications] = await Promise.all([
           supabase.from('profiles').select('id', { count: 'exact', head: true }),
           supabase.from('projects').select('budget, payment_status'),
           supabase.from('missions').select('id', { count: 'exact', head: true }),
-          supabase.from('deliverables').select('id', { count: 'exact', head: true }),
+          supabase.from('mission_applications').select('id', { count: 'exact', head: true }),
         ]);
 
         const projectRows = projects.data || [];
-        const totalBudget = projectRows.reduce((sum, p) => sum + Number(p.budget || 0), 0);
+        const totalBudget = projectRows.reduce((sum: number, p: any) => sum + Number(p.budget || 0), 0);
         const paidBudget = projectRows
-          .filter((p) => p.payment_status === 'paid')
-          .reduce((sum, p) => sum + Number(p.budget || 0), 0);
+          .filter((p: any) => p.payment_status === 'paid')
+          .reduce((sum: number, p: any) => sum + Number(p.budget || 0), 0);
 
         result = {
           totalUsers: profiles.count || 0,
           totalProjects: projectRows.length,
           totalMissions: missions.count || 0,
-          totalApplications: deliverables.count || 0,
+          totalApplications: applications.count || 0,
           totalBudget,
           paidBudget,
           commission: Math.round(paidBudget * 0.1),
@@ -128,7 +128,7 @@ serve(async (req) => {
           .from('missions')
           .select(`
             id, title, description, skill, hours, hourly_rate, reward, 
-            status, project_id, approved_by, approved_at, created_at,
+            status, project_id, created_at,
             projects (id, title, user_id, payment_status, payment_screenshot_url, tx_hash)
           `)
           .order('created_at', { ascending: false });
@@ -150,9 +150,7 @@ serve(async (req) => {
       case 'approve_mission': {
         const { mission_id } = params;
         const { error } = await supabase.from('missions').update({
-          status: 'approved',
-          approved_by: caller.id,
-          approved_at: new Date().toISOString()
+          status: 'approved'
         }).eq('id', mission_id);
         if (error) throw error;
         result = { success: true };
@@ -162,9 +160,7 @@ serve(async (req) => {
       case 'reject_mission': {
         const { mission_id } = params;
         const { error } = await supabase.from('missions').update({
-          status: 'rejected',
-          approved_by: null,
-          approved_at: null
+          status: 'rejected'
         }).eq('id', mission_id);
         if (error) throw error;
         result = { success: true };
@@ -173,32 +169,47 @@ serve(async (req) => {
 
       case 'get_pending_releases': {
         const { data, error } = await supabase
-          .from('deliverables')
+          .from('mission_applications')
           .select(`
-            id, status, delivery_url, submitted_at, reviewed_at, review_note,
-            missionTitle:missions(title),
-            missionReward:missions(reward),
-            projectTitle:missions(projects(title)),
-            explorerEmail:profiles(email),
-            explorerName:profiles(full_name)
+            id, status, delivery_url, delivered_at, reviewed_at, review_note,
+            mission:mission_id (
+              title,
+              reward,
+              project:project_id (title)
+            ),
+            profile:user_id (email, full_name)
           `)
-          .in('status', ['submitted', 'delivered', 'pending'])
-          .order('submitted_at', { ascending: false });
+          .in('status', ['submitted', 'approved'])
+          .order('delivered_at', { ascending: false });
 
         if (error) throw error;
-        result = data || [];
+
+        // Map to flat structure for frontend compatibility
+        result = (data || []).map((app: any) => ({
+          id: app.id,
+          status: app.status,
+          delivery_url: app.delivery_url,
+          submitted_at: app.delivered_at,
+          reviewed_at: app.reviewed_at,
+          review_note: app.review_note,
+          missionTitle: app.mission?.title,
+          missionReward: app.mission?.reward,
+          projectTitle: app.mission?.project?.title,
+          explorerEmail: app.profile?.email,
+          explorerName: app.profile?.full_name
+        }));
         break;
       }
 
       case 'release_funds': {
         const { application_id } = params;
-        // Update deliverable
+        // Update application
         const { data: appData, error: updateErr } = await supabase
-          .from('deliverables')
+          .from('mission_applications')
           .update({
             status: 'funds_released',
-            reviewed_at: new Date().toISOString(),
-            reviewed_by: caller.id
+            funds_released_at: new Date().toISOString(),
+            funds_released_by: caller.id
           })
           .eq('id', application_id)
           .select('mission_id')
@@ -317,19 +328,35 @@ serve(async (req) => {
 
       case 'get_payment_history': {
         const { data, error } = await supabase
-          .from('deliverables')
+          .from('mission_applications')
           .select(`
-            id, status, delivery_url, submitted_at, reviewed_at, review_note,
-            missionTitle:missions(title),
-            missionReward:missions(reward),
-            projectTitle:missions(projects(title)),
-            explorerEmail:profiles(email),
-            explorerName:profiles(full_name)
+            id, status, delivery_url, delivered_at, reviewed_at, review_note,
+            mission:mission_id (
+              title,
+              reward,
+              project:project_id (title)
+            ),
+            profile:user_id (email, full_name)
           `)
           .in('status', ['completed', 'funds_released'])
           .order('reviewed_at', { ascending: false });
+
         if (error) throw error;
-        result = data || [];
+
+        // Map to flat structure for frontend compatibility
+        result = (data || []).map((app: any) => ({
+          id: app.id,
+          status: app.status,
+          delivery_url: app.delivery_url,
+          submitted_at: app.delivered_at,
+          reviewed_at: app.reviewed_at,
+          review_note: app.review_note,
+          missionTitle: app.mission?.title,
+          missionReward: app.mission?.reward,
+          projectTitle: app.mission?.project?.title,
+          explorerEmail: app.profile?.email,
+          explorerName: app.profile?.full_name
+        }));
         break;
       }
 
