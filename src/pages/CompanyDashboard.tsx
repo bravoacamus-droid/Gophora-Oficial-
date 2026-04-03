@@ -121,7 +121,7 @@ const CompanyDashboard = () => {
         const missionMap = new Map(mRows.map((m) => [m.id, m]));
         const projectMap = new Map(pRows.map((p) => [p.id, p.title]));
 
-        const deliveryAssigns = assigns.filter((a: any) => ['delivered', 'approved', 'rejected', 'paid'].includes(a.status));
+        const deliveryAssigns = assigns.filter((a: any) => ['submitted', 'approved', 'rejected', 'paid'].includes(a.status));
         setDeliveries(deliveryAssigns.map((a: any) => {
           const mission = missionMap.get(a.mission_id);
           return {
@@ -194,8 +194,8 @@ const CompanyDashboard = () => {
   const totalBudget = missions.reduce((sum, m) => sum + Number(m.reward || 0), 0);
   const usedBudget = missions.filter(m => ['approved', 'paid'].includes(m.status)).reduce((sum, m) => sum + Number(m.reward || 0), 0);
   const balance = totalBudget - usedBudget;
-  const pendingDeliveries = deliveries.filter((d) => d.status === 'delivered');
-  const uniqueExplorersTotal = new Set(applications.filter(a => ['assigned', 'delivered', 'approved', 'paid'].includes(a.status)).map(a => a.user_id));
+  const pendingDeliveries = deliveries.filter((d) => d.status === 'submitted');
+  const uniqueExplorersTotal = new Set(applications.filter(a => ['assigned', 'submitted', 'approved', 'paid'].includes(a.status)).map(a => a.user_id));
 
   const getMissionsForProject = (projectId: string) => missions.filter((m) => m.project_id === projectId);
   const getAppsForProject = (projectId: string) => {
@@ -452,10 +452,10 @@ const CompanyDashboard = () => {
                 const completed = pMissions.filter((m) => m.status === 'approved').length;
                 const totalReward = pMissions.reduce((s, m) => s + Number(m.reward), 0);
                 const pApps = getAppsForProject(project.id);
-                const explorerCount = new Set(pApps.filter(a => ['accepted', 'delivered', 'completed'].includes(a.status)).map(a => a.user_id)).size;
+                const explorerCount = new Set(pApps.filter(a => ['accepted', 'submitted', 'completed'].includes(a.status)).map(a => a.user_id)).size;
                 const progressPct = pMissions.length > 0 ? (completed / pMissions.length) * 100 : 0;
                 const statusBadge = getStatusBadge(project.status);
-                const hasPendingDeliveries = deliveries.filter(d => d.status === 'delivered' && pMissions.some(m => m.id === d.mission_id)).length > 0;
+                const hasPendingDeliveries = deliveries.filter(d => d.status === 'submitted' && pMissions.some(m => m.id === d.mission_id)).length > 0;
 
                 return (
                   <motion.div
@@ -538,7 +538,7 @@ const CompanyDashboard = () => {
             const pApps = getAppsForProject(selectedProject.id);
             const completedM = pMissions.filter((m) => m.status === 'approved').length;
             const pendingM = pMissions.filter((m) => m.status === 'open').length;
-            const uniqueExplorers = new Set(pApps.filter((a) => ['accepted', 'delivered', 'completed'].includes(a.status)).map((a) => a.user_id));
+            const uniqueExplorers = new Set(pApps.filter((a) => ['accepted', 'submitted', 'completed'].includes(a.status)).map((a) => a.user_id));
             const pUsed = pMissions.filter((m) => m.status === 'approved').reduce((s, m) => s + Number(m.reward), 0);
             const totalMissionsReward = pMissions.reduce((s, m) => s + Number(m.reward), 0);
             const progressPct = pMissions.length > 0 ? (completedM / pMissions.length) * 100 : 0;
@@ -609,7 +609,7 @@ const CompanyDashboard = () => {
                     <div className="space-y-2">
                       {pMissions.map((m) => {
                         const mApps = pApps.filter((a) => a.mission_id === m.id);
-                        const activeExplorers = mApps.filter((a) => ['accepted', 'delivered', 'completed'].includes(a.status));
+                        const activeExplorers = mApps.filter((a) => ['accepted', 'submitted', 'completed'].includes(a.status));
                         const isCompleted = m.status === 'approved';
                         return (
                           <div key={m.id} className={`rounded-lg border p-3 flex items-center justify-between ${isCompleted ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-border/50'}`}>

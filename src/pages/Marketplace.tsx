@@ -28,7 +28,7 @@ interface MarketplaceMission {
 
 const Marketplace = () => {
   const { t, language } = useLanguage();
-  const { user } = useAuth();
+  const { user, companyProfile } = useAuth();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [selectedSkill, setSelectedSkill] = useState('All');
@@ -276,13 +276,15 @@ const Marketplace = () => {
                 className="w-full font-heading text-xs tracking-wide"
                 size="sm"
                 onClick={(e) => { e.stopPropagation(); handleActivateMission(mission.id); }}
-                disabled={activated || activating}
+                disabled={activated || activating || !!companyProfile}
               >
                 {activating
                   ? (language === 'en' ? 'Activating...' : 'Activando...')
                   : activated
                     ? (language === 'en' ? 'Mission activated' : 'Misión activada')
-                    : t('marketplace.apply')}
+                    : (!!companyProfile)
+                      ? (language === 'en' ? 'Not for Organizations' : 'Solo Exploradores')
+                      : t('marketplace.apply')}
               </Button>
             </div>
           );
@@ -426,15 +428,17 @@ const Marketplace = () => {
                         <Button
                           className="flex-1 font-heading tracking-wide gap-2"
                           onClick={() => handleActivateMission(selectedMission.id)}
-                          disabled={activated || activating}
+                          disabled={activated || activating || !!companyProfile}
                         >
                           {activating
                             ? (language === 'en' ? 'Activating...' : 'Activando...')
                             : activated
                               ? (language === 'en' ? '✓ Mission activated' : '✓ Misión activada')
-                              : (
-                                <>{t('marketplace.apply')} <ArrowRight className="h-4 w-4" /></>
-                              )}
+                              : (!!companyProfile)
+                                ? (language === 'en' ? 'Not for Organizations' : 'Solo para Exploradores')
+                                : (
+                                  <>{t('marketplace.apply')} <ArrowRight className="h-4 w-4" /></>
+                                )}
                         </Button>
                         {activated && (
                           <Link to="/explorer" className="flex-1">
