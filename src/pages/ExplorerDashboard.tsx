@@ -206,7 +206,7 @@ const ExplorerDashboard = () => {
         .update({
           delivery_url: url,
           delivered_at: new Date().toISOString(),
-          status: 'delivered',
+          status: 'submitted',
         })
         .eq('id', appId) as any);
 
@@ -222,7 +222,7 @@ const ExplorerDashboard = () => {
     }
   };
 
-  const activeMissions = applications.filter((a) => ['assigned', 'in_progress', 'delivered', 'rejected'].includes(a.status));
+  const activeMissions = applications.filter((a) => ['assigned', 'in_progress', 'submitted', 'rejected'].includes(a.status));
   const completedMissions = applications.filter((a) => ['approved', 'paid'].includes(a.status));
   const completedCount = completedMissions.length;
   const totalEarnings = completedMissions.reduce((sum, a) => sum + a.missionReward, 0);
@@ -231,8 +231,8 @@ const ExplorerDashboard = () => {
 
   const statusLabel = (status: string) => {
     const map: Record<string, string> = isEs
-      ? { assigned: 'ASIGNADA', in_progress: 'EN PROGRESO', delivered: 'EN REVISIÓN', approved: 'APROBADA', rejected: 'RECHAZADA', paid: 'PAGADA' }
-      : { assigned: 'ASSIGNED', in_progress: 'IN PROGRESS', delivered: 'IN REVIEW', approved: 'APPROVED', rejected: 'REJECTED', paid: 'PAID' };
+      ? { assigned: 'ASIGNADA', in_progress: 'EN PROGRESO', submitted: 'EN REVISIÓN', approved: 'APROBADA', rejected: 'RECHAZADA', paid: 'PAGADA' }
+      : { assigned: 'ASSIGNED', in_progress: 'IN PROGRESS', submitted: 'IN REVIEW', approved: 'APPROVED', rejected: 'REJECTED', paid: 'PAID' };
     return map[status] || status.toUpperCase();
   };
 
@@ -240,7 +240,7 @@ const ExplorerDashboard = () => {
     const map: Record<string, string> = {
       assigned: 'bg-primary/10 text-primary',
       in_progress: 'bg-primary/10 text-primary',
-      delivered: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
+      submitted: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
       approved: 'bg-green-500/10 text-green-600 dark:text-green-400',
       paid: 'bg-green-500/10 text-green-600 dark:text-green-400',
       rejected: 'bg-destructive/10 text-destructive',
@@ -577,7 +577,7 @@ const ExplorerDashboard = () => {
                 )}
 
                 {/* Delivery section */}
-                {(selectedApp.status === 'pending' || selectedApp.status === 'rejected') && (
+                {['assigned', 'in_progress', 'rejected'].includes(selectedApp.status) && (
                   <div className="space-y-2 border-t border-border/50 pt-4">
                     <h3 className="font-heading font-semibold text-sm">{isEs ? 'Entregar trabajo' : 'Submit delivery'}</h3>
                     {selectedApp.status === 'rejected' && selectedApp.review_note && (
@@ -613,7 +613,7 @@ const ExplorerDashboard = () => {
                   </div>
                 )}
 
-                {selectedApp.status === 'delivered' && (
+                {selectedApp.status === 'submitted' && (
                   <div className="flex items-center gap-3 border-t border-border/50 pt-4">
                     <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
                       <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
