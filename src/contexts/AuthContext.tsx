@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const checkAdminRole = async (userId: string, email?: string) => {
     try {
       log(`Checking admin role for user: ${userId} (${email})`);
-      const { data, error } = await supabase.rpc('has_role', {
+      const { data, error } = await supabase.rpc('verify_user_role', {
         _user_id: userId,
         _role: 'admin'
       });
