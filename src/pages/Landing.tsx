@@ -4,6 +4,7 @@ import { ArrowRight, Clock, Play, Rocket, GraduationCap, Users, Zap, Video, Book
 import gophoraLogo from '@/assets/gophora-logo.png';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface LiveProject {
@@ -30,7 +31,7 @@ const getCountdown = (project: LiveProject) => {
   return { h, m, s, expired: false };
 };
 
-const ProjectCard = ({ project, onAction }: { project: LiveProject; onAction: () => void }) => {
+const ProjectCard = ({ project, onAction, isEs }: { project: LiveProject; onAction: () => void; isEs: boolean }) => {
   const [time, setTime] = useState(getCountdown(project));
 
   useEffect(() => {
@@ -48,7 +49,7 @@ const ProjectCard = ({ project, onAction }: { project: LiveProject; onAction: ()
       <div className="flex items-center gap-2 mb-3">
         <span className="flex items-center gap-1.5 text-xs font-heading font-semibold text-red-500">
           <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          EN EJECUCIÓN
+          {isEs ? 'EN EJECUCIÓN' : 'RUNNING'}
         </span>
         {project.category && (
           <span className="text-xs font-body text-muted-foreground px-2 py-0.5 rounded-full bg-muted">
@@ -63,21 +64,23 @@ const ProjectCard = ({ project, onAction }: { project: LiveProject; onAction: ()
       <div className="flex items-center gap-2 mb-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
         <Clock className="h-4 w-4 text-primary" />
         <div className="flex-1">
-          <div className="text-xs text-muted-foreground font-body">Entrega en</div>
+          <div className="text-xs text-muted-foreground font-body">{isEs ? 'Entrega en' : 'Delivery in'}</div>
           <div className="font-heading font-bold text-primary tabular-nums">
-            {time.expired ? 'ENTREGADO' : `${String(time.h).padStart(2, '0')}h ${String(time.m).padStart(2, '0')}m ${String(time.s).padStart(2, '0')}s`}
+            {time.expired
+              ? (isEs ? 'ENTREGADO' : 'DELIVERED')
+              : `${String(time.h).padStart(2, '0')}h ${String(time.m).padStart(2, '0')}m ${String(time.s).padStart(2, '0')}s`}
           </div>
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2">
         <Button size="sm" variant="outline" className="text-xs gap-1" onClick={onAction}>
-          <Video className="h-3 w-3" /> Ver en vivo
+          <Video className="h-3 w-3" /> {isEs ? 'Ver en vivo' : 'Watch live'}
         </Button>
         <Button size="sm" variant="outline" className="text-xs gap-1" onClick={onAction}>
-          <Play className="h-3 w-3" /> Grabaciones
+          <Play className="h-3 w-3" /> {isEs ? 'Grabaciones' : 'Recordings'}
         </Button>
         <Button size="sm" className="text-xs gap-1 bg-primary hover:bg-primary/90 text-white" onClick={onAction}>
-          <UserPlus className="h-3 w-3" /> Participar
+          <UserPlus className="h-3 w-3" /> {isEs ? 'Participar' : 'Join'}
         </Button>
       </div>
     </motion.div>
@@ -86,6 +89,8 @@ const ProjectCard = ({ project, onAction }: { project: LiveProject; onAction: ()
 
 const Landing = () => {
   const navigate = useNavigate();
+  const { language } = useLanguage();
+  const isEs = language === 'es';
   const [projects, setProjects] = useState<LiveProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
@@ -108,12 +113,31 @@ const Landing = () => {
     document.getElementById('proyectos-en-vivo')?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const steps = [
-    { icon: Rocket, title: 'Entra y explora', desc: 'Mira proyectos reales ejecutándose ahora, sin necesidad de registrarte.' },
-    { icon: UserPlus, title: 'Únete gratis', desc: 'Regístrate en segundos y recibe misiones recomendadas para ti.' },
-    { icon: Zap, title: 'Ejecuta con IA', desc: 'Completa trabajos con inteligencia artificial mientras aprendes en vivo.' },
-    { icon: Users, title: 'Gana desde el día uno', desc: 'Recibe pago al aprobar la entrega. Simple, rápido, real.' },
-  ];
+  const steps = isEs
+    ? [
+        { icon: Rocket, title: 'Entra y explora', desc: 'Mira proyectos reales ejecutándose ahora, sin necesidad de registrarte.' },
+        { icon: UserPlus, title: 'Únete gratis', desc: 'Regístrate en segundos y recibe misiones recomendadas para ti.' },
+        { icon: Zap, title: 'Ejecuta con IA', desc: 'Completa trabajos con inteligencia artificial mientras aprendes en vivo.' },
+        { icon: Users, title: 'Gana desde el día uno', desc: 'Recibe pago al aprobar la entrega. Simple, rápido, real.' },
+      ]
+    : [
+        { icon: Rocket, title: 'Enter and explore', desc: 'See real projects running right now, no sign-up needed.' },
+        { icon: UserPlus, title: 'Join free', desc: 'Sign up in seconds and receive missions tailored for you.' },
+        { icon: Zap, title: 'Execute with AI', desc: 'Complete jobs using artificial intelligence while you learn live.' },
+        { icon: Users, title: 'Earn from day one', desc: 'Get paid when your delivery is approved. Simple, fast, real.' },
+      ];
+
+  const trainFeatures = isEs
+    ? [
+        { icon: Video, title: 'Webinars en vivo', desc: 'Ve a tutores ejecutando proyectos en tiempo real con las herramientas IA más actuales.' },
+        { icon: Play, title: 'Grabaciones de misiones', desc: 'Accede a la biblioteca completa de proyectos reales ya ejecutados.' },
+        { icon: GraduationCap, title: 'Misiones de aprendizaje', desc: 'Entrena con ejercicios prácticos y desbloquea niveles para acceder a mejores misiones.' },
+      ]
+    : [
+        { icon: Video, title: 'Live webinars', desc: 'Watch tutors execute real-time projects with the latest AI tools.' },
+        { icon: Play, title: 'Mission recordings', desc: 'Access the full library of real projects already executed.' },
+        { icon: GraduationCap, title: 'Learning missions', desc: 'Train with practical exercises and unlock levels to access better missions.' },
+      ];
 
   return (
     <div className="min-h-screen overflow-hidden">
@@ -134,7 +158,7 @@ const Landing = () => {
           >
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             <span className="text-xs font-heading font-semibold tracking-wider uppercase text-primary">
-              Proyectos ejecutándose ahora
+              {isEs ? 'Proyectos ejecutándose ahora' : 'Projects running right now'}
             </span>
           </motion.div>
           <motion.h1
@@ -143,9 +167,19 @@ const Landing = () => {
             transition={{ duration: 0.6, delay: 0.15 }}
             className="text-4xl md:text-6xl lg:text-7xl font-heading font-black tracking-tight leading-[1.05] mb-6"
           >
-            Completa trabajos en menos de{' '}
-            <span className="text-gradient-primary italic">72 horas</span>
-            {' '}con inteligencia artificial
+            {isEs ? (
+              <>
+                Completa trabajos en menos de{' '}
+                <span className="text-gradient-primary italic">72 horas</span>{' '}
+                con inteligencia artificial
+              </>
+            ) : (
+              <>
+                Complete jobs in under{' '}
+                <span className="text-gradient-primary italic">72 hours</span>{' '}
+                with artificial intelligence
+              </>
+            )}
           </motion.h1>
           <motion.p
             initial={{ opacity: 0 }}
@@ -153,7 +187,9 @@ const Landing = () => {
             transition={{ duration: 0.6, delay: 0.35 }}
             className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 font-body leading-relaxed"
           >
-            Aprende viendo proyectos reales en vivo y empieza a generar ingresos desde el primer día.
+            {isEs
+              ? 'Aprende viendo proyectos reales en vivo y empieza a generar ingresos desde el primer día.'
+              : 'Learn by watching real projects live and start earning from day one.'}
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 15 }}
@@ -166,7 +202,7 @@ const Landing = () => {
               onClick={scrollToProjects}
               className="w-full sm:w-auto gap-2 bg-primary hover:bg-primary/90 text-white min-w-[220px]"
             >
-              <Video className="h-4 w-4" /> Ver proyectos en vivo
+              <Video className="h-4 w-4" /> {isEs ? 'Ver proyectos en vivo' : 'See live projects'}
             </Button>
             <Link to="/register" className="w-full sm:w-auto">
               <Button
@@ -174,7 +210,7 @@ const Landing = () => {
                 variant="outline"
                 className="w-full sm:w-auto gap-2 border-primary text-primary hover:bg-primary/5 min-w-[220px]"
               >
-                Unirme gratis <ArrowRight className="h-4 w-4" />
+                {isEs ? 'Unirme gratis' : 'Join free'} <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
           </motion.div>
@@ -191,13 +227,15 @@ const Landing = () => {
             className="text-center mb-12"
           >
             <p className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3">
-              En vivo
+              {isEs ? 'En vivo' : 'Live'}
             </p>
             <h2 className="text-3xl md:text-5xl font-heading font-bold mb-4">
-              Proyectos ejecutándose ahora
+              {isEs ? 'Proyectos ejecutándose ahora' : 'Projects running right now'}
             </h2>
             <p className="text-muted-foreground font-body max-w-2xl mx-auto">
-              Mira en vivo cómo se completan trabajos reales con IA. Únete al evento, ve la grabación o aplica para participar.
+              {isEs
+                ? 'Mira en vivo cómo se completan trabajos reales con IA. Únete al evento, ve la grabación o aplica para participar.'
+                : 'Watch real AI-powered jobs get completed live. Join the event, watch the recording, or apply to participate.'}
             </p>
           </motion.div>
 
@@ -217,13 +255,25 @@ const Landing = () => {
             <div className="text-center py-12 rounded-2xl border border-dashed border-border bg-card/50">
               <Clock className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
               <p className="text-muted-foreground font-body">
-                No hay proyectos activos en este momento. <Link to="/register" className="text-primary font-semibold hover:underline">Únete gratis</Link> y te avisamos cuando haya uno nuevo.
+                {isEs ? (
+                  <>
+                    No hay proyectos activos en este momento.{' '}
+                    <Link to="/register" className="text-primary font-semibold hover:underline">Únete gratis</Link>
+                    {' '}y te avisamos cuando haya uno nuevo.
+                  </>
+                ) : (
+                  <>
+                    No active projects right now.{' '}
+                    <Link to="/register" className="text-primary font-semibold hover:underline">Join free</Link>
+                    {' '}and we'll let you know when a new one drops.
+                  </>
+                )}
               </p>
             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {projects.map(p => (
-                <ProjectCard key={p.id} project={p} onAction={handleProjectAction} />
+                <ProjectCard key={p.id} project={p} onAction={handleProjectAction} isEs={isEs} />
               ))}
             </div>
           )}
@@ -240,10 +290,10 @@ const Landing = () => {
             className="text-center mb-16"
           >
             <p className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3">
-              Cómo funciona
+              {isEs ? 'Cómo funciona' : 'How it works'}
             </p>
             <h2 className="text-3xl md:text-5xl font-heading font-bold">
-              Del registro al pago en 72 horas
+              {isEs ? 'Del registro al pago en 72 horas' : 'From sign-up to payment in 72 hours'}
             </h2>
           </motion.div>
           <div className="grid md:grid-cols-4 gap-8">
@@ -283,21 +333,19 @@ const Landing = () => {
             className="text-center mb-12"
           >
             <p className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3">
-              Educación
+              {isEs ? 'Educación' : 'Education'}
             </p>
             <h2 className="text-3xl md:text-5xl font-heading font-bold mb-4">
-              Capacítate para trabajar
+              {isEs ? 'Capacítate para trabajar' : 'Train to work'}
             </h2>
             <p className="text-muted-foreground font-body max-w-2xl mx-auto">
-              Aprende haciendo. Misiones de aprendizaje, webinars en vivo y grabaciones de proyectos reales ejecutados con IA.
+              {isEs
+                ? 'Aprende haciendo. Misiones de aprendizaje, webinars en vivo y grabaciones de proyectos reales ejecutados con IA.'
+                : 'Learn by doing. Learning missions, live webinars and recordings of real AI-powered projects.'}
             </p>
           </motion.div>
           <div className="grid md:grid-cols-3 gap-6">
-            {[
-              { icon: Video, title: 'Webinars en vivo', desc: 'Ve a tutores ejecutando proyectos en tiempo real con las herramientas IA más actuales.' },
-              { icon: Play, title: 'Grabaciones de misiones', desc: 'Accede a la biblioteca completa de proyectos reales ya ejecutados.' },
-              { icon: GraduationCap, title: 'Misiones de aprendizaje', desc: 'Entrena con ejercicios prácticos y desbloquea niveles para acceder a mejores misiones.' },
-            ].map((f, i) => (
+            {trainFeatures.map((f, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -326,14 +374,16 @@ const Landing = () => {
           className="container max-w-3xl text-center"
         >
           <h2 className="text-3xl md:text-5xl font-heading font-bold mb-6">
-            Empieza hoy. Gana esta semana.
+            {isEs ? 'Empieza hoy. Gana esta semana.' : 'Start today. Earn this week.'}
           </h2>
           <p className="text-lg text-muted-foreground font-body mb-10">
-            Únete gratis a GOPHORA y recibe tu primera misión recomendada.
+            {isEs
+              ? 'Únete gratis a GOPHORA y recibe tu primera misión recomendada.'
+              : 'Join GOPHORA free and get your first recommended mission.'}
           </p>
           <Link to="/register">
             <Button size="lg" className="gap-2 bg-primary hover:bg-primary/90 text-white min-w-[220px]">
-              Unirme gratis <ArrowRight className="h-4 w-4" />
+              {isEs ? 'Unirme gratis' : 'Join free'} <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
         </motion.div>
@@ -345,12 +395,14 @@ const Landing = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
               <img src={gophoraLogo} alt="GOPHORA" className="h-6 dark:invert" />
-              <span className="text-xs text-muted-foreground font-body">Trabajo + aprendizaje con IA</span>
+              <span className="text-xs text-muted-foreground font-body">
+                {isEs ? 'Trabajo + aprendizaje con IA' : 'Work + learning with AI'}
+              </span>
             </div>
             <nav className="flex items-center gap-6 text-sm font-body text-muted-foreground">
-              <Link to="/about" className="hover:text-primary transition-colors">Sobre nosotros</Link>
+              <Link to="/about" className="hover:text-primary transition-colors">{isEs ? 'Sobre nosotros' : 'About us'}</Link>
               <Link to="/faq" className="hover:text-primary transition-colors">FAQ</Link>
-              <Link to="/organizations" className="hover:text-primary transition-colors">Organizaciones</Link>
+              <Link to="/organizations" className="hover:text-primary transition-colors">{isEs ? 'Organizaciones' : 'Organizations'}</Link>
             </nav>
             <p className="text-sm text-muted-foreground font-body">© 2026 GOPHORA.</p>
           </div>
@@ -388,10 +440,12 @@ const Landing = () => {
                   <Rocket className="h-8 w-8 text-primary" />
                 </div>
                 <h3 className="text-2xl font-heading font-bold mb-3">
-                  Regístrate para participar
+                  {isEs ? 'Regístrate para participar' : 'Sign up to participate'}
                 </h3>
                 <p className="text-muted-foreground font-body mb-6">
-                  Únete gratis a GOPHORA para acceder al evento en vivo, grabaciones y aplicar a este tipo de misiones.
+                  {isEs
+                    ? 'Únete gratis a GOPHORA para acceder al evento en vivo, grabaciones y aplicar a este tipo de misiones.'
+                    : 'Join GOPHORA free to access the live event, recordings, and apply for these missions.'}
                 </p>
                 <div className="flex flex-col gap-3">
                   <Button
@@ -399,7 +453,7 @@ const Landing = () => {
                     className="w-full gap-2 bg-primary hover:bg-primary/90 text-white"
                     onClick={() => navigate('/register')}
                   >
-                    Unirme gratis <ArrowRight className="h-4 w-4" />
+                    {isEs ? 'Unirme gratis' : 'Join free'} <ArrowRight className="h-4 w-4" />
                   </Button>
                   <Button
                     size="lg"
@@ -407,7 +461,7 @@ const Landing = () => {
                     className="w-full"
                     onClick={() => navigate('/login')}
                   >
-                    Ya tengo cuenta
+                    {isEs ? 'Ya tengo cuenta' : 'I already have an account'}
                   </Button>
                 </div>
               </div>
