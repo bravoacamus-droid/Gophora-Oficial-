@@ -12,6 +12,18 @@ dist
 dist-ssr
 *.local
 
+# Env files (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Local test artifacts
+test.js
+test_edge.js
+signup_test.js
+test_output.txt
+test_results*.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
