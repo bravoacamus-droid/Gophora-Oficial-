@@ -124,7 +124,7 @@ const CompanyDashboard = () => {
         const missionMap = new Map(mRows.map((m) => [m.id, m]));
         const projectMap = new Map(pRows.map((p) => [p.id, p.title]));
 
-        const deliveryAssigns = assigns.filter((a: any) => ['submitted', 'approved', 'rejected', 'paid'].includes(a.status));
+        const deliveryAssigns = assigns.filter((a: any) => ['submitted', 'approved', 'rejected', 'completed', 'funds_released'].includes(a.status));
         setDeliveries(deliveryAssigns.map((a: any) => {
           const mission = missionMap.get(a.mission_id);
           return {
@@ -210,10 +210,10 @@ const CompanyDashboard = () => {
   const completedMissions = missions.filter((m) => m.status === 'approved');
   const inProgressMissions = missions.filter((m) => m.status === 'assigned');
   const totalBudget = missions.reduce((sum, m) => sum + Number(m.reward || 0), 0);
-  const usedBudget = missions.filter(m => ['approved', 'paid'].includes(m.status)).reduce((sum, m) => sum + Number(m.reward || 0), 0);
+  const usedBudget = missions.filter(m => ['approved', 'completed', 'funds_released'].includes(m.status)).reduce((sum, m) => sum + Number(m.reward || 0), 0);
   const balance = totalBudget - usedBudget;
   const pendingDeliveries = deliveries.filter((d) => d.status === 'submitted');
-  const uniqueExplorersTotal = new Set(applications.filter(a => ['assigned', 'submitted', 'approved', 'paid'].includes(a.status)).map(a => a.user_id));
+  const uniqueExplorersTotal = new Set(applications.filter(a => ['assigned', 'submitted', 'approved', 'completed', 'funds_released'].includes(a.status)).map(a => a.user_id));
 
   const getMissionsForProject = (projectId: string) => missions.filter((m) => m.project_id === projectId);
   const getAppsForProject = (projectId: string) => {
@@ -538,8 +538,8 @@ const CompanyDashboard = () => {
                     <p className="text-sm font-heading font-semibold truncate">{d.missionTitle}</p>
                     <p className="text-xs text-muted-foreground font-body">@{d.explorerName} • {d.projectTitle}</p>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-heading font-semibold border ${['approved', 'paid'].includes(d.status) ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' : d.status === 'rejected' ? 'bg-destructive/15 text-destructive border-destructive/30' : 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30'}`}>
-                    {['approved', 'paid'].includes(d.status) ? (isEs ? 'Aprobada' : 'Approved') : d.status === 'rejected' ? (isEs ? 'Rechazada' : 'Rejected') : (isEs ? 'Pendiente' : 'Pending')}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-heading font-semibold border ${['approved', 'completed', 'funds_released'].includes(d.status) ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' : d.status === 'rejected' ? 'bg-destructive/15 text-destructive border-destructive/30' : 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30'}`}>
+                    {['approved', 'completed', 'funds_released'].includes(d.status) ? (isEs ? 'Aprobada' : 'Approved') : d.status === 'rejected' ? (isEs ? 'Rechazada' : 'Rejected') : (isEs ? 'Pendiente' : 'Pending')}
                   </span>
                 </div>
               ))}

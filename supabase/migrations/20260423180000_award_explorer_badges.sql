@@ -25,9 +25,11 @@ DECLARE
 BEGIN
   IF _explorer_id IS NULL THEN RETURN; END IF;
 
+  -- assignment_status enum: assigned, in_progress, submitted, approved, rejected, completed, funds_released
+  -- "Done successfully" states are approved/completed/funds_released (no "paid").
   SELECT COUNT(*) INTO v_missions_completed
     FROM mission_assignments
-    WHERE explorer_id = _explorer_id AND status IN ('approved', 'paid');
+    WHERE explorer_id = _explorer_id AND status IN ('approved', 'completed', 'funds_released');
 
   SELECT COUNT(*) INTO v_courses_completed
     FROM explorer_course_progress

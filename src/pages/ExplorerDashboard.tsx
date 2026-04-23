@@ -231,7 +231,7 @@ const ExplorerDashboard = () => {
   };
 
   const activeMissions = applications.filter((a) => ['assigned', 'in_progress', 'submitted', 'rejected'].includes(a.status));
-  const completedMissions = applications.filter((a) => ['approved', 'paid'].includes(a.status));
+  const completedMissions = applications.filter((a) => ['approved', 'completed', 'funds_released'].includes(a.status));
   const completedCount = completedMissions.length;
   const totalEarnings = completedMissions.reduce((sum, a) => sum + a.missionReward, 0);
 

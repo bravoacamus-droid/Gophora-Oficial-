@@ -101,7 +101,7 @@ export function usePassportStats(explorerId?: string | null) {
         db.from('certificates').select('*').eq('explorer_id', id),
         db.from('explorer_course_progress').select('*').eq('user_id', id).eq('completed', true),
         db.from('explorer_exam_attempts').select('*').eq('explorer_id', id).eq('passed', true),
-        db.from('mission_assignments').select('*').eq('explorer_id', id).in('status', ['approved', 'paid']),
+        db.from('mission_assignments').select('*').eq('explorer_id', id).in('status', ['approved', 'completed', 'funds_released']),
         db.from('profiles').select('full_name, username, avatar_url, bio, account_type').eq('id', id).single(),
       ]);
 

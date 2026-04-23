@@ -55,7 +55,7 @@ serve(async (req) => {
       supabase.from("explorer_skills").select("skill_name, skill_level, category").eq("explorer_id", user.id),
       supabase.from("explorer_course_progress").select("course_id").eq("user_id", user.id).eq("completed", true),
       supabase.from("explorer_exam_attempts").select("score, passed").eq("explorer_id", user.id),
-      supabase.from("mission_assignments").select("id").eq("explorer_id", explorerProfileId).in("status", ["approved", "paid"]),
+      supabase.from("mission_assignments").select("id").eq("explorer_id", explorerProfileId).in("status", ["approved", "completed", "funds_released"]),
       supabase.from("mission_assignments").select("mission_id").eq("explorer_id", explorerProfileId),
       supabase
         .from("missions")
