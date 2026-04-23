@@ -919,7 +919,7 @@ const AdminPanel = () => {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-heading font-bold flex items-center gap-2">
-                  <GraduationCap className="h-5 w-5 text-primary" /> Dream Academy — Cursos ({adminCourses.length})
+                  <GraduationCap className="h-5 w-5 text-primary" /> Capacítate para Trabajar — Cursos ({adminCourses.length})
                 </h2>
                 <Button onClick={() => setShowAddCourse(true)} className="gap-2">
                   <Plus className="h-4 w-4" /> Agregar Curso

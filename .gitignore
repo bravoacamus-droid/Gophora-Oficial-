@@ -24,6 +24,10 @@ signup_test.js
 test_output.txt
 test_results*.json
 
+# Internal docs / tool state
+.claude/
+actualizaciones/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,64 +1,124 @@
-import { useState } from 'react';
-import { Zap, ArrowRight, Target, Cpu, Users, Globe, Rocket, Clock, TrendingUp, LayoutGrid, Calendar, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, Clock, Play, Rocket, GraduationCap, Users, Zap, Video, BookOpen, UserPlus, X } from 'lucide-react';
 import gophoraLogo from '@/assets/gophora-logo.png';
-import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/integrations/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Easing } from 'framer-motion';
 
-const ease: Easing = [0.25, 0.1, 0.25, 1];
+interface LiveProject {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string | null;
+  created_at: string;
+  deadline: string | null;
+  video_link: string | null;
+  resource_link: string | null;
+}
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: (i: number = 0) => ({
-    opacity: 1, y: 0,
-    transition: { duration: 0.5, delay: i * 0.1, ease },
-  }),
+// 72h countdown from project creation. If deadline set, use it instead.
+const getCountdown = (project: LiveProject) => {
+  const target = project.deadline
+    ? new Date(project.deadline).getTime()
+    : new Date(project.created_at).getTime() + 72 * 60 * 60 * 1000;
+  const diff = target - Date.now();
+  if (diff <= 0) return { h: 0, m: 0, s: 0, expired: true };
+  const h = Math.floor(diff / (1000 * 60 * 60));
+  const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const s = Math.floor((diff % (1000 * 60)) / 1000);
+  return { h, m, s, expired: false };
 };
 
-const staggerContainer = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.08 } },
-};
+const ProjectCard = ({ project, onAction }: { project: LiveProject; onAction: () => void }) => {
+  const [time, setTime] = useState(getCountdown(project));
 
-const scaleIn = {
-  hidden: { opacity: 0, scale: 0.9 },
-  visible: (i: number = 0) => ({
-    opacity: 1, scale: 1,
-    transition: { duration: 0.4, delay: i * 0.08, ease },
-  }),
+  useEffect(() => {
+    const t = setInterval(() => setTime(getCountdown(project)), 1000);
+    return () => clearInterval(t);
+  }, [project]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.3 }}
+      className="relative rounded-2xl border border-primary/20 bg-card p-6 hover:border-primary/50 transition-all hover:shadow-[0_0_30px_rgba(251,113,23,0.15)]"
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <span className="flex items-center gap-1.5 text-xs font-heading font-semibold text-red-500">
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+          EN EJECUCIÓN
+        </span>
+        {project.category && (
+          <span className="text-xs font-body text-muted-foreground px-2 py-0.5 rounded-full bg-muted">
+            {project.category}
+          </span>
+        )}
+      </div>
+      <h3 className="text-lg font-heading font-bold mb-2 line-clamp-2">{project.title}</h3>
+      {project.description && (
+        <p className="text-sm text-muted-foreground font-body mb-4 line-clamp-2">{project.description}</p>
+      )}
+      <div className="flex items-center gap-2 mb-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
+        <Clock className="h-4 w-4 text-primary" />
+        <div className="flex-1">
+          <div className="text-xs text-muted-foreground font-body">Entrega en</div>
+          <div className="font-heading font-bold text-primary tabular-nums">
+            {time.expired ? 'ENTREGADO' : `${String(time.h).padStart(2, '0')}h ${String(time.m).padStart(2, '0')}m ${String(time.s).padStart(2, '0')}s`}
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <Button size="sm" variant="outline" className="text-xs gap-1" onClick={onAction}>
+          <Video className="h-3 w-3" /> Ver en vivo
+        </Button>
+        <Button size="sm" variant="outline" className="text-xs gap-1" onClick={onAction}>
+          <Play className="h-3 w-3" /> Grabaciones
+        </Button>
+        <Button size="sm" className="text-xs gap-1 bg-primary hover:bg-primary/90 text-white" onClick={onAction}>
+          <UserPlus className="h-3 w-3" /> Participar
+        </Button>
+      </div>
+    </motion.div>
+  );
 };
 
 const Landing = () => {
-  const { t } = useLanguage();
-  const [showCalendar, setShowCalendar] = useState(false);
+  const navigate = useNavigate();
+  const [projects, setProjects] = useState<LiveProject[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
 
-  const benefits = [
-    { icon: Clock, title: t('landing.benefits.speed.title'), desc: t('landing.benefits.speed.desc') },
-    { icon: TrendingUp, title: t('landing.benefits.scale.title'), desc: t('landing.benefits.scale.desc') },
-    { icon: LayoutGrid, title: t('landing.benefits.structure.title'), desc: t('landing.benefits.structure.desc') },
-    { icon: Globe, title: t('landing.benefits.global.title'), desc: t('landing.benefits.global.desc') },
-  ];
+  useEffect(() => {
+    supabase
+      .from('projects')
+      .select('id, title, description, category, created_at, deadline, video_link, resource_link')
+      .order('created_at', { ascending: false })
+      .limit(6)
+      .then(({ data, error }) => {
+        if (!error && data) setProjects(data as LiveProject[]);
+        setLoading(false);
+      });
+  }, []);
+
+  const handleProjectAction = () => setShowRegisterPrompt(true);
+
+  const scrollToProjects = () => {
+    document.getElementById('proyectos-en-vivo')?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const steps = [
-    { icon: Target, num: '01', title: t('landing.steps.1.title'), desc: t('landing.steps.1.desc') },
-    { icon: Cpu, num: '02', title: t('landing.steps.2.title'), desc: t('landing.steps.2.desc') },
-    { icon: Users, num: '03', title: t('landing.steps.3.title'), desc: t('landing.steps.3.desc') },
-    { icon: Zap, num: '04', title: t('landing.steps.4.title'), desc: t('landing.steps.4.desc') },
-  ];
-
-  const tractionStats = [
-    { value: '$50K', label: t('landing.traction.processed') },
-    { value: '$5K', label: t('landing.traction.revenue') },
-    { value: '20', label: t('landing.traction.projects') },
-    { value: '∞', label: t('landing.traction.agencies') },
+    { icon: Rocket, title: 'Entra y explora', desc: 'Mira proyectos reales ejecutándose ahora, sin necesidad de registrarte.' },
+    { icon: UserPlus, title: 'Únete gratis', desc: 'Regístrate en segundos y recibe misiones recomendadas para ti.' },
+    { icon: Zap, title: 'Ejecuta con IA', desc: 'Completa trabajos con inteligencia artificial mientras aprendes en vivo.' },
+    { icon: Users, title: 'Gana desde el día uno', desc: 'Recibe pago al aprobar la entrega. Simple, rápido, real.' },
   ];
 
   return (
     <div className="min-h-screen overflow-hidden">
       {/* ========== HERO ========== */}
-      <section className="relative overflow-hidden py-24 md:py-40">
+      <section className="relative overflow-hidden py-24 md:py-32">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent" />
         <motion.div
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-primary/5 rounded-full blur-3xl"
@@ -66,385 +126,216 @@ const Landing = () => {
           transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
         />
         <div className="container relative z-10 text-center max-w-4xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 mb-8"
+          >
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-xs font-heading font-semibold tracking-wider uppercase text-primary">
+              Proyectos ejecutándose ahora
+            </span>
+          </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
             className="text-4xl md:text-6xl lg:text-7xl font-heading font-black tracking-tight leading-[1.05] mb-6"
           >
-            {t('landing.hero.title1')}{' '}
-            <span className="text-gradient-primary italic">{t('landing.hero.title2')}</span>
+            Completa trabajos en menos de{' '}
+            <span className="text-gradient-primary italic">72 horas</span>
+            {' '}con inteligencia artificial
           </motion.h1>
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.35 }}
-            className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto mb-4 font-body leading-relaxed"
+            className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 font-body leading-relaxed"
           >
-            {t('landing.hero.subtitle')}
-          </motion.p>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            className="text-primary font-heading font-semibold text-sm mb-10"
-          >
-            {t('landing.hero.tagline')}
+            Aprende viendo proyectos reales en vivo y empieza a generar ingresos desde el primer día.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.65 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
-            <Link to="/register?role=explorer">
-              <Button variant="hero" size="lg" className="w-full sm:w-auto gap-2 bg-primary hover:bg-primary/90 text-white min-w-[200px]">
-                🚀 Soy Explorer <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link to="/register?role=company">
-              <Button variant="hero-outline" size="lg" className="w-full sm:w-auto gap-2 border-primary text-primary hover:bg-primary/5 min-w-[200px]">
-                🏢 Soy Empresa <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1 }}
-            className="mt-8"
-          >
             <Button
-              variant="link"
-              size="sm"
-              className="text-muted-foreground hover:text-primary"
-              onClick={() => setShowCalendar(true)}
+              size="lg"
+              onClick={scrollToProjects}
+              className="w-full sm:w-auto gap-2 bg-primary hover:bg-primary/90 text-white min-w-[220px]"
             >
-              ¿Quieres ver una demo primero? <Calendar className="ml-2 h-4 w-4" />
+              <Video className="h-4 w-4" /> Ver proyectos en vivo
             </Button>
+            <Link to="/register" className="w-full sm:w-auto">
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full sm:w-auto gap-2 border-primary text-primary hover:bg-primary/5 min-w-[220px]"
+              >
+                Unirme gratis <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
           </motion.div>
         </div>
       </section>
 
-      {/* ========== THE EXECUTION GAP ========== */}
-      <section className="py-24 bg-card/50">
-        <motion.div
-          className="container max-w-3xl text-center"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-        >
-          <motion.p variants={fadeUp} custom={0} className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3">
-            {t('landing.gap.badge')}
-          </motion.p>
-          <motion.h2 variants={fadeUp} custom={1} className="text-3xl md:text-5xl font-heading font-bold mb-8">
-            {t('landing.gap.title')}
-          </motion.h2>
-          <motion.div variants={fadeUp} custom={2} className="space-y-6 text-lg md:text-xl font-body text-muted-foreground leading-relaxed">
-            <p><span className="text-foreground font-semibold">{t('landing.gap.ideas')}</span><br />{t('landing.gap.execution')}</p>
-            <p>{t('landing.gap.teams')}</p>
-            <p className="text-base">
-              {t('landing.gap.meetings')}<br />
-              {t('landing.gap.freelancers')}<br />
-              {t('landing.gap.projects')}
-            </p>
-            <p className="text-foreground font-heading font-bold text-xl md:text-2xl pt-4">
-              {t('landing.gap.not_talent')}<br />
-              <span className="text-primary">{t('landing.gap.coordination')}</span>
-            </p>
-          </motion.div>
-        </motion.div>
-      </section>
-
-      {/* ========== WORK IS CHANGING ========== */}
-      <section className="py-24">
-        <motion.div
-          className="container max-w-4xl"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-        >
-          <motion.p variants={fadeUp} custom={0} className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3 text-center">
-            {t('landing.shift.badge')}
-          </motion.p>
-          <motion.h2 variants={fadeUp} custom={1} className="text-3xl md:text-5xl font-heading font-bold mb-12 text-center">
-            {t('landing.shift.title')}
-          </motion.h2>
-          <div className="grid md:grid-cols-2 gap-8">
-            <motion.div variants={scaleIn} custom={2} className="rounded-xl border border-border/50 bg-background p-8">
-              <p className="text-xs font-heading font-semibold tracking-[0.2em] text-muted-foreground uppercase mb-4">{t('landing.shift.old_label')}</p>
-              <p className="text-muted-foreground font-body leading-relaxed">
-                {t('landing.shift.old_desc')} <span className="text-destructive font-semibold">{t('landing.shift.old_result')}</span>
-              </p>
-            </motion.div>
-            <motion.div variants={scaleIn} custom={3} className="rounded-xl border border-primary/30 bg-primary/5 p-8">
-              <p className="text-xs font-heading font-semibold tracking-[0.2em] text-primary uppercase mb-4">{t('landing.shift.new_label')}</p>
-              <p className="text-foreground font-body leading-relaxed">
-                {t('landing.shift.new_desc')} <span className="text-primary font-semibold">{t('landing.shift.new_result')}</span>
-              </p>
-            </motion.div>
-          </div>
-          <motion.p variants={fadeUp} custom={4} className="text-center mt-8 text-lg font-heading font-bold text-primary">
-            {t('landing.shift.powers')}
-          </motion.p>
-        </motion.div>
-      </section>
-
-      {/* ========== PRODUCT ========== */}
-      <section className="py-24 bg-card/50">
-        <motion.div
-          className="container max-w-3xl text-center"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-        >
-          <motion.p variants={fadeUp} custom={0} className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3">
-            {t('landing.product.badge')}
-          </motion.p>
-          <motion.h2 variants={fadeUp} custom={1} className="text-3xl md:text-5xl font-heading font-bold mb-6">
-            {t('landing.product.title')}
-          </motion.h2>
-          <motion.p variants={fadeUp} custom={2} className="text-lg text-muted-foreground font-body leading-relaxed mb-4">
-            {t('landing.product.desc')}
-          </motion.p>
-          <motion.p variants={fadeUp} custom={3} className="text-muted-foreground font-body">
-            {t('landing.product.no_hiring')}<br />{t('landing.product.no_chaos')}
-          </motion.p>
-          <motion.p variants={fadeUp} custom={4} className="text-xl font-heading font-bold text-primary mt-6">
-            {t('landing.product.outcome')}
-          </motion.p>
-        </motion.div>
-      </section>
-
-      {/* ========== HOW IT WORKS ========== */}
-      <section className="py-24">
-        <div className="container max-w-5xl">
-          <motion.p
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3 text-center"
-          >
-            {t('landing.how.badge')}
-          </motion.p>
-          <motion.h2
+      {/* ========== PROYECTOS EJECUTÁNDOSE AHORA ========== */}
+      <section id="proyectos-en-vivo" className="py-24 bg-card/30">
+        <div className="container max-w-6xl">
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="text-3xl md:text-4xl font-heading font-bold text-center mb-16"
+            className="text-center mb-12"
           >
-            {t('landing.how.title')}
-          </motion.h2>
+            <p className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3">
+              En vivo
+            </p>
+            <h2 className="text-3xl md:text-5xl font-heading font-bold mb-4">
+              Proyectos ejecutándose ahora
+            </h2>
+            <p className="text-muted-foreground font-body max-w-2xl mx-auto">
+              Mira en vivo cómo se completan trabajos reales con IA. Únete al evento, ve la grabación o aplica para participar.
+            </p>
+          </motion.div>
+
+          {loading ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="rounded-2xl border border-border/50 bg-card p-6 animate-pulse">
+                  <div className="h-4 bg-muted rounded w-1/3 mb-3" />
+                  <div className="h-6 bg-muted rounded mb-2" />
+                  <div className="h-4 bg-muted rounded w-3/4 mb-4" />
+                  <div className="h-16 bg-muted rounded mb-4" />
+                  <div className="h-8 bg-muted rounded" />
+                </div>
+              ))}
+            </div>
+          ) : projects.length === 0 ? (
+            <div className="text-center py-12 rounded-2xl border border-dashed border-border bg-card/50">
+              <Clock className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground font-body">
+                No hay proyectos activos en este momento. <Link to="/register" className="text-primary font-semibold hover:underline">Únete gratis</Link> y te avisamos cuando haya uno nuevo.
+              </p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {projects.map(p => (
+                <ProjectCard key={p.id} project={p} onAction={handleProjectAction} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ========== CÓMO FUNCIONA ========== */}
+      <section className="py-24">
+        <div className="container max-w-5xl">
           <motion.div
-            className="grid md:grid-cols-4 gap-8"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.2 }}
-            variants={staggerContainer}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
           >
+            <p className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3">
+              Cómo funciona
+            </p>
+            <h2 className="text-3xl md:text-5xl font-heading font-bold">
+              Del registro al pago en 72 horas
+            </h2>
+          </motion.div>
+          <div className="grid md:grid-cols-4 gap-8">
             {steps.map((step, i) => (
-              <motion.div key={i} variants={fadeUp} custom={i} className="relative group">
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.3 }}
+                transition={{ delay: i * 0.1 }}
+                className="relative"
+              >
                 {i < 3 && <div className="hidden md:block absolute top-10 left-full w-full h-px bg-gradient-to-r from-primary/50 to-transparent z-0" />}
                 <div className="relative z-10 flex flex-col items-center text-center">
-                  <motion.div
-                    whileHover={{ scale: 1.1, boxShadow: '0 0 25px hsl(20 100% 50% / 0.3)' }}
-                    transition={{ type: 'spring', stiffness: 300 }}
-                    className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6"
-                  >
+                  <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-5">
                     <step.icon className="h-8 w-8 text-primary" />
-                  </motion.div>
-                  <div className="text-xs font-heading font-bold text-primary mb-2 tracking-widest">{step.num}</div>
+                  </div>
+                  <div className="text-xs font-heading font-bold text-primary mb-2 tracking-widest">
+                    {String(i + 1).padStart(2, '0')}
+                  </div>
                   <h3 className="text-lg font-heading font-bold mb-2">{step.title}</h3>
                   <p className="text-sm text-muted-foreground font-body">{step.desc}</p>
                 </div>
               </motion.div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </section>
 
-      {/* ========== BENEFITS ========== */}
-      <section className="py-24 bg-card/50">
+      {/* ========== CAPACÍTATE PARA TRABAJAR ========== */}
+      <section className="py-24 bg-card/30">
         <div className="container max-w-5xl">
-          <motion.p
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3 text-center"
-          >
-            {t('landing.benefits.badge')}
-          </motion.p>
-          <motion.h2
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="text-3xl md:text-4xl font-heading font-bold text-center mb-12"
+            className="text-center mb-12"
           >
-            {t('landing.benefits.title')}
-          </motion.h2>
-          <motion.div
-            className="grid sm:grid-cols-2 gap-6"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.2 }}
-            variants={staggerContainer}
-          >
-            {benefits.map((b, i) => (
+            <p className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3">
+              Educación
+            </p>
+            <h2 className="text-3xl md:text-5xl font-heading font-bold mb-4">
+              Capacítate para trabajar
+            </h2>
+            <p className="text-muted-foreground font-body max-w-2xl mx-auto">
+              Aprende haciendo. Misiones de aprendizaje, webinars en vivo y grabaciones de proyectos reales ejecutados con IA.
+            </p>
+          </motion.div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { icon: Video, title: 'Webinars en vivo', desc: 'Ve a tutores ejecutando proyectos en tiempo real con las herramientas IA más actuales.' },
+              { icon: Play, title: 'Grabaciones de misiones', desc: 'Accede a la biblioteca completa de proyectos reales ya ejecutados.' },
+              { icon: GraduationCap, title: 'Misiones de aprendizaje', desc: 'Entrena con ejercicios prácticos y desbloquea niveles para acceder a mejores misiones.' },
+            ].map((f, i) => (
               <motion.div
                 key={i}
-                variants={scaleIn}
-                custom={i}
-                whileHover={{ y: -5, transition: { duration: 0.2 } }}
-                className="rounded-xl border border-border/50 bg-background p-6 hover:border-primary/30 transition-colors group"
+                initial={{ opacity: 0, scale: 0.95 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true, amount: 0.3 }}
+                transition={{ delay: i * 0.1 }}
+                className="rounded-xl border border-border/50 bg-background p-6 hover:border-primary/30 transition-colors"
               >
                 <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <b.icon className="h-6 w-6 text-primary" />
+                  <f.icon className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="font-heading font-bold text-lg mb-2">{b.title}</h3>
-                <p className="text-sm text-muted-foreground font-body">{b.desc}</p>
+                <h3 className="font-heading font-bold text-lg mb-2">{f.title}</h3>
+                <p className="text-sm text-muted-foreground font-body">{f.desc}</p>
               </motion.div>
             ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ========== REAL EXAMPLE ========== */}
-      <section className="py-24">
-        <motion.div
-          className="container max-w-4xl"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-        >
-          <motion.p variants={fadeUp} custom={0} className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3 text-center">
-            {t('landing.example.badge')}
-          </motion.p>
-          <motion.h2 variants={fadeUp} custom={1} className="text-3xl md:text-4xl font-heading font-bold text-center mb-12">
-            {t('landing.example.title')}
-          </motion.h2>
-          <div className="grid md:grid-cols-2 gap-8">
-            <motion.div variants={scaleIn} custom={2} className="rounded-xl border border-border/50 bg-background p-8">
-              <p className="text-xs font-heading font-semibold tracking-[0.2em] text-muted-foreground uppercase mb-4">{t('landing.example.traditional_label')}</p>
-              <ul className="space-y-2 text-sm text-muted-foreground font-body">
-                <li className="flex items-center gap-2"><span>•</span> {t('landing.example.trad1')}</li>
-                <li className="flex items-center gap-2"><span>•</span> {t('landing.example.trad2')}</li>
-                <li className="flex items-center gap-2"><span>•</span> {t('landing.example.trad3')}</li>
-                <li className="flex items-center gap-2"><span>•</span> {t('landing.example.trad4')}</li>
-              </ul>
-            </motion.div>
-            <motion.div variants={scaleIn} custom={3} className="rounded-xl border border-primary/30 bg-primary/5 p-8">
-              <p className="text-xs font-heading font-semibold tracking-[0.2em] text-primary uppercase mb-4">{t('landing.example.gophora_label')}</p>
-              <p className="text-sm text-foreground font-body mb-3">{t('landing.example.gophora1')}</p>
-              <p className="text-sm text-foreground font-body font-semibold mb-3">{t('landing.example.gophora2')}</p>
-              <p className="text-primary font-heading font-bold text-lg">{t('landing.example.gophora3')}</p>
-            </motion.div>
           </div>
-        </motion.div>
-      </section>
-
-      {/* ========== TRACTION ========== */}
-      <section className="border-y border-border/50 bg-card/50">
-        <motion.div
-          className="container max-w-4xl py-16"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-        >
-          <motion.p variants={fadeUp} custom={0} className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3 text-center">
-            {t('landing.traction.badge')}
-          </motion.p>
-          <motion.h2 variants={fadeUp} custom={1} className="text-2xl md:text-3xl font-heading font-bold text-center mb-2">
-            {t('landing.traction.title')}
-          </motion.h2>
-          <motion.p variants={fadeUp} custom={2} className="text-sm text-muted-foreground text-center mb-10 font-body">{t('landing.traction.since')}</motion.p>
-          <motion.div
-            className="grid grid-cols-2 md:grid-cols-4 gap-6"
-            variants={staggerContainer}
-          >
-            {tractionStats.map((stat, i) => (
-              <motion.div key={i} variants={fadeUp} custom={i} className="text-center">
-                <div className="text-3xl md:text-4xl font-heading font-black text-primary">{stat.value}</div>
-                <div className="text-xs md:text-sm text-muted-foreground font-body mt-1">{stat.label}</div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </motion.div>
-      </section>
-
-      {/* ========== WHY GOPHORA ========== */}
-      <section className="py-24">
-        <motion.div
-          className="container max-w-3xl text-center"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-        >
-          <motion.p variants={fadeUp} custom={0} className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3">
-            {t('landing.why.badge')}
-          </motion.p>
-          <motion.p variants={fadeUp} custom={1} className="text-xl md:text-2xl text-muted-foreground font-body mb-4">
-            {t('landing.why.organize')}
-          </motion.p>
-          <motion.h2 variants={fadeUp} custom={2} className="text-3xl md:text-5xl font-heading font-bold mb-4">
-            GOPHORA <span className="text-primary">{t('landing.why.completes')}</span> {t('landing.why.work')}
-          </motion.h2>
-          <motion.p variants={fadeUp} custom={3} className="text-lg text-muted-foreground font-body">
-            {t('landing.why.difference')}
-          </motion.p>
-        </motion.div>
-      </section>
-
-      {/* ========== THE FUTURE ========== */}
-      <section className="py-24 bg-card/50">
-        <motion.div
-          className="container max-w-3xl text-center"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-        >
-          <motion.p variants={fadeUp} custom={0} className="text-xs font-heading font-semibold tracking-[0.25em] text-primary uppercase mb-3">
-            {t('landing.future.badge')}
-          </motion.p>
-          <motion.p variants={fadeUp} custom={1} className="text-xl md:text-2xl font-body text-muted-foreground leading-relaxed mb-6">
-            {t('landing.future.line1')}
-          </motion.p>
-          <motion.p variants={fadeUp} custom={2} className="text-xl md:text-2xl font-heading font-bold text-foreground mb-6">
-            {t('landing.future.line2_pre')} <span className="text-primary">{t('landing.future.line2_highlight')}</span>
-          </motion.p>
-          <motion.p variants={fadeUp} custom={3} className="text-muted-foreground font-body">
-            {t('landing.future.line3')}
-          </motion.p>
-        </motion.div>
+        </div>
       </section>
 
       {/* ========== FINAL CTA ========== */}
       <section className="py-24 bg-gradient-to-b from-primary/5 via-primary/10 to-primary/5">
         <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
           className="container max-w-3xl text-center"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
         >
-          <motion.h2 variants={fadeUp} custom={0} className="text-3xl md:text-5xl font-heading font-bold mb-6">
-            {t('landing.cta.title')}
-          </motion.h2>
-          <motion.p variants={fadeUp} custom={1} className="text-lg text-muted-foreground font-body mb-10">
-            {t('landing.cta.desc')}
-          </motion.p>
-          <motion.div variants={fadeUp} custom={2} className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/register?role=explorer">
-              <Button variant="hero" size="lg" className="w-full sm:w-auto gap-2">
-                Empieza como Explorer <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link to="/register?role=company">
-              <Button variant="hero-outline" size="lg" className="w-full sm:w-auto gap-2">
-                Empieza como Empresa <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-          </motion.div>
+          <h2 className="text-3xl md:text-5xl font-heading font-bold mb-6">
+            Empieza hoy. Gana esta semana.
+          </h2>
+          <p className="text-lg text-muted-foreground font-body mb-10">
+            Únete gratis a GOPHORA y recibe tu primera misión recomendada.
+          </p>
+          <Link to="/register">
+            <Button size="lg" className="gap-2 bg-primary hover:bg-primary/90 text-white min-w-[220px]">
+              Unirme gratis <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
         </motion.div>
       </section>
 
@@ -454,49 +345,72 @@ const Landing = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
               <img src={gophoraLogo} alt="GOPHORA" className="h-6 dark:invert" />
-              <span className="text-xs text-muted-foreground font-body">{t('landing.footer.tagline')}</span>
+              <span className="text-xs text-muted-foreground font-body">Trabajo + aprendizaje con IA</span>
             </div>
             <nav className="flex items-center gap-6 text-sm font-body text-muted-foreground">
-              <Link to="/about" className="hover:text-primary transition-colors">{t('nav.about')}</Link>
-              <Link to="/faq" className="hover:text-primary transition-colors">{t('nav.faq')}</Link>
-              <Link to="/organizations" className="hover:text-primary transition-colors">{t('nav.organizations')}</Link>
+              <Link to="/about" className="hover:text-primary transition-colors">Sobre nosotros</Link>
+              <Link to="/faq" className="hover:text-primary transition-colors">FAQ</Link>
+              <Link to="/organizations" className="hover:text-primary transition-colors">Organizaciones</Link>
             </nav>
-            <p className="text-sm text-muted-foreground font-body">© 2026 GOPHORA. {t('landing.footer.rights')}</p>
+            <p className="text-sm text-muted-foreground font-body">© 2026 GOPHORA.</p>
           </div>
         </div>
       </footer>
 
-      {/* ========== CALENDAR MODAL ========== */}
+      {/* ========== REGISTER PROMPT MODAL (tipo Uber) ========== */}
       <AnimatePresence>
-        {showCalendar && (
+        {showRegisterPrompt && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-            onClick={() => setShowCalendar(false)}
+            onClick={() => setShowRegisterPrompt(false)}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2 }}
-              className="relative w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl bg-white text-black"
+              className="relative w-full max-w-md rounded-2xl overflow-hidden shadow-2xl bg-card border border-border"
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                <h3 className="font-heading font-bold text-lg text-black">{t('landing.hero.cta_demo')}</h3>
-                <Button variant="ghost" size="icon" onClick={() => setShowCalendar(false)} className="text-black hover:bg-gray-100">
-                  <X className="h-5 w-5" />
-                </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowRegisterPrompt(false)}
+                className="absolute top-3 right-3 z-10"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+              <div className="p-8 text-center">
+                <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-5">
+                  <Rocket className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="text-2xl font-heading font-bold mb-3">
+                  Regístrate para participar
+                </h3>
+                <p className="text-muted-foreground font-body mb-6">
+                  Únete gratis a GOPHORA para acceder al evento en vivo, grabaciones y aplicar a este tipo de misiones.
+                </p>
+                <div className="flex flex-col gap-3">
+                  <Button
+                    size="lg"
+                    className="w-full gap-2 bg-primary hover:bg-primary/90 text-white"
+                    onClick={() => navigate('/register')}
+                  >
+                    Unirme gratis <ArrowRight className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => navigate('/login')}
+                  >
+                    Ya tengo cuenta
+                  </Button>
+                </div>
               </div>
-              <iframe
-                src="https://calendar.google.com/calendar/appointments/AcZssZ3B3xhww76gwntADM2FcsS8Qp4w-JIKSSHQsFA=?gv=true"
-                style={{ border: 0, background: 'white' }}
-                width="100%"
-                height="600"
-                title="Book a demo"
-              />
             </motion.div>
           </motion.div>
         )}

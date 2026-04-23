@@ -173,7 +173,7 @@ const AcademyDashboard = () => {
             issueCert.mutate({
               courseId,
               courseTitle: course.title,
-              tutorName: course.instructor_name || 'Dream Academy',
+              tutorName: course.instructor_name || 'GOPHORA',
               explorerName: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Explorer',
             });
           }
@@ -309,7 +309,7 @@ const AcademyDashboard = () => {
                   <Rocket className="h-7 w-7 text-primary" />
                 </div>
                 <div>
-                  <h1 className="text-2xl md:text-3xl font-heading font-bold tracking-tight">Dream Academy</h1>
+                  <h1 className="text-2xl md:text-3xl font-heading font-bold tracking-tight">{isEs ? 'Capacítate para Trabajar' : 'Train to Work'}</h1>
                   <p className="text-xs text-muted-foreground font-heading uppercase tracking-widest">
                     {isEs ? 'Motor de Habilidades en IA' : 'AI Skill Engine'}
                   </p>

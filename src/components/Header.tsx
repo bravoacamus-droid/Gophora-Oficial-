@@ -28,7 +28,7 @@ const Header = () => {
     { path: accountType === 'company' ? '/company' : '/explorer', label: t('nav.dashboard') },
     ...(accountType === 'explorer' ? [
       { path: '/marketplace', label: language === 'es' ? 'Trabajo' : 'Work' },
-      { path: '/academy', label: 'Dream Academy' },
+      { path: '/academy', label: language === 'es' ? 'Capacítate' : 'Train' },
     ] : []),
     ...(accountType === 'company' ? [{ path: '/projects/create', label: t('nav.projects') }] : []),
     ...(isAdmin ? [{ path: '/admin', label: t('nav.admin') }] : []),
