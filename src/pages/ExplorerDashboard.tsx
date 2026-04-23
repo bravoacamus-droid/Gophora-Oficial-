@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   Compass, Zap, CheckCircle, DollarSign, Star, Trophy, ExternalLink,
   Send, ChevronRight, Clock, FileText, LinkIcon, GraduationCap,
-  ShoppingBag, Wallet, Award, TrendingUp, Rocket, Target
+  ShoppingBag, Wallet, Award, TrendingUp, Rocket, Target, Video
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import BalanceModule from '@/components/BalanceModule';
@@ -23,6 +23,7 @@ import DailyMissions from '@/components/DailyMissions';
 import StreakTracker from '@/components/StreakTracker';
 import SocialProof from '@/components/SocialProof';
 import SmartRecommendations from '@/components/SmartRecommendations';
+import AvailableMissions from '@/components/AvailableMissions';
 import { useEngagementData, getXPLevel, useTrackActivity } from '@/hooks/useEngagement';
 
 interface Application {
@@ -73,6 +74,7 @@ interface ApplicationWithMission {
   missionHourlyRate: number;
   projectTitle: string;
   projectResourceLink: string | null;
+  projectVideoLink: string | null;
   delivery_url: string | null;
   delivered_at: string | null;
   reviewed_at: string | null;
@@ -139,14 +141,14 @@ const ExplorerDashboard = () => {
 
       const mRows = missionRows || [];
       const projectIds = [...new Set(mRows.map((m) => m.project_id))];
-      const projectMap = new Map<string, { title: string; resource_link: string | null }>();
+      const projectMap = new Map<string, { title: string; resource_link: string | null; video_link: string | null }>();
 
       if (projectIds.length > 0) {
         const { data: projectRows } = await supabase
           .from('projects')
-          .select('id, title, resource_link')
+          .select('id, title, resource_link, video_link')
           .in('id', projectIds);
-        (projectRows || []).forEach((p) => projectMap.set(p.id, { title: p.title, resource_link: p.resource_link }));
+        (projectRows || []).forEach((p) => projectMap.set(p.id, { title: p.title, resource_link: p.resource_link, video_link: (p as any).video_link }));
       }
 
       const missionMap = new Map(mRows.map((m) => [m.id, m]));
@@ -169,6 +171,7 @@ const ExplorerDashboard = () => {
           missionHourlyRate: Number(mission?.hourly_rate || 0),
           projectTitle: project?.title || 'Project',
           projectResourceLink: project?.resource_link || null,
+          projectVideoLink: project?.video_link || null,
           delivery_url: a.delivery_url,
           delivered_at: a.delivered_at,
           reviewed_at: a.reviewed_at,
@@ -344,6 +347,15 @@ const ExplorerDashboard = () => {
               </div>
             ) : (
               <>
+                {/* ─── Block 1: Available missions for you (Uber-style) ─── */}
+                <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={0}>
+                  <AvailableMissions
+                    explorerProfileId={explorerProfile?.id || null}
+                    explorerSkills={Array.isArray(explorerProfile?.skills) ? explorerProfile.skills : []}
+                    onActivated={loadData}
+                  />
+                </motion.div>
+
                 {/* ─── Engagement Row: Streak + Daily Missions ─── */}
                 <div className="grid md:grid-cols-5 gap-4">
                   <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={0} className="md:col-span-2">
@@ -552,6 +564,15 @@ const ExplorerDashboard = () => {
                       <span className="text-muted-foreground">{isEs ? 'Proyecto:' : 'Project:'}</span>{' '}
                       <span className="font-semibold">{selectedApp.projectTitle}</span>
                     </p>
+                    {selectedApp.projectVideoLink && (
+                      <a href={selectedApp.projectVideoLink} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-red-500 hover:text-red-600 hover:underline font-body font-semibold"
+                        onClick={(e) => e.stopPropagation()}>
+                        <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                        <Video className="h-3.5 w-3.5" />
+                        {isEs ? 'Ver en vivo' : 'Watch live'}
+                      </a>
+                    )}
                     {selectedApp.projectResourceLink && (
                       <a href={selectedApp.projectResourceLink} target="_blank" rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-body"
@@ -560,7 +581,7 @@ const ExplorerDashboard = () => {
                         {isEs ? 'Recursos del proyecto' : 'Project resources'}
                       </a>
                     )}
-                    {!selectedApp.projectResourceLink && (
+                    {!selectedApp.projectResourceLink && !selectedApp.projectVideoLink && (
                       <p className="text-xs text-muted-foreground font-body italic">
                         {isEs ? 'No hay recursos adicionales.' : 'No additional resources.'}
                       </p>

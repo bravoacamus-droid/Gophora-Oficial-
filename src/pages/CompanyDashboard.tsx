@@ -29,6 +29,7 @@ interface ProjectRow {
   priority: string;
   deadline: string | null;
   resource_link: string | null;
+  video_link: string | null;
   created_at: string;
 }
 
@@ -90,7 +91,7 @@ const CompanyDashboard = () => {
 
     const [{ data: compProfile }, { data: projectRows }] = await Promise.all([
       supabase.from('company_profiles' as any).select('company_name').eq('user_id', user.id).maybeSingle() as any,
-      supabase.from('projects').select('id, title, budget, status, payment_status, description, category, priority, deadline, resource_link, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('projects').select('id, title, budget, status, payment_status, description, category, priority, deadline, resource_link, video_link, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
     ]);
 
     setProfile({ full_name: compProfile?.company_name });
@@ -587,11 +588,19 @@ const CompanyDashboard = () => {
                     <h3 className="font-heading font-semibold text-sm flex items-center gap-2">
                       <FileText className="h-4 w-4 text-primary" /> {isEs ? 'Recursos del proyecto' : 'Project Resources'}
                     </h3>
-                    {selectedProject.resource_link && (
-                      <a href={selectedProject.resource_link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-body bg-primary/5 px-3 py-1.5 rounded-lg">
-                        <ArrowUpRight className="h-3 w-3" /> {isEs ? 'Abrir recursos' : 'Open resources'}
-                      </a>
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {selectedProject.video_link && (
+                        <a href={selectedProject.video_link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-red-500 hover:text-red-600 hover:underline font-body font-semibold bg-red-500/5 border border-red-500/20 px-3 py-1.5 rounded-lg">
+                          <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                          {isEs ? 'Ver en vivo' : 'Watch live'}
+                        </a>
+                      )}
+                      {selectedProject.resource_link && (
+                        <a href={selectedProject.resource_link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-body bg-primary/5 px-3 py-1.5 rounded-lg">
+                          <ArrowUpRight className="h-3 w-3" /> {isEs ? 'Abrir recursos' : 'Open resources'}
+                        </a>
+                      )}
+                    </div>
                     <div className="flex gap-2">
                       <Input placeholder={isEs ? 'Link de recursos (Google Drive, Dropbox...)' : 'Resource link (Google Drive, Dropbox...)'} value={editingResourceLink} onChange={(e) => setEditingResourceLink(e.target.value)} className="flex-1 text-sm" />
                       <Button size="sm" onClick={() => handleUpdateResource(selectedProject.id)} disabled={savingResource || !editingResourceLink.trim()} className="font-heading text-xs">
