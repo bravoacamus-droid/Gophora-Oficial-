@@ -171,7 +171,7 @@ const Onboarding = () => {
                         >
                             <div className="space-y-2">
                                 <h1 className="text-3xl font-heading font-black">Bienvenido a GOPHORA</h1>
-                                <p className="text-muted-foreground font-body">Elige cómo quieres usar la plataforma</p>
+                                <p className="text-muted-foreground font-body">¿Qué quieres hacer en GOPHORA?</p>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <button
@@ -179,16 +179,16 @@ const Onboarding = () => {
                                     className="p-6 rounded-2xl border-2 border-border hover:border-primary transition-all text-left group"
                                 >
                                     <User className="h-10 w-10 text-primary mb-4 group-hover:scale-110 transition-transform" />
-                                    <h3 className="font-heading font-bold text-lg">Soy Explorer</h3>
-                                    <p className="text-sm text-muted-foreground mt-1">Quiero completar misiones y ganar dinero con mis habilidades.</p>
+                                    <h3 className="font-heading font-bold text-lg">Aprender y ganar dinero</h3>
+                                    <p className="text-sm text-muted-foreground mt-1">Ejecuta misiones reales con IA, aprende viendo proyectos en vivo y genera ingresos.</p>
                                 </button>
                                 <button
                                     onClick={() => handleSelectRole('company')}
                                     className="p-6 rounded-2xl border-2 border-border hover:border-primary transition-all text-left group"
                                 >
                                     <Building2 className="h-10 w-10 text-primary mb-4 group-hover:scale-110 transition-transform" />
-                                    <h3 className="font-heading font-bold text-lg">Soy Empresa</h3>
-                                    <p className="text-sm text-muted-foreground mt-1">Quiero delegar tareas y escalar mi negocio con talento verificado.</p>
+                                    <h3 className="font-heading font-bold text-lg">Publicar un proyecto</h3>
+                                    <p className="text-sm text-muted-foreground mt-1">Completa trabajos en menos de 72 horas con una red de exploradores que usan IA.</p>
                                 </button>
                             </div>
                         </motion.div>

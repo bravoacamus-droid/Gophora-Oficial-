@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useActivateMission } from '@/hooks/useActivateMission';
 import { Search, Clock, DollarSign, User, Zap, X, ArrowRight, FileText, CheckCircle, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link, useNavigate } from 'react-router-dom';
@@ -34,9 +35,9 @@ const Marketplace = () => {
   const [selectedSkill, setSelectedSkill] = useState('All');
   const [missions, setMissions] = useState<MarketplaceMission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activatingMissionId, setActivatingMissionId] = useState<string | null>(null);
   const [activatedMissionIds, setActivatedMissionIds] = useState<string[]>([]);
   const [selectedMission, setSelectedMission] = useState<MarketplaceMission | null>(null);
+  const { activate, activatingId: activatingMissionId } = useActivateMission();
 
   const loadMarketplaceData = async () => {
     setLoading(true);
@@ -111,7 +112,6 @@ const Marketplace = () => {
         setActivatedMissionIds([]);
       }
     } catch (err: any) {
-      console.error('Marketplace load error:', err);
       toast.error(err.message || 'No se pudo cargar el marketplace');
     } finally {
       setLoading(false);
@@ -132,69 +132,17 @@ const Marketplace = () => {
   }, [missions, search, selectedSkill]);
 
   const handleActivateMission = async (missionId: string) => {
-    if (!user) {
-      toast.error(language === 'en' ? 'You must log in to take a mission' : 'Debes iniciar sesión para tomar una misión');
-      return;
-    }
     if (activatedMissionIds.includes(missionId)) {
       toast.success(language === 'en' ? 'This mission is already yours' : 'Esta misión ya es tuya');
       return;
     }
-    setActivatingMissionId(missionId);
-    try {
-      // 1. Get explorer profile
-      const { data: expProfile } = await (supabase
-        .from('explorer_profiles' as any)
-        .select('id')
-        .eq('user_id', user.id)
-        .single() as any);
-
-      if (!expProfile) throw new Error('Explorer profile not found');
-
-      // 2. Take mission (Uber style: transaction-like check)
-      // Check current number of assignments
-      const { count, error: countError } = await (supabase
-        .from('mission_assignments' as any)
-        .select('*', { count: 'exact', head: true })
-        .eq('mission_id', missionId) as any);
-
-      if (countError) throw countError;
-
-      // First check if already taken
-      const { data: mission } = await (supabase.from('missions' as any).select('status').eq('id', missionId).single() as any);
-
-      if (mission.status !== 'approved' && mission.status !== 'open') {
-        toast.error('Esta misión ya no está disponible');
-        return;
-      }
-
-      if ((count || 0) >= 10) {
-        toast.error('Esta misión ya ha alcanzado el límite de exploradores');
-        return;
-      }
-
-      // 3. Create assignment
-      const { error: assignError } = await (supabase.from('mission_assignments' as any).insert({
-        mission_id: missionId,
-        explorer_id: expProfile.id,
-        status: 'assigned'
-      }) as any);
-      if (assignError) throw assignError;
-
-      // 4. Update mission status ONLY if it's the 10th activation
-      if ((count || 0) + 1 === 10) {
-        await (supabase.from('missions' as any).update({ status: 'assigned' as any }).eq('id', missionId) as any);
-      }
-
-      setActivatedMissionIds((prev) => [...prev, missionId]);
-      toast.success(language === 'en' ? 'Mission taken successfully!' : '¡Misión tomada con éxito!');
-
-      // Navigate to dashboard 
+    const { success } = await activate(missionId, {
+      onSuccess: () => {
+        setActivatedMissionIds((prev) => [...prev, missionId]);
+      },
+    });
+    if (success) {
       setTimeout(() => navigate('/explorer'), 1500);
-    } catch (err: any) {
-      toast.error(err.message || 'No se pudo tomar la misión');
-    } finally {
-      setActivatingMissionId(null);
     }
   };
 

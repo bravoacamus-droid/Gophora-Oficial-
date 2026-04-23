@@ -80,7 +80,9 @@ const CompanyDashboard = () => {
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [editingResourceLink, setEditingResourceLink] = useState('');
+  const [editingVideoLink, setEditingVideoLink] = useState('');
   const [savingResource, setSavingResource] = useState(false);
+  const [savingVideo, setSavingVideo] = useState(false);
   const [profile, setProfile] = useState<{ full_name?: string; username?: string } | null>(null);
   const [selectedProject, setSelectedProject] = useState<ProjectRow | null>(null);
   const [projectTab, setProjectTab] = useState('all');
@@ -186,6 +188,21 @@ const CompanyDashboard = () => {
       toast.error(err.message || 'Error');
     } finally {
       setSavingResource(false);
+    }
+  };
+
+  const handleUpdateVideoLink = async (projectId: string) => {
+    setSavingVideo(true);
+    try {
+      const { error } = await (supabase.from('projects') as any).update({ video_link: editingVideoLink || null }).eq('id', projectId);
+      if (error) throw error;
+      toast.success(isEs ? 'Link de transmisión actualizado' : 'Live link updated');
+      setSelectedProject((prev) => prev ? { ...prev, video_link: editingVideoLink || null } : null);
+      setProjects((prev) => prev.map((p) => p.id === projectId ? { ...p, video_link: editingVideoLink || null } : p));
+    } catch (err: any) {
+      toast.error(err.message || 'Error');
+    } finally {
+      setSavingVideo(false);
     }
   };
 
@@ -465,7 +482,7 @@ const CompanyDashboard = () => {
                     variants={fadeUp}
                     initial="hidden"
                     animate="visible"
-                    onClick={() => { setSelectedProject(project); setEditingResourceLink(project.resource_link || ''); }}
+                    onClick={() => { setSelectedProject(project); setEditingResourceLink(project.resource_link || ''); setEditingVideoLink(project.video_link || ''); }}
                     className="rounded-xl border border-border/50 bg-card p-5 hover:border-primary/30 hover:shadow-md transition-all cursor-pointer group"
                   >
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -605,6 +622,12 @@ const CompanyDashboard = () => {
                       <Input placeholder={isEs ? 'Link de recursos (Google Drive, Dropbox...)' : 'Resource link (Google Drive, Dropbox...)'} value={editingResourceLink} onChange={(e) => setEditingResourceLink(e.target.value)} className="flex-1 text-sm" />
                       <Button size="sm" onClick={() => handleUpdateResource(selectedProject.id)} disabled={savingResource || !editingResourceLink.trim()} className="font-heading text-xs">
                         {savingResource ? '...' : (isEs ? 'Guardar' : 'Save')}
+                      </Button>
+                    </div>
+                    <div className="flex gap-2">
+                      <Input placeholder={isEs ? 'Link de transmisión en vivo (Zoom, Google Meet...)' : 'Live stream link (Zoom, Google Meet...)'} value={editingVideoLink} onChange={(e) => setEditingVideoLink(e.target.value)} className="flex-1 text-sm" />
+                      <Button size="sm" variant={editingVideoLink ? 'default' : 'outline'} onClick={() => handleUpdateVideoLink(selectedProject.id)} disabled={savingVideo || editingVideoLink === (selectedProject.video_link || '')} className="font-heading text-xs">
+                        {savingVideo ? '...' : (isEs ? 'Guardar' : 'Save')}
                       </Button>
                     </div>
                   </div>

@@ -2,14 +2,16 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 
-// Debug logging system
+// Debug logging — only emits in dev builds so production users don't see
+// decorated auth messages flooding the console.
 const authLog: string[] = [];
 const log = (msg: string) => {
   const timestamp = new Date().toLocaleTimeString();
-  const entry = `[${timestamp}] ${msg}`;
-  authLog.push(entry);
-  console.log(`%cAuthDebug: ${msg}`, 'color: #3b82f6; font-weight: bold');
+  authLog.push(`[${timestamp}] ${msg}`);
   if (authLog.length > 50) authLog.shift();
+  if (import.meta.env.DEV) {
+    console.log(`%cAuthDebug: ${msg}`, 'color: #3b82f6; font-weight: bold');
+  }
 };
 
 interface AuthContextType {

@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useActivateMission } from '@/hooks/useActivateMission';
 import { Button } from '@/components/ui/button';
-import { Rocket, Clock, Zap, DollarSign } from 'lucide-react';
+import { Rocket, Clock, Zap, DollarSign, Compass } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface Mission {
@@ -31,6 +32,7 @@ const AvailableMissions = ({ explorerProfileId, explorerSkills, onActivated }: P
   const { language } = useLanguage();
   const isEs = language === 'es';
   const [missions, setMissions] = useState<Mission[]>([]);
+  const [totalAvailable, setTotalAvailable] = useState(0);
   const [loading, setLoading] = useState(true);
   const { activate, activatingId } = useActivateMission();
 
@@ -95,8 +97,10 @@ const AvailableMissions = ({ explorerProfileId, explorerSkills, onActivated }: P
       });
 
       setMissions(enriched.slice(0, 6));
+      setTotalAvailable(enriched.length);
     } catch {
       setMissions([]);
+      setTotalAvailable(0);
     } finally {
       setLoading(false);
     }
@@ -161,6 +165,16 @@ const AvailableMissions = ({ explorerProfileId, explorerSkills, onActivated }: P
         </span>
       </div>
       <div className="divide-y divide-border/50">
+        {totalAvailable > missions.length && (
+          <Link to="/marketplace" className="block p-4 text-center text-xs font-heading font-semibold text-primary hover:bg-primary/5 transition-colors">
+            <span className="inline-flex items-center gap-1.5">
+              <Compass className="h-3 w-3" />
+              {isEs
+                ? `Ver ${totalAvailable - missions.length} misiones más en el Marketplace`
+                : `See ${totalAvailable - missions.length} more missions in the Marketplace`}
+            </span>
+          </Link>
+        )}
         {missions.map((m, i) => (
           <motion.div
             key={m.id}
