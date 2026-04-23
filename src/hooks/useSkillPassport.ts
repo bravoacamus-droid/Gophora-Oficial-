@@ -66,6 +66,25 @@ export function useAwardBadge() {
   });
 }
 
+// Triggers the server-side award_explorer_badges function, which idempotently
+// grants every badge the explorer currently qualifies for. Safe to call on
+// dashboard mount and after major events (mission approved, exam passed).
+export function useRefreshBadges() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (explorerId?: string) => {
+      const id = explorerId || user?.id;
+      if (!id) return;
+      await db.rpc('award_explorer_badges', { _explorer_id: id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['passport-badges'] });
+      queryClient.invalidateQueries({ queryKey: ['passport-stats'] });
+    },
+  });
+}
+
 // ─── Passport Stats ───
 export function usePassportStats(explorerId?: string | null) {
   const { user } = useAuth();
@@ -171,10 +190,11 @@ export const SKILL_CATEGORIES = [
 ];
 
 export const BADGE_DEFINITIONS = [
-  { key: 'ai_explorer', name: 'AI Explorer', nameEs: 'Explorador IA', icon: '🤖', condition: 'Complete 3 AI courses' },
+  { key: 'tutor', name: 'Tutor', nameEs: 'Tutor', icon: '🧑‍🏫', condition: 'Approved tutor application' },
+  { key: 'ai_explorer', name: 'AI Explorer', nameEs: 'Experto IA', icon: '🤖', condition: 'Complete 3 AI courses' },
+  { key: 'top_performer', name: 'Top Mission Performer', nameEs: 'Mejor Ejecutor de Misiones', icon: '🏆', condition: '10 missions completed' },
   { key: 'automation_specialist', name: 'Automation Specialist', nameEs: 'Especialista en Automatización', icon: '⚙️', condition: '3 automation skills' },
   { key: 'design_explorer', name: 'Design Explorer', nameEs: 'Explorador de Diseño', icon: '🎨', condition: '3 design skills' },
-  { key: 'top_performer', name: 'Top Mission Performer', nameEs: 'Mejor Ejecutor de Misiones', icon: '🏆', condition: '10 missions completed' },
   { key: 'elite_student', name: 'Elite Tutor Student', nameEs: 'Estudiante Élite', icon: '🎓', condition: '5 exams passed' },
   { key: 'first_mission', name: 'First Mission', nameEs: 'Primera Misión', icon: '🚀', condition: 'Complete first mission' },
   { key: 'skill_master', name: 'Skill Master', nameEs: 'Maestro de Habilidades', icon: '👑', condition: 'Any skill at level 5' },

@@ -25,6 +25,7 @@ import SocialProof from '@/components/SocialProof';
 import SmartRecommendations from '@/components/SmartRecommendations';
 import AvailableMissions from '@/components/AvailableMissions';
 import { useEngagementData, getXPLevel, useTrackActivity } from '@/hooks/useEngagement';
+import { useRefreshBadges } from '@/hooks/useSkillPassport';
 
 interface Application {
   id: string;
@@ -101,13 +102,16 @@ const ExplorerDashboard = () => {
 
   const { data: engagement } = useEngagementData();
   const trackActivity = useTrackActivity();
+  const refreshBadges = useRefreshBadges();
 
-  // Track daily login
+  // Track daily login + refresh badges (idempotently awards any badges the
+  // explorer qualifies for based on their current stats).
   useEffect(() => {
-    if (user) {
-      trackActivity.mutate('course_view'); // register activity on dashboard visit
+    if (user && explorerProfile?.id) {
+      trackActivity.mutate('course_view');
+      refreshBadges.mutate(explorerProfile.id);
     }
-  }, [user]);
+  }, [user, explorerProfile?.id]);
 
   useEffect(() => {
     if (!user) return;
@@ -217,6 +221,7 @@ const ExplorerDashboard = () => {
       toast.success(isEs ? 'Entrega enviada correctamente' : 'Delivery submitted successfully');
       setDeliveryUrls((prev) => ({ ...prev, [appId]: '' }));
       trackActivity.mutate('mission_delivered');
+      if (explorerProfile?.id) refreshBadges.mutate(explorerProfile.id);
       loadData();
     } catch (err: any) {
       toast.error(err.message || (isEs ? 'Error al enviar' : 'Submission error'));
