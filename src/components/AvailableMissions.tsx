@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useActivateMission } from '@/hooks/useActivateMission';
 import { Button } from '@/components/ui/button';
-import { Rocket, Clock, Zap, DollarSign, Compass } from 'lucide-react';
+import { Rocket, Clock, Zap, DollarSign, Compass, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface Mission {
@@ -20,6 +20,10 @@ interface Mission {
   status: string;
   project_id: string;
   projectTitle: string;
+  // Only present when ranked by the AI matching engine
+  reason?: string;
+  reason_es?: string;
+  relevance?: number;
 }
 
 interface Props {
@@ -34,18 +38,62 @@ const AvailableMissions = ({ explorerProfileId, explorerSkills, onActivated }: P
   const [missions, setMissions] = useState<Mission[]>([]);
   const [totalAvailable, setTotalAvailable] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [rankedByAI, setRankedByAI] = useState(false);
   const { activate, activatingId } = useActivateMission();
 
   const loadMissions = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: missionRows, error } = await supabase
+      // 1) Ask the matching Edge Function first. Returns up to 6 missions
+      //    already ranked by skill fit + readiness with AI reasoning.
+      let aiMissions: Mission[] = [];
+      let aiSucceeded = false;
+      try {
+        const { data, error } = await supabase.functions.invoke('recommend-missions');
+        if (!error && data?.recommendations?.length > 0) {
+          const projectIds = [
+            ...new Set(data.recommendations.map((r: any) => r.mission.project_id).filter(Boolean)),
+          ] as string[];
+          const { data: projectRows } = await supabase
+            .from('projects')
+            .select('id, title')
+            .in('id', projectIds);
+          const projectMap = new Map<string, string>();
+          (projectRows || []).forEach((p) => projectMap.set(p.id, p.title));
+
+          aiMissions = data.recommendations.map((r: any) => ({
+            id: r.mission.id,
+            title: r.mission.title,
+            title_es: r.mission.title_es,
+            description: r.mission.description,
+            description_es: r.mission.description_es,
+            skill: r.mission.skill,
+            hours: Number(r.mission.hours),
+            reward: Number(r.mission.reward),
+            hourly_rate: Number(r.mission.hourly_rate),
+            status: 'approved',
+            project_id: r.mission.project_id,
+            projectTitle: projectMap.get(r.mission.project_id) || 'Proyecto',
+            reason: r.reason,
+            reason_es: r.reason_es,
+            relevance: r.relevance_score,
+          }));
+          aiSucceeded = true;
+        }
+      } catch {
+        // Edge Function unavailable (rate limit, credits exhausted, auth issue).
+        // Fall through to the local ranking below.
+      }
+
+      // 2) Always fetch the broader list so the "Ver más en Marketplace"
+      //    overflow link stays accurate and we have a fallback list if AI
+      //    returned nothing.
+      const { data: missionRows } = await supabase
         .from('missions')
         .select('id, title, title_es, description, description_es, skill, hours, reward, hourly_rate, status, project_id, created_at')
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
         .limit(30);
-      if (error) throw error;
 
       let takenIds: string[] = [];
       if (explorerProfileId) {
@@ -57,7 +105,15 @@ const AvailableMissions = ({ explorerProfileId, explorerSkills, onActivated }: P
       }
 
       const available = (missionRows || []).filter((m) => !takenIds.includes(m.id));
+      setTotalAvailable(available.length);
 
+      if (aiSucceeded && aiMissions.length > 0) {
+        setMissions(aiMissions);
+        setRankedByAI(true);
+        return;
+      }
+
+      // Fallback: local skill-string ranking
       const projectIds = [...new Set(available.map((m) => m.project_id))];
       const projectMap = new Map<string, string>();
       if (projectIds.length > 0) {
@@ -97,10 +153,11 @@ const AvailableMissions = ({ explorerProfileId, explorerSkills, onActivated }: P
       });
 
       setMissions(enriched.slice(0, 6));
-      setTotalAvailable(enriched.length);
+      setRankedByAI(false);
     } catch {
       setMissions([]);
       setTotalAvailable(0);
+      setRankedByAI(false);
     } finally {
       setLoading(false);
     }
@@ -159,6 +216,12 @@ const AvailableMissions = ({ explorerProfileId, explorerSkills, onActivated }: P
           <h2 className="font-heading font-bold text-sm">
             {isEs ? 'Misiones disponibles para ti' : 'Available missions for you'}
           </h2>
+          {rankedByAI && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-heading font-bold text-primary uppercase tracking-widest bg-primary/10 px-1.5 py-0.5 rounded-full">
+              <Sparkles className="h-2.5 w-2.5" />
+              {isEs ? 'IA' : 'AI'}
+            </span>
+          )}
         </div>
         <span className="text-[10px] font-heading font-bold text-primary uppercase tracking-widest bg-primary/10 px-2 py-1 rounded-full">
           {missions.length} {isEs ? 'listas' : 'ready'}
@@ -188,7 +251,7 @@ const AvailableMissions = ({ explorerProfileId, explorerSkills, onActivated }: P
                 {isEs && m.title_es ? m.title_es : m.title}
               </h3>
               <p className="text-xs text-muted-foreground font-body truncate mb-2">{m.projectTitle}</p>
-              <div className="flex flex-wrap items-center gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-3 text-xs mb-2">
                 <span className="inline-flex items-center gap-1 text-primary font-heading font-bold">
                   <DollarSign className="h-3 w-3" />${Number(m.reward).toLocaleString()}
                 </span>
@@ -201,6 +264,12 @@ const AvailableMissions = ({ explorerProfileId, explorerSkills, onActivated }: P
                   {m.skill}
                 </span>
               </div>
+              {rankedByAI && (isEs ? m.reason_es : m.reason) && (
+                <p className="text-[11px] text-primary/80 font-body italic leading-snug">
+                  <Sparkles className="inline h-2.5 w-2.5 mr-1" />
+                  {isEs ? m.reason_es : m.reason}
+                </p>
+              )}
             </div>
             <Button
               size="sm"
