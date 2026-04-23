@@ -55,7 +55,8 @@ const Marketplace = () => {
         .select('id, title, title_es, skill, hours, reward, hourly_rate, description, description_es, project_id, status, created_at');
 
       if (userProjectIds.length > 0) {
-        query = query.or(`status.eq.approved,project_id.in.(${userProjectIds.map(id => `"${id}"`).join(',')})`);
+        // PostgREST: UUIDs inside `in.(...)` must NOT be quoted.
+        query = query.or(`status.eq.approved,project_id.in.(${userProjectIds.join(',')})`);
       } else {
         query = query.eq('status', 'approved');
       }

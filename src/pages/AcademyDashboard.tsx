@@ -207,6 +207,9 @@ const AcademyDashboard = () => {
           setShowTutorForm(false);
           toast.success(isEs ? '¡Solicitud enviada!' : 'Application submitted!');
         },
+        onError: (err: any) => {
+          toast.error(err?.message || (isEs ? 'No se pudo enviar la solicitud' : 'Could not submit application'));
+        },
       }
     );
   };
@@ -243,6 +246,9 @@ const AcademyDashboard = () => {
           setSelectedCategory('');
           setCourseForm({ title: '', description: '', external_url: '', thumbnail_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', path_id: '' });
           setExamQuestions(Array(5).fill(null).map(() => ({ question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 })));
+        },
+        onError: (err: any) => {
+          toast.error(err?.message || (isEs ? 'No se pudo enviar el curso' : 'Could not submit course'));
         },
       }
     );

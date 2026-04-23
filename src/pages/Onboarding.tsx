@@ -102,9 +102,8 @@ const Onboarding = () => {
             toast.success('¡Skill Passport generado!');
             await refreshProfile();
             navigate('/explorer');
-        } catch (err) {
-            console.error(err);
-            toast.error('Error al procesar el onboarding');
+        } catch (err: any) {
+            toast.error(err?.message || 'Error al procesar el onboarding');
         } finally {
             setLoading(false);
             setAiAnalyzing(false);
@@ -150,9 +149,8 @@ const Onboarding = () => {
             toast.success('¡Dashboard personalizado listo!');
             await refreshProfile();
             navigate('/company');
-        } catch (err) {
-            console.error(err);
-            toast.error('Error al procesar el onboarding');
+        } catch (err: any) {
+            toast.error(err?.message || 'Error al procesar el onboarding');
         } finally {
             setLoading(false);
             setAiAnalyzing(false);

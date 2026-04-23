@@ -17,19 +17,21 @@ const Login = () => {
   const [resetMode, setResetMode] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<'google' | 'github' | null>(null);
 
   const handleSocialLogin = async (provider: 'google' | 'github') => {
+    if (socialLoading) return;
+    setSocialLoading(provider);
     try {
       const redirectTo = `${window.location.origin}/auth/callback`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: {
-          redirectTo,
-        }
+        options: { redirectTo }
       });
       if (error) throw error;
     } catch (err: any) {
       toast.error(err.message || `Error al conectar con ${provider}`);
+      setSocialLoading(null);
     }
   };
 
@@ -37,22 +39,13 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      /* 
-      // Desactivado temporalmente para evitar bloqueos de sesión
-      const { data: isAlreadyLoggedIn, error: checkError } = await (supabase.rpc as any)('check_is_logged_in', { _email: email });
-
-      if (!checkError && isAlreadyLoggedIn) {
-        toast.error('Sesión activa en otro dispositivo. Por favor cierra la otra sesión primero.');
-        setLoading(false);
-        return;
-      }
-      */
-
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
-      // Update heartbeat after successful login
-      await (supabase.rpc as any)('update_login_heartbeat', { _user_id: data.user.id });
+      // Update heartbeat after successful login (non-critical, ignore errors)
+      try {
+        await (supabase.rpc as any)('update_login_heartbeat', { _user_id: data.user.id });
+      } catch { /* heartbeat is a nice-to-have, never block login on it */ }
 
       // Check if user is admin via RPC directly for immediate redirect
       const { data: isAdmin } = await (supabase.rpc as any)('verify_user_role', {
@@ -129,7 +122,11 @@ const Login = () => {
                 variant="outline"
                 className="w-full gap-2 font-heading tracking-wide border-border hover:bg-muted transition-all"
                 onClick={() => handleSocialLogin('google')}
+                disabled={!!socialLoading}
               >
+                {socialLoading === 'google' && (
+                  <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                )}
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                   <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -143,8 +140,13 @@ const Login = () => {
                 variant="outline"
                 className="w-full gap-2 font-heading tracking-wide border-border hover:bg-muted transition-all"
                 onClick={() => handleSocialLogin('github')}
+                disabled={!!socialLoading}
               >
-                <Github className="w-4 h-4" />
+                {socialLoading === 'github' ? (
+                  <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Github className="w-4 h-4" />
+                )}
                 GitHub
               </Button>
             </div>

@@ -1,47 +1,46 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { Rocket } from 'lucide-react';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log('AuthCallback initialized. Hash:', window.location.hash);
+    const redirectFor = (accountType: string) =>
+      accountType === 'company' ? '/company' : '/explorer';
 
     const timeoutId = setTimeout(() => {
-      console.warn('AuthCallback timeout: No session detected after 8s. Redirecting to login.');
+      toast.error('No pudimos verificar tu sesión. Intenta iniciar sesión de nuevo.');
       navigate('/login', { replace: true });
     }, 8000);
 
-    // Supabase processes the token from the URL hash automatically
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth event in callback:', event, !!session);
       if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
         clearTimeout(timeoutId);
         const accountType = session.user.user_metadata?.account_type || 'company';
-        console.log('Session confirmed. Navigating to:', accountType);
-        navigate(accountType === 'company' ? '/company' : '/explorer', { replace: true });
+        navigate(redirectFor(accountType), { replace: true });
       } else if (event === 'TOKEN_REFRESHED') {
         supabase.auth.getUser().then(({ data: { user } }) => {
           if (user) {
             clearTimeout(timeoutId);
             const accountType = user.user_metadata?.account_type || 'company';
-            navigate(accountType === 'company' ? '/company' : '/explorer', { replace: true });
+            navigate(redirectFor(accountType), { replace: true });
           }
         });
       }
     });
 
-    // Also check if we already have a session after the URL hash is processed
     supabase.auth.getSession().then(({ data: { session }, error }) => {
-      console.log('Direct session check in callback:', !!session, error?.message);
       if (session?.user) {
         clearTimeout(timeoutId);
         const accountType = session.user.user_metadata?.account_type || 'company';
-        navigate(accountType === 'company' ? '/company' : '/explorer', { replace: true });
+        navigate(redirectFor(accountType), { replace: true });
       } else if (error) {
-        console.error('Session error in callback:', error);
+        clearTimeout(timeoutId);
+        toast.error(error.message || 'Error al verificar la sesión');
+        navigate('/login', { replace: true });
       }
     });
 
