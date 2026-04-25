@@ -25,7 +25,9 @@ import {
   useCreateSharedPrompt, getExplorerLevel, EXPLORER_LEVELS,
   useTutorApplication, useSubmitTutorApplication,
   useSubmitCourseAsTutor, useIncrementViews,
-  type AcademyCourse
+  useTrackToolUsage,
+  type AcademyCourse,
+  type AcademyTool
 } from '@/hooks/useAcademy';
 import {
   useMyFavoriteCourses, useToggleFavoriteCourse,
@@ -110,6 +112,8 @@ const AcademyDashboard = () => {
   ]);
   const [parsingPdf, setParsingPdf] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+  const [quickStartTool, setQuickStartTool] = useState<AcademyTool | null>(null);
+  const trackToolUsage = useTrackToolUsage();
 
   const isTutor = tutorApp?.status === 'approved';
   const tutorCourses = courses.filter(c => c.submitted_by === user?.id);
@@ -668,13 +672,31 @@ const AcademyDashboard = () => {
                         <Badge key={i} variant="secondary" className="text-[10px]">{uc}</Badge>
                       ))}
                     </div>
-                    {tool.url && (
-                      <Button variant="outline" size="sm" className="w-full text-xs" asChild>
-                        <a href={tool.url} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-3 w-3 mr-1" /> {isEs ? 'Aprender más' : 'Learn more'}
-                        </a>
-                      </Button>
-                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      {(tool.quick_start || tool.quick_start_es) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => setQuickStartTool(tool)}
+                        >
+                          <Sparkles className="h-3 w-3 mr-1" /> {isEs ? 'Quick Start' : 'Quick Start'}
+                        </Button>
+                      )}
+                      {tool.url && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={`text-xs ${(tool.quick_start || tool.quick_start_es) ? '' : 'col-span-2'}`}
+                          asChild
+                          onClick={() => trackToolUsage.mutate({ toolId: tool.id })}
+                        >
+                          <a href={tool.url} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-3 w-3 mr-1" /> {isEs ? 'Aprender más' : 'Learn more'}
+                          </a>
+                        </Button>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -1254,6 +1276,41 @@ const AcademyDashboard = () => {
               <CourseExam course={selectedCourse} isEs={isEs}
                 onPass={() => handleExamPass(selectedCourse.id)}
                 onClose={() => { setShowExam(false); setSelectedCourse(null); }} />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Quick Start modal for any tool ── */}
+      <Dialog open={!!quickStartTool} onOpenChange={(open) => !open && setQuickStartTool(null)}>
+        <DialogContent className="max-w-lg">
+          {quickStartTool && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-heading text-lg flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  {isEs ? 'Quick start' : 'Quick start'} — {quickStartTool.name}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground font-body whitespace-pre-line leading-relaxed">
+                  {isEs
+                    ? (quickStartTool.quick_start_es || quickStartTool.quick_start || '')
+                    : (quickStartTool.quick_start || quickStartTool.quick_start_es || '')}
+                </p>
+                {quickStartTool.url && (
+                  <Button
+                    asChild
+                    className="w-full gap-2"
+                    onClick={() => trackToolUsage.mutate({ toolId: quickStartTool.id })}
+                  >
+                    <a href={quickStartTool.url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4" />
+                      {isEs ? 'Abrir ' : 'Open '} {quickStartTool.name}
+                    </a>
+                  </Button>
+                )}
+              </div>
             </>
           )}
         </DialogContent>

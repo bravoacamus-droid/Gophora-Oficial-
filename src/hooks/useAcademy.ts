@@ -50,6 +50,9 @@ export interface AcademyTool {
   icon: string;
   use_cases: string[];
   use_cases_es: string[];
+  relevant_skills?: string[] | null;
+  quick_start?: string | null;
+  quick_start_es?: string | null;
 }
 
 export interface ExamQuestion {
@@ -157,6 +160,46 @@ export function useAcademyTools() {
         .select('*');
       if (error) throw error;
       return (data || []) as AcademyTool[];
+    },
+  });
+}
+
+// Returns up to 3 tools whose `relevant_skills` array contains the given mission
+// skill, so the Explorer can see "Herramientas recomendadas" inside the mission
+// detail dialog. `skill` matches the projects.category enum (Marketing, Web
+// Development, Design, Data, Research, Operations).
+export function useToolsForSkill(skill: string | null | undefined) {
+  return useQuery({
+    queryKey: ['tools-for-skill', skill],
+    queryFn: async () => {
+      if (!skill) return [];
+      const { data, error } = await db
+        .from('academy_tools')
+        .select('*')
+        .contains('relevant_skills', [skill])
+        .limit(3);
+      if (error) throw error;
+      return (data || []) as AcademyTool[];
+    },
+    enabled: !!skill,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// Fire-and-forget log of when an explorer interacts with a tool. We never
+// block the UI on this — if the insert fails (RLS, network) the user still
+// gets to use the tool. Used by both the Toolkit cards and the recommended
+// tools surfaced inside a mission.
+export function useTrackToolUsage() {
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async ({ toolId, missionId }: { toolId: string; missionId?: string | null }) => {
+      if (!user) return;
+      await db.from('tool_usage').insert({
+        user_id: user.id,
+        tool_id: toolId,
+        mission_id: missionId || null,
+      });
     },
   });
 }

@@ -26,6 +26,8 @@ import SmartRecommendations from '@/components/SmartRecommendations';
 import AvailableMissions from '@/components/AvailableMissions';
 import { useEngagementData, getXPLevel, useTrackActivity } from '@/hooks/useEngagement';
 import { useRefreshBadges } from '@/hooks/useSkillPassport';
+import { useToolsForSkill, useTrackToolUsage } from '@/hooks/useAcademy';
+import { Wrench } from 'lucide-react';
 
 interface Application {
   id: string;
@@ -104,6 +106,8 @@ const ExplorerDashboard = () => {
   const { data: engagement } = useEngagementData();
   const trackActivity = useTrackActivity();
   const refreshBadges = useRefreshBadges();
+  const { data: recommendedTools = [] } = useToolsForSkill(selectedApp?.missionSkill || null);
+  const trackToolUsage = useTrackToolUsage();
 
   // Track daily login + refresh badges (idempotently awards any badges the
   // explorer qualifies for based on their current stats).
@@ -603,6 +607,45 @@ const ExplorerDashboard = () => {
                     )}
                   </div>
                 </div>
+
+                {/* Recommended tools for this mission's skill */}
+                {recommendedTools.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="h-4 w-4 text-primary" />
+                      <h3 className="font-heading font-semibold text-sm">
+                        {isEs ? 'Herramientas recomendadas' : 'Recommended tools'}
+                      </h3>
+                      <span className="text-[10px] font-heading font-bold text-primary uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded-full">
+                        {selectedApp.missionSkill}
+                      </span>
+                    </div>
+                    <div className="grid sm:grid-cols-3 gap-2">
+                      {recommendedTools.map((t) => (
+                        <a
+                          key={t.id}
+                          href={t.url || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            trackToolUsage.mutate({ toolId: t.id, missionId: selectedApp.mission_id });
+                          }}
+                          className="rounded-lg border border-border/50 bg-muted/20 p-3 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                        >
+                          <p className="font-heading font-semibold text-sm truncate mb-1">{isEs && t.name_es ? t.name_es : t.name}</p>
+                          <p className="text-[11px] text-muted-foreground font-body line-clamp-2 mb-2">
+                            {isEs ? (t.description_es || t.description) : (t.description || t.description_es)}
+                          </p>
+                          <span className="inline-flex items-center gap-1 text-[10px] font-heading font-semibold text-primary">
+                            <ExternalLink className="h-2.5 w-2.5" />
+                            {isEs ? 'Abrir' : 'Open'}
+                          </span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Review note */}
                 {selectedApp.review_note && (
