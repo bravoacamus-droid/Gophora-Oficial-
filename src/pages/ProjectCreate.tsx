@@ -41,7 +41,6 @@ const ProjectCreate = () => {
   const [paymentScreenshotPreview, setPaymentScreenshotPreview] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [budget, setBudget] = useState('');
-  const [editingBudget, setEditingBudget] = useState('');
   const [missions, setMissions] = useState<Mission[]>([]);
   const [projectTitle, setProjectTitle] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
@@ -189,7 +188,6 @@ const ProjectCreate = () => {
   const handleBackToEdit = () => {
     setAnalyzed(false);
     setQuoteAccepted(false);
-    setEditingBudget(budget);
   };
 
   // handlePublish: Processes project and mission publication with verified DB schema (v2.1)
@@ -197,6 +195,7 @@ const ProjectCreate = () => {
     setPublishing(true);
     try {
       let screenshotUrl: string | null = null;
+      let specsPdfUrl: string | null = null;
 
       // Upload payment screenshot if provided
       if (paymentScreenshot) {
@@ -210,6 +209,24 @@ const ProjectCreate = () => {
           .from('payment-screenshots')
           .getPublicUrl(filePath);
         screenshotUrl = urlData.publicUrl;
+      }
+
+      // Upload specs PDF (the "PDF requerido" the user attached during the
+      // analyze step) so explorers can actually read the requirements once
+      // they take the mission. Falls back to the first PDF in `files` since
+      // the form already gates on hasPdfFile.
+      const specsPdf = files.find((f) => f.name.toLowerCase().endsWith('.pdf'));
+      if (specsPdf && user?.id) {
+        const safeName = specsPdf.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const filePath = `${user.id}/${Date.now()}-${safeName}`;
+        const { error: uploadError } = await supabase.storage
+          .from('project-specs')
+          .upload(filePath, specsPdf, { contentType: 'application/pdf' });
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage
+          .from('project-specs')
+          .getPublicUrl(filePath);
+        specsPdfUrl = urlData.publicUrl;
       }
 
       const { data: project, error: projectError } = await supabase
@@ -226,6 +243,7 @@ const ProjectCreate = () => {
           video_link: videoLink || null,
           deadline: deadline || null,
           payment_screenshot_url: screenshotUrl,
+          specs_pdf_url: specsPdfUrl,
           tx_hash: txHash || null,
         } as any)
         .select()

@@ -30,6 +30,7 @@ interface ProjectRow {
   deadline: string | null;
   resource_link: string | null;
   video_link: string | null;
+  specs_pdf_url: string | null;
   created_at: string;
 }
 
@@ -93,7 +94,7 @@ const CompanyDashboard = () => {
 
     const [{ data: compProfile }, { data: projectRows }] = await Promise.all([
       supabase.from('company_profiles' as any).select('company_name').eq('user_id', user.id).maybeSingle() as any,
-      supabase.from('projects').select('id, title, budget, status, payment_status, description, category, priority, deadline, resource_link, video_link, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('projects').select('id, title, budget, status, payment_status, description, category, priority, deadline, resource_link, video_link, specs_pdf_url, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
     ]);
 
     setProfile({ full_name: compProfile?.company_name });
@@ -615,6 +616,11 @@ const CompanyDashboard = () => {
                       {selectedProject.resource_link && (
                         <a href={selectedProject.resource_link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-body bg-primary/5 px-3 py-1.5 rounded-lg">
                           <ArrowUpRight className="h-3 w-3" /> {isEs ? 'Abrir recursos' : 'Open resources'}
+                        </a>
+                      )}
+                      {selectedProject.specs_pdf_url && (
+                        <a href={selectedProject.specs_pdf_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline font-body bg-blue-500/5 border border-blue-500/20 px-3 py-1.5 rounded-lg">
+                          <FileText className="h-3 w-3" /> {isEs ? 'Specs PDF' : 'Specs PDF'}
                         </a>
                       )}
                     </div>

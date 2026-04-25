@@ -76,6 +76,7 @@ interface ApplicationWithMission {
   projectTitle: string;
   projectResourceLink: string | null;
   projectVideoLink: string | null;
+  projectSpecsPdfUrl: string | null;
   delivery_url: string | null;
   delivered_at: string | null;
   reviewed_at: string | null;
@@ -145,14 +146,14 @@ const ExplorerDashboard = () => {
 
       const mRows = missionRows || [];
       const projectIds = [...new Set(mRows.map((m) => m.project_id))];
-      const projectMap = new Map<string, { title: string; resource_link: string | null; video_link: string | null }>();
+      const projectMap = new Map<string, { title: string; resource_link: string | null; video_link: string | null; specs_pdf_url: string | null }>();
 
       if (projectIds.length > 0) {
         const { data: projectRows } = await supabase
           .from('projects')
-          .select('id, title, resource_link, video_link')
+          .select('id, title, resource_link, video_link, specs_pdf_url')
           .in('id', projectIds);
-        (projectRows || []).forEach((p) => projectMap.set(p.id, { title: p.title, resource_link: p.resource_link, video_link: (p as any).video_link }));
+        (projectRows || []).forEach((p: any) => projectMap.set(p.id, { title: p.title, resource_link: p.resource_link, video_link: p.video_link, specs_pdf_url: p.specs_pdf_url }));
       }
 
       const missionMap = new Map(mRows.map((m) => [m.id, m]));
@@ -176,6 +177,7 @@ const ExplorerDashboard = () => {
           projectTitle: project?.title || 'Project',
           projectResourceLink: project?.resource_link || null,
           projectVideoLink: project?.video_link || null,
+          projectSpecsPdfUrl: project?.specs_pdf_url || null,
           delivery_url: a.delivery_url,
           delivered_at: a.delivered_at,
           reviewed_at: a.reviewed_at,
@@ -586,7 +588,15 @@ const ExplorerDashboard = () => {
                         {isEs ? 'Recursos del proyecto' : 'Project resources'}
                       </a>
                     )}
-                    {!selectedApp.projectResourceLink && !selectedApp.projectVideoLink && (
+                    {selectedApp.projectSpecsPdfUrl && (
+                      <a href={selectedApp.projectSpecsPdfUrl} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline font-body"
+                        onClick={(e) => e.stopPropagation()}>
+                        <FileText className="h-3.5 w-3.5" />
+                        {isEs ? 'Specs del proyecto (PDF)' : 'Project specs (PDF)'}
+                      </a>
+                    )}
+                    {!selectedApp.projectResourceLink && !selectedApp.projectVideoLink && !selectedApp.projectSpecsPdfUrl && (
                       <p className="text-xs text-muted-foreground font-body italic">
                         {isEs ? 'No hay recursos adicionales.' : 'No additional resources.'}
                       </p>
