@@ -450,12 +450,12 @@ const ProjectCreate = () => {
                 </div>
                 <p className="text-xl font-heading font-bold">${totalTalentCost.toLocaleString()}</p>
               </div>
-              <div className={`rounded-xl border p-4 ${overBudget ? 'border-destructive/50 bg-destructive/5' : 'border-primary/30 bg-primary/5'}`}>
+              <div className={`rounded-xl border p-4 ${overBudget ? 'border-destructive/50 bg-destructive/5' : 'border-emerald-500/40 bg-emerald-500/5'}`}>
                 <div className="flex items-center gap-2 mb-1">
-                  {overBudget ? <AlertTriangle className="h-4 w-4 text-destructive" /> : <DollarSign className="h-4 w-4 text-primary" />}
+                  {overBudget ? <AlertTriangle className="h-4 w-4 text-destructive" /> : <CheckCircle className="h-4 w-4 text-emerald-500" />}
                   <span className="text-xs text-muted-foreground font-heading uppercase">Total + Fee ({COMMISSION_RATE * 100}%)</span>
                 </div>
-                <p className={`text-xl font-heading font-bold ${overBudget ? 'text-destructive' : 'text-primary'}`}>${totalCost.toLocaleString()}</p>
+                <p className={`text-xl font-heading font-bold ${overBudget ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}`}>${totalCost.toLocaleString()}</p>
               </div>
             </div>
 
@@ -472,6 +472,18 @@ const ProjectCreate = () => {
                   <li><span className="font-semibold text-foreground">Optimizar con IA</span> — la IA elimina misiones de menor prioridad hasta caber</li>
                   <li><span className="font-semibold text-foreground">Eliminar misiones manualmente</span> — usa el botón "Eliminar" en cada fila</li>
                 </ul>
+              </div>
+            )}
+
+            {!overBudget && missions.length > 0 && (
+              <div className="flex items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4">
+                <CheckCircle className="h-5 w-5 text-emerald-500 shrink-0" />
+                <p className="text-sm font-body text-emerald-700 dark:text-emerald-400">
+                  <span className="font-semibold">Tu cotización cabe en el presupuesto.</span>{' '}
+                  Total ${totalCost.toLocaleString()} de ${budgetNum.toLocaleString()}{' '}
+                  (te quedan ${(budgetNum - totalCost).toLocaleString()} disponibles).{' '}
+                  Haz clic en <span className="font-semibold">"Aceptar Cotización y Continuar"</span> abajo para seguir al pago.
+                </p>
               </div>
             )}
 
@@ -525,7 +537,7 @@ const ProjectCreate = () => {
                     </tr>
                     <tr className="bg-muted/30">
                       <td className="px-4 pb-4 text-sm font-heading font-bold" colSpan={5}>GRAN TOTAL</td>
-                      <td className={`px-4 pb-4 text-sm font-heading font-bold ${overBudget ? 'text-destructive' : 'text-primary'}`}>${totalCost.toLocaleString()}</td>
+                      <td className={`px-4 pb-4 text-sm font-heading font-bold ${overBudget ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}`}>${totalCost.toLocaleString()}</td>
                       <td></td>
                     </tr>
                   </tfoot>
