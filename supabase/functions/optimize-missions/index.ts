@@ -102,9 +102,33 @@ Select the most important missions that fit within the $${availableBudget} talen
 
     const args = JSON.parse(toolCall.function.arguments);
 
+    // ─── Deterministic greedy guarantee ───
+    // The AI is asked to pick missions that fit the budget, but Llama isn't
+    // perfectly reliable. Walk the AI's prioritized list and accept each
+    // mission only while the running TOTAL (talent + 10% GOPHORA fee, computed
+    // exactly like the frontend does it) stays at or below the client's
+    // budget. This way the response is guaranteed to fit even if the AI
+    // overshoots or returns the full list.
+    const totalWithFee = (talent: number) => talent + Math.round(talent * commissionRate);
+    const trimmedIndices: number[] = [];
+    let cumulativeTalent = 0;
+    let droppedForFit = 0;
+    for (const idx of (args.kept_indices || [])) {
+      const m = missions[idx];
+      if (!m) continue;
+      const next = cumulativeTalent + m.reward;
+      if (totalWithFee(next) <= budget) {
+        trimmedIndices.push(idx);
+        cumulativeTalent = next;
+      } else {
+        droppedForFit++;
+      }
+    }
+
     return new Response(JSON.stringify({
-      kept_indices: args.kept_indices,
+      kept_indices: trimmedIndices,
       reasoning: args.reasoning,
+      dropped_for_fit: droppedForFit,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

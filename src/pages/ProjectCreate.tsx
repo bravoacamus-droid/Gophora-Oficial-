@@ -118,6 +118,16 @@ const ProjectCreate = () => {
     }
   };
 
+  // True iff a list of missions (in given order) fits within the user's
+  // budget once the 10% GOPHORA commission is applied. Mirrors the
+  // frontend's `totalCost` calc exactly, so what fits here is what shows
+  // green in the summary.
+  const fitsBudget = (list: Mission[]) => {
+    const talent = list.reduce((s, m) => s + m.reward, 0);
+    const total = talent + Math.round(talent * COMMISSION_RATE);
+    return total <= budgetNum;
+  };
+
   const handleOptimizeBudget = async () => {
     setOptimizing(true);
     try {
@@ -134,23 +144,42 @@ const ProjectCreate = () => {
       if (data?.error) throw new Error(data.error);
 
       const keptIndices: number[] = data.kept_indices || [];
-      const optimizedMissions = missions.filter((_, i) => keptIndices.includes(i));
+      let optimizedMissions = missions.filter((_, i) => keptIndices.includes(i));
+
+      // Defense-in-depth: even if the Edge Function or the AI return more
+      // missions than the budget can hold, drop highest-reward ones until it
+      // really fits. Guarantees the green "Aceptar cotización" path always
+      // unlocks after a click.
+      if (!fitsBudget(optimizedMissions)) {
+        optimizedMissions = [...optimizedMissions].sort((a, b) => a.reward - b.reward);
+        while (optimizedMissions.length > 0 && !fitsBudget(optimizedMissions)) {
+          optimizedMissions.pop();
+        }
+      }
 
       if (optimizedMissions.length === 0) {
-        toast.error('No se pudieron seleccionar misiones dentro del presupuesto.');
+        toast.error(
+          'Tu presupuesto es muy bajo para cubrir alguna misión. Sube el presupuesto o usa "Aumentar presupuesto" para fijarlo automáticamente al total sugerido.'
+        );
         return;
       }
 
       setMissions(optimizedMissions);
       toast.success(
-        `IA seleccionó ${optimizedMissions.length} misiones prioritarias que caben en tu presupuesto. ${data.reasoning || ''}`
+        `IA seleccionó ${optimizedMissions.length} misiones prioritarias que caben en tu presupuesto.${data.reasoning ? ' ' + data.reasoning : ''}`
       );
     } catch (err: any) {
-      console.error('Optimization failed:', err);
       toast.error(err.message || 'Error al optimizar misiones.');
     } finally {
       setOptimizing(false);
     }
+  };
+
+  // Bumps the budget to exactly cover the current missions + commission so
+  // the user can publish without dropping any work.
+  const handleMatchBudget = () => {
+    setBudget(totalCost.toString());
+    toast.success(`Presupuesto ajustado a $${totalCost.toLocaleString()} para cubrir todas las misiones.`);
   };
 
   const deleteMission = (index: number) => {
@@ -431,11 +460,18 @@ const ProjectCreate = () => {
             </div>
 
             {overBudget && (
-              <div className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
-                <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
-                <p className="text-sm font-body text-destructive">
-                  El costo total (${totalCost.toLocaleString()}) excede tu presupuesto (${budgetNum.toLocaleString()}). Puedes ajustar tu presupuesto, eliminar misiones manualmente, o dejar que la IA sugiera las misiones prioritarias.
-                </p>
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+                  <p className="text-sm font-body text-destructive">
+                    El costo total (${totalCost.toLocaleString()}) excede tu presupuesto (${budgetNum.toLocaleString()}) por ${(totalCost - budgetNum).toLocaleString()}. Tienes 3 opciones:
+                  </p>
+                </div>
+                <ul className="text-xs font-body text-muted-foreground list-disc list-inside space-y-1 pl-8">
+                  <li><span className="font-semibold text-foreground">Aumentar presupuesto a ${totalCost.toLocaleString()}</span> — botón abajo, cubre todas las misiones</li>
+                  <li><span className="font-semibold text-foreground">Optimizar con IA</span> — la IA elimina misiones de menor prioridad hasta caber</li>
+                  <li><span className="font-semibold text-foreground">Eliminar misiones manualmente</span> — usa el botón "Eliminar" en cada fila</li>
+                </ul>
               </div>
             )}
 
@@ -500,23 +536,32 @@ const ProjectCreate = () => {
             {/* Action Buttons */}
             <div className="flex flex-col gap-3">
               {overBudget && (
-                <Button
-                  variant="hero-outline"
-                  className="w-full gap-2 font-heading"
-                  disabled={optimizing}
-                  onClick={handleOptimizeBudget}
-                >
-                  {optimizing ? (
-                    <>
-                      <div className="h-4 w-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                      Optimizando con IA...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4" /> {t('project.optimize_budget')}
-                    </>
-                  )}
-                </Button>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 font-heading border-primary/40 text-primary hover:bg-primary/5"
+                    onClick={handleMatchBudget}
+                  >
+                    <DollarSign className="h-4 w-4" /> Aumentar presupuesto a ${totalCost.toLocaleString()}
+                  </Button>
+                  <Button
+                    variant="hero-outline"
+                    className="w-full gap-2 font-heading"
+                    disabled={optimizing}
+                    onClick={handleOptimizeBudget}
+                  >
+                    {optimizing ? (
+                      <>
+                        <div className="h-4 w-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                        Optimizando con IA...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4" /> {t('project.optimize_budget')}
+                      </>
+                    )}
+                  </Button>
+                </div>
               )}
               <div className="flex gap-4">
                 <Button
