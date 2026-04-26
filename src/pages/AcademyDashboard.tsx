@@ -27,8 +27,12 @@ import {
   useSubmitCourseAsTutor, useIncrementViews,
   useTrackToolUsage,
   useSharedPromptsWithStats, useTrackPromptUse,
+  useSearchPrompts, useImprovePrompt,
+  usePlaybooks, useMyPlaybooks, useCreatePlaybook, useDeletePlaybook, useCompletePlaybook,
   type AcademyCourse,
-  type AcademyTool
+  type AcademyTool,
+  type PromptPlaybook,
+  type SharedPromptWithStats
 } from '@/hooks/useAcademy';
 import {
   useMyFavoriteCourses, useToggleFavoriteCourse,
@@ -69,6 +73,12 @@ const AcademyDashboard = () => {
   const { data: progress = [] } = useCourseProgress();
   const { data: prompts = [] } = useSharedPromptsWithStats();
   const trackPromptUse = useTrackPromptUse();
+  const improvePrompt = useImprovePrompt();
+  const { data: playbooks = [] } = usePlaybooks();
+  const { data: myPlaybooks = [] } = useMyPlaybooks();
+  const createPlaybook = useCreatePlaybook();
+  const deletePlaybook = useDeletePlaybook();
+  const completePlaybook = useCompletePlaybook();
   const { data: tutorApp } = useTutorApplication();
   const { data: favorites = [] } = useMyFavoriteCourses();
   const { data: followedTutors = [] } = useMyFollowedTutors();
@@ -116,6 +126,13 @@ const AcademyDashboard = () => {
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const [quickStartTool, setQuickStartTool] = useState<AcademyTool | null>(null);
   const trackToolUsage = useTrackToolUsage();
+  const [promptSearch, setPromptSearch] = useState('');
+  const [improvedDraft, setImprovedDraft] = useState<{ original: string; improved: string; reason: string } | null>(null);
+  const [openedPlaybook, setOpenedPlaybook] = useState<PromptPlaybook | null>(null);
+  const [playbookForm, setPlaybookForm] = useState({ title: '', description: '', skill: '', promptIds: [] as string[] });
+  const [showPlaybookCreator, setShowPlaybookCreator] = useState(false);
+  const { data: searchResults = [] } = useSearchPrompts(promptSearch);
+  const visiblePrompts = promptSearch.trim().length > 0 ? searchResults : prompts;
 
   const isTutor = tutorApp?.status === 'approved';
   const tutorCourses = courses.filter(c => c.submitted_by === user?.id);
@@ -212,7 +229,7 @@ const AcademyDashboard = () => {
     );
   };
 
-  const handleCopyAndOpenPrompt = async (prompt: typeof prompts[0]) => {
+  const handleCopyAndOpenPrompt = async (prompt: SharedPromptWithStats) => {
     try {
       await navigator.clipboard.writeText(prompt.content);
       toast.success(isEs ? 'Prompt copiado. Pegá con Ctrl+V (Cmd+V).' : 'Prompt copied. Paste with Ctrl+V (Cmd+V).');
@@ -223,6 +240,77 @@ const AcademyDashboard = () => {
     if (prompt.toolUrl) {
       window.open(prompt.toolUrl, '_blank', 'noopener');
     }
+  };
+
+  const handleImproveDraft = () => {
+    if (!newPrompt.content.trim() || newPrompt.content.trim().length < 10) {
+      toast.error(isEs ? 'Escribí al menos 10 caracteres antes de mejorar.' : 'Write at least 10 characters before improving.');
+      return;
+    }
+    improvePrompt.mutate(
+      {
+        draft: newPrompt.content,
+        skill: newPrompt.skill || null,
+        language: isEs ? 'es' : 'en',
+      },
+      {
+        onSuccess: (data) => {
+          setImprovedDraft({ original: newPrompt.content, improved: data.improved, reason: data.reason });
+        },
+        onError: (err: any) => {
+          toast.error(err?.message || (isEs ? 'No se pudo mejorar el prompt' : 'Could not improve the prompt'));
+        },
+      }
+    );
+  };
+
+  const acceptImprovedDraft = () => {
+    if (improvedDraft) {
+      setNewPrompt((p) => ({ ...p, content: improvedDraft.improved }));
+      toast.success(isEs ? 'Reemplazado con la versión mejorada' : 'Replaced with improved version');
+    }
+    setImprovedDraft(null);
+  };
+
+  const handleCreatePlaybook = () => {
+    if (!playbookForm.title.trim() || playbookForm.promptIds.length < 2) {
+      toast.error(isEs ? 'Necesitás un título y al menos 2 prompts.' : 'You need a title and at least 2 prompts.');
+      return;
+    }
+    createPlaybook.mutate(
+      {
+        title: playbookForm.title,
+        description: playbookForm.description,
+        skill: playbookForm.skill || null,
+        prompt_ids: playbookForm.promptIds,
+      },
+      {
+        onSuccess: () => {
+          toast.success(isEs ? '¡Playbook publicado!' : 'Playbook published!');
+          setPlaybookForm({ title: '', description: '', skill: '', promptIds: [] });
+          setShowPlaybookCreator(false);
+        },
+        onError: (err: any) => {
+          toast.error(err?.message || (isEs ? 'No se pudo crear el playbook' : 'Could not create playbook'));
+        },
+      }
+    );
+  };
+
+  const handleCompletePlaybook = (playbook: PromptPlaybook) => {
+    completePlaybook.mutate(playbook.id, {
+      onSuccess: () => {
+        toast.success(isEs ? `¡Playbook completado! Gracias a ${playbook.authorName || 'el tutor'} por publicarlo.` : `Playbook completed! Thanks to ${playbook.authorName || 'the tutor'} for publishing it.`);
+        setOpenedPlaybook(null);
+      },
+      onError: (err: any) => {
+        if (err?.message?.includes('duplicate')) {
+          toast.info(isEs ? 'Ya marcaste este playbook como completado.' : 'You already marked this playbook complete.');
+        } else {
+          toast.error(err?.message || (isEs ? 'No se pudo marcar como completado' : 'Could not mark complete'));
+        }
+      },
+    });
   };
 
   const handleTutorApply = () => {
@@ -938,6 +1026,62 @@ const AcademyDashboard = () => {
                     </DialogContent>
                   </Dialog>
 
+                  {/* My Playbooks (tutor side of Idea 2) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-heading font-bold text-lg flex items-center gap-2">
+                        <Workflow className="h-5 w-5 text-primary" /> {isEs ? 'Mis Playbooks' : 'My Playbooks'}
+                      </h3>
+                      <Button
+                        size="sm"
+                        onClick={() => setShowPlaybookCreator(true)}
+                        disabled={!isTutor}
+                        title={isTutor ? '' : (isEs ? 'Solo tutores aprobados pueden crear playbooks' : 'Only approved tutors can create playbooks')}
+                      >
+                        <UserPlus className="h-4 w-4 mr-1" />
+                        {isEs ? 'Crear Playbook' : 'Create Playbook'}
+                      </Button>
+                    </div>
+                    {myPlaybooks.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-border/50 p-6 text-center">
+                        <Workflow className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">
+                          {isTutor
+                            ? (isEs ? 'Aún no creaste ningún playbook. Hace click en "Crear Playbook" arriba.' : 'No playbooks yet. Click "Create Playbook" above.')
+                            : (isEs ? 'Convertite en tutor primero para crear playbooks.' : 'Become a tutor first to create playbooks.')}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-border/50 bg-card overflow-hidden divide-y divide-border/50">
+                        {myPlaybooks.map(pb => (
+                          <div key={pb.id} className="p-4 flex items-center justify-between gap-4">
+                            <div className="min-w-0">
+                              <p className="font-heading font-semibold text-sm truncate">{pb.title}</p>
+                              <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground font-body">
+                                {pb.skill && <Badge variant="outline" className="text-[10px]">{pb.skill}</Badge>}
+                                <span>{pb.prompt_ids.length} {isEs ? 'pasos' : 'steps'}</span>
+                                <span>•</span>
+                                <span>{pb.completion_count} {isEs ? 'completaron' : 'completed'}</span>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive shrink-0"
+                              onClick={() => {
+                                if (confirm(isEs ? '¿Eliminar este playbook?' : 'Delete this playbook?')) {
+                                  deletePlaybook.mutate(pb.id);
+                                }
+                              }}
+                            >
+                              {isEs ? 'Eliminar' : 'Delete'}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   {/* My Courses */}
                   {tutorCourses.length > 0 && (
                     <div>
@@ -1038,7 +1182,21 @@ const AcademyDashboard = () => {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Input placeholder={isEs ? 'Título' : 'Title'} value={newPrompt.title} onChange={e => setNewPrompt(p => ({ ...p, title: e.target.value }))} />
-                  <Textarea placeholder={isEs ? 'Contenido del prompt (usá [VARIABLES] para que otros lo personalicen)' : 'Prompt content (use [VARIABLES] so others can customise it)'} value={newPrompt.content} onChange={e => setNewPrompt(p => ({ ...p, content: e.target.value }))} rows={6} />
+                  <div className="space-y-1.5">
+                    <Textarea placeholder={isEs ? 'Contenido del prompt (usá [VARIABLES] para que otros lo personalicen)' : 'Prompt content (use [VARIABLES] so others can customise it)'} value={newPrompt.content} onChange={e => setNewPrompt(p => ({ ...p, content: e.target.value }))} rows={6} />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs gap-1.5 w-full"
+                      onClick={handleImproveDraft}
+                      disabled={improvePrompt.isPending || newPrompt.content.trim().length < 10}
+                    >
+                      {improvePrompt.isPending
+                        ? <><Loader2 className="h-3 w-3 animate-spin" /> {isEs ? 'Mejorando con IA...' : 'Improving with AI...'}</>
+                        : <><Sparkles className="h-3 w-3" /> {isEs ? 'Mejorar con IA' : 'Improve with AI'}</>}
+                    </Button>
+                  </div>
                   <div>
                     <label className="text-[10px] font-heading uppercase tracking-widest text-muted-foreground mb-1 block">{isEs ? 'Skill objetivo' : 'Target skill'}</label>
                     <Select value={newPrompt.skill || 'none'} onValueChange={v => setNewPrompt(p => ({ ...p, skill: v === 'none' ? '' : v }))}>
@@ -1084,16 +1242,33 @@ const AcademyDashboard = () => {
 
               {/* Prompt library (right 2 columns) */}
               <Card className="lg:col-span-2">
-                <CardHeader>
+                <CardHeader className="space-y-3">
                   <CardTitle className="font-heading text-lg flex items-center gap-2">
                     <MessageSquare className="h-5 w-5 text-primary" /> {isEs ? 'Biblioteca de Prompts' : 'Prompt Library'}
-                    <Badge variant="secondary" className="ml-auto text-[10px]">{prompts.length}</Badge>
+                    <Badge variant="secondary" className="ml-auto text-[10px]">{visiblePrompts.length}{promptSearch.trim() ? '' : ` / ${prompts.length}`}</Badge>
                   </CardTitle>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder={isEs ? 'Busca por problema: "necesito escribir emails de seguimiento de ventas"...' : 'Search by problem: "I need to write sales follow-up emails"...'}
+                      value={promptSearch}
+                      onChange={(e) => setPromptSearch(e.target.value)}
+                      className="pl-9 text-sm"
+                    />
+                    {promptSearch && (
+                      <button
+                        onClick={() => setPromptSearch('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  {prompts.length > 0 ? (
+                  {visiblePrompts.length > 0 ? (
                     <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                      {prompts.map(p => {
+                      {visiblePrompts.map(p => {
                         const rate = p.stats?.approval_rate;
                         const battleTested = rate !== null && rate !== undefined && (p.stats?.mission_uses || 0) >= 3;
                         return (
@@ -1144,10 +1319,69 @@ const AcademyDashboard = () => {
                       })}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">{isEs ? 'Sé el primero en compartir.' : 'Be the first to share.'}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {promptSearch.trim()
+                        ? (isEs ? 'No encontramos prompts para esa búsqueda. Probá con otras palabras.' : 'No prompts found for that search. Try other words.')
+                        : (isEs ? 'Sé el primero en compartir.' : 'Be the first to share.')}
+                    </p>
                   )}
                 </CardContent>
               </Card>
+            </div>
+
+            {/* ── Playbooks (Idea 2) ── */}
+            <div className="mt-8">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-heading text-lg font-bold flex items-center gap-2">
+                    <Workflow className="h-5 w-5 text-primary" />
+                    {isEs ? 'Playbooks' : 'Playbooks'}
+                  </h3>
+                  <p className="text-xs text-muted-foreground font-body mt-0.5">
+                    {isEs
+                      ? 'Bundles de prompts encadenados que un tutor curó para resolver un problema completo.'
+                      : 'Tutor-curated prompt bundles that solve a complete problem end-to-end.'}
+                  </p>
+                </div>
+              </div>
+              {playbooks.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border/50 p-6 text-center">
+                  <Workflow className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    {isEs ? 'Aún no hay playbooks publicados. ¿Eres tutor? Crea uno desde la pestaña Enseñar.' : 'No playbooks yet. Are you a tutor? Create one from the Teach tab.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {playbooks.map((pb) => (
+                    <button
+                      key={pb.id}
+                      onClick={() => setOpenedPlaybook(pb)}
+                      className="text-left rounded-xl border border-border/50 bg-card p-4 hover:border-primary/40 transition-colors space-y-2"
+                    >
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {pb.skill && <Badge variant="outline" className="text-[10px]">{pb.skill}</Badge>}
+                        <Badge variant="secondary" className="text-[10px]">
+                          {pb.prompt_ids.length} {isEs ? 'pasos' : 'steps'}
+                        </Badge>
+                        {pb.myCompletion && (
+                          <Badge className="text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                            ✓ {isEs ? 'Completado' : 'Completed'}
+                          </Badge>
+                        )}
+                      </div>
+                      <h4 className="font-heading font-bold text-sm">{pb.title}</h4>
+                      {pb.description && (
+                        <p className="text-xs text-muted-foreground font-body line-clamp-2">{pb.description}</p>
+                      )}
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground font-body pt-1">
+                        <span>by {pb.authorName || 'Tutor'}</span>
+                        <span>{pb.completion_count} {isEs ? 'completaron' : 'completed'}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </TabsContent>
 
@@ -1376,6 +1610,216 @@ const AcademyDashboard = () => {
                 onClose={() => { setShowExam(false); setSelectedCourse(null); }} />
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Improve Prompt comparison modal (Idea 3) ── */}
+      <Dialog open={!!improvedDraft} onOpenChange={(open) => !open && setImprovedDraft(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          {improvedDraft && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-heading text-lg flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  {isEs ? 'Versión mejorada por IA' : 'AI-improved version'}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                  <p className="text-xs font-heading font-bold uppercase tracking-widest text-primary mb-1">
+                    {isEs ? 'Cambio principal' : 'Main change'}
+                  </p>
+                  <p className="text-sm font-body">{improvedDraft.reason}</p>
+                </div>
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-2">
+                    <p className="text-[10px] font-heading font-bold uppercase tracking-widest text-muted-foreground">
+                      {isEs ? 'Tu versión' : 'Your version'}
+                    </p>
+                    <pre className="text-xs whitespace-pre-wrap font-body leading-relaxed max-h-[400px] overflow-y-auto">{improvedDraft.original}</pre>
+                  </div>
+                  <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-3 space-y-2">
+                    <p className="text-[10px] font-heading font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                      {isEs ? 'Versión mejorada' : 'Improved version'}
+                    </p>
+                    <pre className="text-xs whitespace-pre-wrap font-body leading-relaxed max-h-[400px] overflow-y-auto">{improvedDraft.improved}</pre>
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end pt-2">
+                  <Button variant="outline" onClick={() => setImprovedDraft(null)}>
+                    {isEs ? 'Mantener mi versión' : 'Keep my version'}
+                  </Button>
+                  <Button onClick={acceptImprovedDraft}>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    {isEs ? 'Usar versión mejorada' : 'Use improved version'}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Playbook viewer modal (Idea 2 — explorer side) ── */}
+      <Dialog open={!!openedPlaybook} onOpenChange={(open) => !open && setOpenedPlaybook(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          {openedPlaybook && (() => {
+            const orderedPrompts = openedPlaybook.prompt_ids
+              .map((id) => prompts.find((p) => p.id === id))
+              .filter(Boolean) as SharedPromptWithStats[];
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="font-heading text-lg flex items-center gap-2">
+                    <Workflow className="h-5 w-5 text-primary" />
+                    {openedPlaybook.title}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground font-body">
+                    <span>by <span className="font-semibold text-foreground">{openedPlaybook.authorName || 'Tutor'}</span></span>
+                    <span>•</span>
+                    <span>{openedPlaybook.completion_count} {isEs ? 'completaron' : 'completed'}</span>
+                    {openedPlaybook.skill && (
+                      <>
+                        <span>•</span>
+                        <Badge variant="outline" className="text-[10px]">{openedPlaybook.skill}</Badge>
+                      </>
+                    )}
+                  </div>
+                  {openedPlaybook.description && (
+                    <p className="text-sm font-body text-muted-foreground">{openedPlaybook.description}</p>
+                  )}
+                  <div className="space-y-2">
+                    {orderedPrompts.map((p, i) => (
+                      <div key={p.id} className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-heading font-bold flex items-center justify-center shrink-0">
+                            {i + 1}
+                          </span>
+                          <p className="font-heading font-semibold text-sm flex-1">{p.title}</p>
+                          {p.toolName && <Badge variant="outline" className="text-[9px]">{p.toolName}</Badge>}
+                        </div>
+                        <p className="text-xs text-muted-foreground font-body line-clamp-3 whitespace-pre-wrap">{p.content}</p>
+                        <Button size="sm" variant="outline" className="text-xs gap-1 mt-1" onClick={() => handleCopyAndOpenPrompt(p)}>
+                          <Copy className="h-3 w-3" />
+                          {p.toolName ? (isEs ? `Copiar y abrir ${p.toolName}` : `Copy & open ${p.toolName}`) : (isEs ? 'Copiar prompt' : 'Copy prompt')}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="pt-2">
+                    {openedPlaybook.myCompletion ? (
+                      <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-3 text-center">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-500 mx-auto mb-1" />
+                        <p className="text-xs font-heading font-semibold text-emerald-600 dark:text-emerald-400">
+                          {isEs ? '¡Ya completaste este playbook!' : 'You already completed this playbook!'}
+                        </p>
+                      </div>
+                    ) : (
+                      <Button
+                        className="w-full gap-2"
+                        onClick={() => handleCompletePlaybook(openedPlaybook)}
+                        disabled={completePlaybook.isPending}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        {isEs ? 'Marcar playbook como completado' : 'Mark playbook as complete'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Playbook creator modal (Idea 2 — tutor side) ── */}
+      <Dialog open={showPlaybookCreator} onOpenChange={setShowPlaybookCreator}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-lg flex items-center gap-2">
+              <Workflow className="h-5 w-5 text-primary" />
+              {isEs ? 'Crear Playbook' : 'Create Playbook'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder={isEs ? 'Título (ej. "Lanzar producto en e-commerce")' : 'Title (e.g. "Launch product on e-commerce")'}
+              value={playbookForm.title}
+              onChange={(e) => setPlaybookForm((p) => ({ ...p, title: e.target.value }))}
+            />
+            <Textarea
+              placeholder={isEs ? 'Descripción: ¿qué problema resuelve este playbook?' : 'Description: what problem does this playbook solve?'}
+              value={playbookForm.description}
+              onChange={(e) => setPlaybookForm((p) => ({ ...p, description: e.target.value }))}
+              rows={3}
+            />
+            <Select value={playbookForm.skill || 'none'} onValueChange={(v) => setPlaybookForm((p) => ({ ...p, skill: v === 'none' ? '' : v }))}>
+              <SelectTrigger><SelectValue placeholder={isEs ? 'Skill objetivo' : 'Target skill'} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{isEs ? 'Sin skill específica' : 'No specific skill'}</SelectItem>
+                <SelectItem value="Marketing">Marketing</SelectItem>
+                <SelectItem value="Web Development">{isEs ? 'Desarrollo Web' : 'Web Development'}</SelectItem>
+                <SelectItem value="Design">{isEs ? 'Diseño' : 'Design'}</SelectItem>
+                <SelectItem value="Data">Data</SelectItem>
+                <SelectItem value="Research">{isEs ? 'Investigación' : 'Research'}</SelectItem>
+                <SelectItem value="Operations">{isEs ? 'Operaciones' : 'Operations'}</SelectItem>
+              </SelectContent>
+            </Select>
+            <div>
+              <p className="text-xs font-heading font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                {isEs ? `Prompts incluidos (${playbookForm.promptIds.length})` : `Included prompts (${playbookForm.promptIds.length})`}
+              </p>
+              <p className="text-[11px] text-muted-foreground font-body mb-2">
+                {isEs ? 'Hace click para agregar/quitar. El orden es el orden en que se agregaron.' : 'Click to add/remove. Order is the order they were added in.'}
+              </p>
+              <div className="rounded-lg border border-border/50 max-h-[260px] overflow-y-auto divide-y divide-border/50">
+                {prompts
+                  .filter((p) => !playbookForm.skill || p.skill === playbookForm.skill || !p.skill)
+                  .map((p) => {
+                    const idx = playbookForm.promptIds.indexOf(p.id);
+                    const inPlaybook = idx >= 0;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setPlaybookForm((pb) => ({
+                            ...pb,
+                            promptIds: inPlaybook ? pb.promptIds.filter((id) => id !== p.id) : [...pb.promptIds, p.id],
+                          }));
+                        }}
+                        className={`w-full text-left px-3 py-2 flex items-center justify-between gap-2 hover:bg-muted/40 transition-colors ${inPlaybook ? 'bg-primary/5' : ''}`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {inPlaybook && (
+                            <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-heading font-bold flex items-center justify-center shrink-0">
+                              {idx + 1}
+                            </span>
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-heading font-semibold text-xs truncate">{p.title}</p>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              {p.skill && <span className="text-[10px] text-muted-foreground">{p.skill}</span>}
+                              {p.toolName && <span className="text-[10px] text-muted-foreground">• {p.toolName}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        {inPlaybook ? <CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> : <Circle className="h-4 w-4 text-muted-foreground shrink-0" />}
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="outline" onClick={() => setShowPlaybookCreator(false)}>{isEs ? 'Cancelar' : 'Cancel'}</Button>
+              <Button onClick={handleCreatePlaybook} disabled={createPlaybook.isPending || !playbookForm.title.trim() || playbookForm.promptIds.length < 2}>
+                <Upload className="h-4 w-4 mr-2" />
+                {isEs ? 'Publicar Playbook' : 'Publish Playbook'}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

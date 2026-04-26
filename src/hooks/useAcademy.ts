@@ -379,6 +379,67 @@ export function useTrackPromptUse() {
   });
 }
 
+// Free-text search across the prompt library using the Postgres tsvector
+// + GIN index. Falls back to ILIKE inside the search_prompts function so a
+// single weird token still returns something rather than an empty list.
+// Pass an optional skill to constrain to that mission category.
+export function useSearchPrompts(query: string, skill?: string | null) {
+  return useQuery({
+    queryKey: ['search-prompts', query, skill],
+    queryFn: async () => {
+      const trimmed = query.trim();
+      if (!trimmed) return [];
+      const { data: matches, error } = await db.rpc('search_prompts', {
+        _query: trimmed,
+        _skill: skill || null,
+      });
+      if (error) throw error;
+      const ids = (matches || []).map((m: any) => m.id);
+      if (ids.length === 0) return [];
+
+      const [{ data: prompts }, { data: stats }, { data: tools }] = await Promise.all([
+        db.from('academy_shared_prompts').select('*').in('id', ids),
+        db.from('shared_prompt_stats').select('*').in('prompt_id', ids),
+        db.from('academy_tools').select('id, name, name_es, url, icon'),
+      ]);
+      const statsMap = new Map<string, SharedPromptStats>((stats || []).map((s: any) => [s.prompt_id, s]));
+      const toolMap = new Map<string, any>((tools || []).map((t: any) => [t.id, t]));
+      const orderById = new Map<string, number>(ids.map((id: string, i: number) => [id, i]));
+      const enriched: SharedPromptWithStats[] = (prompts || []).map((p: any) => {
+        const tool = p.tool_id ? toolMap.get(p.tool_id) : null;
+        return {
+          ...p,
+          toolName: tool?.name || null,
+          toolUrl: tool?.url || null,
+          toolIcon: tool?.icon || null,
+          stats: statsMap.get(p.id) || null,
+        };
+      });
+      // Preserve the rank order returned by the search function.
+      enriched.sort((a, b) => (orderById.get(a.id) ?? 99) - (orderById.get(b.id) ?? 99));
+      return enriched;
+    },
+    enabled: query.trim().length > 0,
+    staleTime: 30 * 1000,
+  });
+}
+
+// Improves a draft prompt by sending it through the improve-prompt Edge
+// Function. Returns { improved, reason } so the UI can show a side-by-side
+// comparison and let the user pick which version to publish.
+export function useImprovePrompt() {
+  return useMutation({
+    mutationFn: async ({ draft, skill, language }: { draft: string; skill?: string | null; language?: 'es' | 'en' }) => {
+      const { data, error } = await supabase.functions.invoke('improve-prompt', {
+        body: { draft, skill: skill || null, language: language || 'es' },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { improved: string; reason: string };
+    },
+  });
+}
+
 // Top prompts for a given mission skill, sorted by approval_rate desc then
 // total_uses desc. Used in ExplorerDashboard mission detail to surface the
 // 3 most battle-tested prompts for the skill.
@@ -530,6 +591,165 @@ export function useIncrementViews() {
           .update({ views_count: db.raw('views_count + 1') })
           .eq('id', courseId);
       }
+    },
+  });
+}
+
+// ─── Playbooks (Idea 2) ─────────────────────────────────────────────────
+
+export interface PromptPlaybook {
+  id: string;
+  author_id: string;
+  title: string;
+  title_es: string | null;
+  description: string | null;
+  description_es: string | null;
+  skill: string | null;
+  prompt_ids: string[];
+  thumbnail_url: string | null;
+  is_published: boolean;
+  completion_count: number;
+  created_at: string;
+  authorName?: string | null;
+  myCompletion?: { id: string; completed_at: string } | null;
+}
+
+// Returns all published playbooks (or all if user is admin/author) joined
+// with the author's display name and the current user's completion record
+// (if any).
+export function usePlaybooks(skill?: string | null) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['playbooks', skill || 'all'],
+    queryFn: async () => {
+      let query = db.from('prompt_playbooks').select('*').order('completion_count', { ascending: false });
+      if (skill) query = query.eq('skill', skill);
+      const { data: playbooks, error } = await query;
+      if (error) throw error;
+      const list = (playbooks || []) as PromptPlaybook[];
+      if (list.length === 0) return [];
+
+      const authorIds = [...new Set(list.map((p) => p.author_id).filter(Boolean))];
+      const { data: profiles } = await db
+        .from('profiles')
+        .select('id, full_name, username')
+        .in('id', authorIds);
+      const nameMap = new Map<string, string>(
+        (profiles || []).map((p: any) => [p.id, p.full_name || p.username || 'Tutor'])
+      );
+
+      let myCompletions: any[] = [];
+      if (user) {
+        const { data } = await db
+          .from('playbook_completions')
+          .select('id, playbook_id, completed_at')
+          .eq('user_id', user.id);
+        myCompletions = data || [];
+      }
+      const completionMap = new Map<string, { id: string; completed_at: string }>(
+        myCompletions.map((c: any) => [c.playbook_id, { id: c.id, completed_at: c.completed_at }])
+      );
+
+      return list.map((p) => ({
+        ...p,
+        authorName: nameMap.get(p.author_id) || 'Tutor',
+        myCompletion: completionMap.get(p.id) || null,
+      })) as PromptPlaybook[];
+    },
+  });
+}
+
+// Lists ONLY the playbooks authored by the current user — used in the
+// tutor's Enseñar tab.
+export function useMyPlaybooks() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['my-playbooks', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await db
+        .from('prompt_playbooks')
+        .select('*')
+        .eq('author_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []) as PromptPlaybook[];
+    },
+    enabled: !!user,
+  });
+}
+
+export function useCreatePlaybook() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      title: string;
+      description?: string;
+      skill?: string | null;
+      prompt_ids: string[];
+      thumbnail_url?: string | null;
+    }) => {
+      if (!user) throw new Error('Not authenticated');
+      if (!payload.prompt_ids || payload.prompt_ids.length < 2) {
+        throw new Error('Un playbook necesita al menos 2 prompts.');
+      }
+      const { data, error } = await db
+        .from('prompt_playbooks')
+        .insert({
+          author_id: user.id,
+          title: payload.title,
+          description: payload.description || null,
+          skill: payload.skill || null,
+          prompt_ids: payload.prompt_ids,
+          thumbnail_url: payload.thumbnail_url || null,
+          is_published: true,
+        })
+        .select('id')
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['playbooks'] });
+      queryClient.invalidateQueries({ queryKey: ['my-playbooks'] });
+    },
+  });
+}
+
+export function useDeletePlaybook() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (playbookId: string) => {
+      if (!user) throw new Error('Not authenticated');
+      const { error } = await db
+        .from('prompt_playbooks')
+        .delete()
+        .eq('id', playbookId)
+        .eq('author_id', user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['playbooks'] });
+      queryClient.invalidateQueries({ queryKey: ['my-playbooks'] });
+    },
+  });
+}
+
+export function useCompletePlaybook() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (playbookId: string) => {
+      if (!user) throw new Error('Not authenticated');
+      const { error } = await db
+        .from('playbook_completions')
+        .insert({ user_id: user.id, playbook_id: playbookId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['playbooks'] });
     },
   });
 }
