@@ -1282,6 +1282,31 @@ const AcademyDashboard = () => {
                         </DialogTitle>
                       </DialogHeader>
 
+                      <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1.5">
+                        <p className="text-xs font-heading font-bold text-primary flex items-center gap-1.5">
+                          <Sparkles className="h-3.5 w-3.5" />
+                          {isEs ? 'Antes de empezar — requisitos para publicar' : 'Before you start — publishing checklist'}
+                        </p>
+                        <ul className="text-[11px] text-foreground/80 space-y-1 leading-relaxed pl-1">
+                          <li className="flex gap-1.5">
+                            <span className="text-primary shrink-0">•</span>
+                            <span>{isEs ? 'Título, link del video y ruta de aprendizaje' : 'Title, video link and learning path'} <span className="text-destructive font-bold">*</span></span>
+                          </li>
+                          <li className="flex gap-1.5">
+                            <span className="text-primary shrink-0">•</span>
+                            <span>{isEs ? 'Mínimo ' : 'Minimum '}<span className="font-bold text-primary">{isEs ? '5 preguntas' : '5 questions'}</span>{isEs ? ' de examen, cada una con sus 4 opciones llenas y la respuesta correcta marcada (círculo verde).' : ' for the exam, each with all 4 options filled and the correct answer marked (green circle).'}</span>
+                          </li>
+                          <li className="flex gap-1.5">
+                            <span className="text-primary shrink-0">•</span>
+                            <span>{isEs ? 'Tip: subí un PDF con las preguntas y la IA las extrae sola.' : 'Tip: upload a PDF with the questions and AI will extract them for you.'}</span>
+                          </li>
+                          <li className="flex gap-1.5">
+                            <span className="text-primary shrink-0">•</span>
+                            <span>{isEs ? 'El curso queda en revisión hasta que el admin lo apruebe.' : 'The course stays under review until the admin approves it.'}</span>
+                          </li>
+                        </ul>
+                      </div>
+
                       <div className="flex items-center gap-3 rounded-lg border border-border/50 p-3 bg-muted/30">
                         <Badge className="capitalize">{selectedCategory.replace('ai-', 'AI ').replace('-', ' ')}</Badge>
                         <Select value={courseForm.path_id} onValueChange={v => setCourseForm(f => ({ ...f, path_id: v }))}>
