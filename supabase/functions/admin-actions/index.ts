@@ -300,6 +300,21 @@ serve(async (req) => {
         break;
       }
 
+      case 'update_course_status': {
+        const { course_id, status } = params;
+        if (!course_id || !status) throw new Error('Missing course_id or status');
+        if (!['published', 'pending_review', 'rejected', 'archived'].includes(status)) {
+          throw new Error(`Invalid course status: ${status}`);
+        }
+        const { error } = await supabase
+          .from('academy_courses')
+          .update({ course_status: status })
+          .eq('id', course_id);
+        if (error) throw error;
+        result = { success: true };
+        break;
+      }
+
       case 'get_tutor_applications': {
         const { data, error } = await supabase
           .from('tutor_applications')
