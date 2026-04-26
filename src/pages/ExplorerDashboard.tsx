@@ -26,8 +26,8 @@ import SmartRecommendations from '@/components/SmartRecommendations';
 import AvailableMissions from '@/components/AvailableMissions';
 import { useEngagementData, getXPLevel, useTrackActivity } from '@/hooks/useEngagement';
 import { useRefreshBadges } from '@/hooks/useSkillPassport';
-import { useToolsForSkill, useTrackToolUsage } from '@/hooks/useAcademy';
-import { Wrench } from 'lucide-react';
+import { useToolsForSkill, useTrackToolUsage, usePromptsForSkill, useTrackPromptUse } from '@/hooks/useAcademy';
+import { Wrench, Sparkles, Copy } from 'lucide-react';
 
 interface Application {
   id: string;
@@ -107,7 +107,24 @@ const ExplorerDashboard = () => {
   const trackActivity = useTrackActivity();
   const refreshBadges = useRefreshBadges();
   const { data: recommendedTools = [] } = useToolsForSkill(selectedApp?.missionSkill || null);
+  const { data: recommendedPrompts = [] } = usePromptsForSkill(selectedApp?.missionSkill || null);
   const trackToolUsage = useTrackToolUsage();
+  const trackPromptUse = useTrackPromptUse();
+
+  const handleCopyMissionPrompt = async (prompt: typeof recommendedPrompts[0]) => {
+    try {
+      await navigator.clipboard.writeText(prompt.content);
+      toast.success(isEs ? 'Prompt copiado. Pegá con Ctrl+V (Cmd+V).' : 'Prompt copied. Paste with Ctrl+V (Cmd+V).');
+    } catch {
+      toast.error(isEs ? 'No se pudo copiar al portapapeles' : 'Could not copy to clipboard');
+    }
+    if (selectedApp) {
+      trackPromptUse.mutate({ promptId: prompt.id, missionAssignmentId: selectedApp.id });
+    }
+    if (prompt.toolUrl) {
+      window.open(prompt.toolUrl, '_blank', 'noopener');
+    }
+  };
 
   // Track daily login + refresh badges (idempotently awards any badges the
   // explorer qualifies for based on their current stats).
@@ -607,6 +624,64 @@ const ExplorerDashboard = () => {
                     )}
                   </div>
                 </div>
+
+                {/* Battle-tested prompts for this mission's skill */}
+                {recommendedPrompts.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      <h3 className="font-heading font-semibold text-sm">
+                        {isEs ? 'Prompts útiles' : 'Useful prompts'}
+                      </h3>
+                      <span className="text-[10px] font-heading font-bold text-primary uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded-full">
+                        {selectedApp.missionSkill}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {recommendedPrompts.map((p) => {
+                        const rate = p.stats?.approval_rate;
+                        const battleTested = rate !== null && rate !== undefined && (p.stats?.mission_uses || 0) >= 3;
+                        return (
+                          <div key={p.id} className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                  <p className="font-heading font-semibold text-xs">{p.title}</p>
+                                  {p.is_official && (
+                                    <Badge className="text-[9px] bg-primary/15 text-primary border-primary/30">GOPHORA Team</Badge>
+                                  )}
+                                  {battleTested && (
+                                    <Badge className="text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                                      ⚔️ {rate}% approval
+                                    </Badge>
+                                  )}
+                                </div>
+                                {p.toolName && (
+                                  <span className="text-[10px] font-heading font-semibold text-muted-foreground">
+                                    {isEs ? 'Para ' : 'For '}{p.toolName}
+                                  </span>
+                                )}
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="text-[11px] gap-1 h-7 bg-primary hover:bg-primary/90 text-white shrink-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopyMissionPrompt(p);
+                                }}
+                              >
+                                <Copy className="h-3 w-3" />
+                                {isEs ? 'Copiar' : 'Copy'}
+                              </Button>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground font-body whitespace-pre-wrap line-clamp-3">{p.content}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Recommended tools for this mission's skill */}
                 {recommendedTools.length > 0 && (

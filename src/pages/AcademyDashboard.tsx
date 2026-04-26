@@ -17,7 +17,7 @@ import {
   GraduationCap, Flame, Shield, Bot, Image, Video, PenTool,
   FileText, GitBranch, Workflow, Globe, Eye, ThumbsUp, Play,
   Users, Sparkles, Upload, Heart, HeartOff, UserPlus, UserCheck,
-  FileUp, BarChart3, Loader2, Download
+  FileUp, BarChart3, Loader2, Download, Copy
 } from 'lucide-react';
 import {
   useAcademyPaths, useAcademyCourses, useAcademyTools,
@@ -26,6 +26,7 @@ import {
   useTutorApplication, useSubmitTutorApplication,
   useSubmitCourseAsTutor, useIncrementViews,
   useTrackToolUsage,
+  useSharedPromptsWithStats, useTrackPromptUse,
   type AcademyCourse,
   type AcademyTool
 } from '@/hooks/useAcademy';
@@ -66,7 +67,8 @@ const AcademyDashboard = () => {
   const { data: courses = [] } = useAcademyCourses();
   const { data: tools = [] } = useAcademyTools();
   const { data: progress = [] } = useCourseProgress();
-  const { data: prompts = [] } = useSharedPrompts();
+  const { data: prompts = [] } = useSharedPromptsWithStats();
+  const trackPromptUse = useTrackPromptUse();
   const { data: tutorApp } = useTutorApplication();
   const { data: favorites = [] } = useMyFavoriteCourses();
   const { data: followedTutors = [] } = useMyFollowedTutors();
@@ -89,7 +91,7 @@ const AcademyDashboard = () => {
   const [courseFilter, setCourseFilter] = useState('all');
   const [toolFilter, setToolFilter] = useState('all');
   const [courseLangFilter, setCourseLangFilter] = useState<'all' | 'en' | 'es'>('all');
-  const [newPrompt, setNewPrompt] = useState({ title: '', content: '', category: 'general' });
+  const [newPrompt, setNewPrompt] = useState({ title: '', content: '', category: 'general', skill: '', toolId: '' });
   const [selectedCourse, setSelectedCourse] = useState<AcademyCourse | null>(null);
   const [showExam, setShowExam] = useState(false);
   const [showTutorForm, setShowTutorForm] = useState(false);
@@ -190,12 +192,37 @@ const AcademyDashboard = () => {
 
   const handleSharePrompt = () => {
     if (!newPrompt.title || !newPrompt.content) return;
-    createPrompt.mutate(newPrompt, {
-      onSuccess: () => {
-        setNewPrompt({ title: '', content: '', category: 'general' });
-        toast.success(isEs ? '¡Prompt compartido!' : 'Prompt shared!');
+    createPrompt.mutate(
+      {
+        title: newPrompt.title,
+        content: newPrompt.content,
+        category: newPrompt.category,
+        skill: newPrompt.skill || null,
+        toolId: newPrompt.toolId || null,
       },
-    });
+      {
+        onSuccess: () => {
+          setNewPrompt({ title: '', content: '', category: 'general', skill: '', toolId: '' });
+          toast.success(isEs ? '¡Prompt compartido!' : 'Prompt shared!');
+        },
+        onError: (err: any) => {
+          toast.error(err?.message || (isEs ? 'No se pudo compartir el prompt' : 'Could not share prompt'));
+        },
+      }
+    );
+  };
+
+  const handleCopyAndOpenPrompt = async (prompt: typeof prompts[0]) => {
+    try {
+      await navigator.clipboard.writeText(prompt.content);
+      toast.success(isEs ? 'Prompt copiado. Pegá con Ctrl+V (Cmd+V).' : 'Prompt copied. Paste with Ctrl+V (Cmd+V).');
+    } catch {
+      toast.error(isEs ? 'No se pudo copiar al portapapeles' : 'Could not copy to clipboard');
+    }
+    trackPromptUse.mutate({ promptId: prompt.id });
+    if (prompt.toolUrl) {
+      window.open(prompt.toolUrl, '_blank', 'noopener');
+    }
   };
 
   const handleTutorApply = () => {
@@ -1001,8 +1028,9 @@ const AcademyDashboard = () => {
 
           {/* ── COMMUNITY ── */}
           <TabsContent value="community" className="mt-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Share form (left column) */}
+              <Card className="lg:col-span-1">
                 <CardHeader>
                   <CardTitle className="font-heading text-lg flex items-center gap-2">
                     <Share2 className="h-5 w-5 text-primary" /> {isEs ? 'Compartir un Prompt' : 'Share a Prompt'}
@@ -1010,7 +1038,34 @@ const AcademyDashboard = () => {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Input placeholder={isEs ? 'Título' : 'Title'} value={newPrompt.title} onChange={e => setNewPrompt(p => ({ ...p, title: e.target.value }))} />
-                  <Textarea placeholder={isEs ? 'Contenido...' : 'Content...'} value={newPrompt.content} onChange={e => setNewPrompt(p => ({ ...p, content: e.target.value }))} rows={4} />
+                  <Textarea placeholder={isEs ? 'Contenido del prompt (usá [VARIABLES] para que otros lo personalicen)' : 'Prompt content (use [VARIABLES] so others can customise it)'} value={newPrompt.content} onChange={e => setNewPrompt(p => ({ ...p, content: e.target.value }))} rows={6} />
+                  <div>
+                    <label className="text-[10px] font-heading uppercase tracking-widest text-muted-foreground mb-1 block">{isEs ? 'Skill objetivo' : 'Target skill'}</label>
+                    <Select value={newPrompt.skill || 'none'} onValueChange={v => setNewPrompt(p => ({ ...p, skill: v === 'none' ? '' : v }))}>
+                      <SelectTrigger><SelectValue placeholder={isEs ? 'Cualquiera' : 'Any'} /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{isEs ? 'Cualquier skill' : 'Any skill'}</SelectItem>
+                        <SelectItem value="Marketing">Marketing</SelectItem>
+                        <SelectItem value="Web Development">{isEs ? 'Desarrollo Web' : 'Web Development'}</SelectItem>
+                        <SelectItem value="Design">{isEs ? 'Diseño' : 'Design'}</SelectItem>
+                        <SelectItem value="Data">Data</SelectItem>
+                        <SelectItem value="Research">{isEs ? 'Investigación' : 'Research'}</SelectItem>
+                        <SelectItem value="Operations">{isEs ? 'Operaciones' : 'Operations'}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-heading uppercase tracking-widest text-muted-foreground mb-1 block">{isEs ? 'Herramienta' : 'Tool'}</label>
+                    <Select value={newPrompt.toolId || 'none'} onValueChange={v => setNewPrompt(p => ({ ...p, toolId: v === 'none' ? '' : v }))}>
+                      <SelectTrigger><SelectValue placeholder={isEs ? 'Sin herramienta específica' : 'No specific tool'} /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{isEs ? 'Sin herramienta específica' : 'No specific tool'}</SelectItem>
+                        {tools.map(t => (
+                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <Select value={newPrompt.category} onValueChange={v => setNewPrompt(p => ({ ...p, category: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -1021,29 +1076,72 @@ const AcademyDashboard = () => {
                       <SelectItem value="creative">{isEs ? 'Creativo' : 'Creative'}</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button onClick={handleSharePrompt} disabled={createPrompt.isPending} className="w-full">
+                  <Button onClick={handleSharePrompt} disabled={createPrompt.isPending || !newPrompt.title.trim() || !newPrompt.content.trim()} className="w-full">
                     <Share2 className="h-4 w-4 mr-2" /> {isEs ? 'Compartir' : 'Share'}
                   </Button>
                 </CardContent>
               </Card>
-              <Card>
+
+              {/* Prompt library (right 2 columns) */}
+              <Card className="lg:col-span-2">
                 <CardHeader>
                   <CardTitle className="font-heading text-lg flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5 text-primary" /> {isEs ? 'Prompts de la Comunidad' : 'Community Prompts'}
+                    <MessageSquare className="h-5 w-5 text-primary" /> {isEs ? 'Biblioteca de Prompts' : 'Prompt Library'}
+                    <Badge variant="secondary" className="ml-auto text-[10px]">{prompts.length}</Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {prompts.length > 0 ? (
-                    <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                      {prompts.map(p => (
-                        <div key={p.id} className="rounded-lg border p-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="font-heading font-semibold text-sm">{p.title}</p>
-                            <Badge variant="outline" className="text-[10px]">{p.category}</Badge>
+                    <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+                      {prompts.map(p => {
+                        const rate = p.stats?.approval_rate;
+                        const battleTested = rate !== null && rate !== undefined && (p.stats?.mission_uses || 0) >= 3;
+                        return (
+                          <div key={p.id} className="rounded-lg border border-border/50 bg-card/50 p-4 space-y-2.5 hover:border-primary/30 transition-colors">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                  <p className="font-heading font-semibold text-sm">{p.title}</p>
+                                  {p.is_official && (
+                                    <Badge className="text-[9px] bg-primary/15 text-primary border-primary/30 hover:bg-primary/20">GOPHORA Team</Badge>
+                                  )}
+                                  {battleTested && (
+                                    <Badge className="text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                                      ⚔️ {rate}% approval
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {p.skill && <Badge variant="outline" className="text-[10px]">{p.skill}</Badge>}
+                                  {p.toolName && <Badge variant="outline" className="text-[10px] capitalize">{p.toolName}</Badge>}
+                                  {p.category && <Badge variant="secondary" className="text-[10px] capitalize">{p.category}</Badge>}
+                                </div>
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-4 font-body">{p.content}</p>
+                            <div className="flex items-center justify-between pt-1">
+                              <div className="flex items-center gap-3 text-[11px] text-muted-foreground font-body">
+                                {(p.stats?.total_uses || 0) > 0 && (
+                                  <span>{p.stats?.total_uses} {isEs ? 'usos' : 'uses'}</span>
+                                )}
+                                {(p.stats?.mission_uses || 0) > 0 && (
+                                  <span>{p.stats?.mission_uses} {isEs ? 'en misiones' : 'in missions'}</span>
+                                )}
+                              </div>
+                              <Button
+                                size="sm"
+                                className="text-xs gap-1 bg-primary hover:bg-primary/90 text-white"
+                                onClick={() => handleCopyAndOpenPrompt(p)}
+                              >
+                                <Copy className="h-3 w-3" />
+                                {p.toolName
+                                  ? (isEs ? `Copiar y abrir ${p.toolName}` : `Copy & open ${p.toolName}`)
+                                  : (isEs ? 'Copiar prompt' : 'Copy prompt')}
+                              </Button>
+                            </div>
                           </div>
-                          <p className="text-xs text-muted-foreground whitespace-pre-wrap">{p.content}</p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">{isEs ? 'Sé el primero en compartir.' : 'Be the first to share.'}</p>

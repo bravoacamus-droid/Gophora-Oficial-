@@ -253,6 +253,62 @@ export function useToggleCourseCompletion() {
   });
 }
 
+export interface SharedPromptStats {
+  prompt_id: string;
+  total_uses: number;
+  copy_count: number;
+  mission_uses: number;
+  approved_uses: number;
+  approval_rate: number | null;
+}
+
+export interface SharedPromptWithStats {
+  id: string;
+  title: string;
+  content: string;
+  category: string | null;
+  skill: string | null;
+  tool_id: string | null;
+  is_official: boolean;
+  user_id: string | null;
+  created_at: string;
+  // joined fields
+  toolName: string | null;
+  toolUrl: string | null;
+  toolIcon: string | null;
+  stats: SharedPromptStats | null;
+}
+
+// Returns prompts joined with their tool info and battle-tested stats. The
+// stats view is computed live from prompt_usage joined to mission_assignments.
+export function useSharedPromptsWithStats() {
+  return useQuery({
+    queryKey: ['shared-prompts-with-stats'],
+    queryFn: async () => {
+      const [{ data: prompts, error: pErr }, { data: stats }, { data: tools }] = await Promise.all([
+        db.from('academy_shared_prompts').select('*').order('created_at', { ascending: false }).limit(120),
+        db.from('shared_prompt_stats').select('*'),
+        db.from('academy_tools').select('id, name, name_es, url, icon'),
+      ]);
+      if (pErr) throw pErr;
+      const statsMap = new Map<string, SharedPromptStats>((stats || []).map((s: any) => [s.prompt_id, s]));
+      const toolMap = new Map<string, any>((tools || []).map((t: any) => [t.id, t]));
+      return (prompts || []).map((p: any): SharedPromptWithStats => {
+        const tool = p.tool_id ? toolMap.get(p.tool_id) : null;
+        return {
+          ...p,
+          toolName: tool?.name || null,
+          toolUrl: tool?.url || null,
+          toolIcon: tool?.icon || null,
+          stats: statsMap.get(p.id) || null,
+        };
+      });
+    },
+  });
+}
+
+// Backwards-compat: still used in a few places; just calls the new one without
+// the joined data for components that don't need stats.
 export function useSharedPrompts() {
   return useQuery({
     queryKey: ['shared-prompts'],
@@ -273,16 +329,95 @@ export function useCreateSharedPrompt() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ title, content, category }: { title: string; content: string; category: string }) => {
+    mutationFn: async ({
+      title, content, category, skill, toolId,
+    }: {
+      title: string; content: string; category: string;
+      skill?: string | null; toolId?: string | null;
+    }) => {
       if (!user) throw new Error('Not authenticated');
       const { error } = await db
         .from('academy_shared_prompts')
-        .insert({ user_id: user.id, title, content, category });
+        .insert({
+          user_id: user.id,
+          title,
+          content,
+          category,
+          skill: skill || null,
+          tool_id: toolId || null,
+          is_official: false,
+        });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shared-prompts'] });
+      queryClient.invalidateQueries({ queryKey: ['shared-prompts-with-stats'] });
     },
+  });
+}
+
+// Logs a "Copy & Open" interaction. mission_assignment_id is passed when the
+// explorer uses the prompt while looking at one of their missions, so the
+// stats view can compute approval-rate.
+export function useTrackPromptUse() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ promptId, missionAssignmentId }: { promptId: string; missionAssignmentId?: string | null }) => {
+      if (!user) return;
+      await db.from('prompt_usage').insert({
+        prompt_id: promptId,
+        user_id: user.id,
+        mission_assignment_id: missionAssignmentId || null,
+      });
+    },
+    onSuccess: () => {
+      // Refresh stats so the badge updates without a full reload.
+      queryClient.invalidateQueries({ queryKey: ['shared-prompts-with-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['prompts-for-skill'] });
+    },
+  });
+}
+
+// Top prompts for a given mission skill, sorted by approval_rate desc then
+// total_uses desc. Used in ExplorerDashboard mission detail to surface the
+// 3 most battle-tested prompts for the skill.
+export function usePromptsForSkill(skill: string | null | undefined) {
+  return useQuery({
+    queryKey: ['prompts-for-skill', skill],
+    queryFn: async () => {
+      if (!skill) return [];
+      const [{ data: prompts }, { data: stats }, { data: tools }] = await Promise.all([
+        db.from('academy_shared_prompts').select('*').eq('skill', skill).limit(40),
+        db.from('shared_prompt_stats').select('*'),
+        db.from('academy_tools').select('id, name, name_es, url, icon'),
+      ]);
+      const statsMap = new Map<string, SharedPromptStats>((stats || []).map((s: any) => [s.prompt_id, s]));
+      const toolMap = new Map<string, any>((tools || []).map((t: any) => [t.id, t]));
+      const enriched: SharedPromptWithStats[] = (prompts || []).map((p: any) => {
+        const tool = p.tool_id ? toolMap.get(p.tool_id) : null;
+        return {
+          ...p,
+          toolName: tool?.name || null,
+          toolUrl: tool?.url || null,
+          toolIcon: tool?.icon || null,
+          stats: statsMap.get(p.id) || null,
+        };
+      });
+      enriched.sort((a, b) => {
+        const aRate = a.stats?.approval_rate ?? -1;
+        const bRate = b.stats?.approval_rate ?? -1;
+        if (aRate !== bRate) return bRate - aRate;
+        const aUses = a.stats?.total_uses || 0;
+        const bUses = b.stats?.total_uses || 0;
+        if (aUses !== bUses) return bUses - aUses;
+        if (a.is_official !== b.is_official) return a.is_official ? -1 : 1;
+        return 0;
+      });
+      return enriched.slice(0, 3);
+    },
+    enabled: !!skill,
+    staleTime: 2 * 60 * 1000,
   });
 }
 
