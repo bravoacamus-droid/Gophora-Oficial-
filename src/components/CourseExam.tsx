@@ -37,16 +37,28 @@ interface CourseExamProps {
 export default function CourseExam({ course, isEs, onPass, onClose }: CourseExamProps) {
   const { data: dbQuestions, isLoading } = useCourseExamQuestions(course.id);
 
-  // Convert DB questions to exam format, or use fallback
+  // Convert DB questions to exam format, or use fallback. The options_es
+  // and question_es arrays are often saved as empty strings ['', '', '', '']
+  // because the tutor form only exposes one input per option (the English
+  // one) — checking .length > 0 lets that empty array slip through, which
+  // is why the exam UI rendered blank A/B/C/D buttons. The .some() filter
+  // below treats "all-empty" as missing and falls back to the EN array.
   const questions: ExamQuestion[] = (() => {
     if (dbQuestions && dbQuestions.length >= 5) {
-      return dbQuestions.map(q => ({
-        question: q.question,
-        question_es: q.question_es || q.question,
-        options: Array.isArray(q.options) ? q.options : [],
-        options_es: Array.isArray(q.options_es) && q.options_es.length > 0 ? q.options_es : (Array.isArray(q.options) ? q.options : []),
-        correctIndex: q.correct_index,
-      }));
+      return dbQuestions.map(q => {
+        const enOpts = Array.isArray(q.options) ? q.options : [];
+        const esOptsRaw = Array.isArray(q.options_es) ? q.options_es : [];
+        const esHasContent = esOptsRaw.some((s: any) => typeof s === 'string' && s.trim().length > 0);
+        const enQuestion = String(q.question || '').trim();
+        const esQuestionRaw = String(q.question_es || '').trim();
+        return {
+          question: enQuestion || esQuestionRaw,
+          question_es: esQuestionRaw || enQuestion,
+          options: enOpts,
+          options_es: esHasContent ? esOptsRaw : enOpts,
+          correctIndex: q.correct_index,
+        };
+      });
     }
     // Fallback: use generic questions shuffled
     return [...fallbackQuestions].sort(() => Math.random() - 0.5).slice(0, 5);

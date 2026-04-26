@@ -855,15 +855,26 @@ export function useSubmitCourseAsTutor() {
       if (error) throw error;
 
       if (payload.examQuestions && payload.examQuestions.length > 0 && data?.id) {
-        const questions = payload.examQuestions.map((q: any, i: number) => ({
-          course_id: data.id,
-          question: q.question,
-          question_es: q.question_es || null,
-          options: q.options,
-          options_es: q.options_es || [],
-          correct_index: q.correct_index,
-          sort_order: i,
-        }));
+        // Mirror EN → ES when the tutor didn't fill the ES side. The form
+        // currently exposes only one input row per option, so options_es
+        // would otherwise be saved as ['', '', '', ''] and the bilingual
+        // exam UI would render blank A/B/C/D buttons.
+        const questions = payload.examQuestions.map((q: any, i: number) => {
+          const en = q.question?.trim() || '';
+          const es = q.question_es?.trim() || '';
+          const enOpts = Array.isArray(q.options) ? q.options : [];
+          const esOptsRaw = Array.isArray(q.options_es) ? q.options_es : [];
+          const esHasContent = esOptsRaw.some((s: any) => typeof s === 'string' && s.trim().length > 0);
+          return {
+            course_id: data.id,
+            question: en || es,
+            question_es: es || en || null,
+            options: enOpts,
+            options_es: esHasContent ? esOptsRaw : enOpts,
+            correct_index: q.correct_index,
+            sort_order: i,
+          };
+        });
         const { error: qError } = await db.from('course_exam_questions').insert(questions);
         if (qError) throw qError;
       }
