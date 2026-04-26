@@ -538,71 +538,53 @@ const Landing = () => {
       </footer>
 
       {/* ========== REGISTER PROMPT MODAL (tipo Uber) ========== */}
-      <AnimatePresence>
-        {showRegisterPrompt && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-            onClick={() => setShowRegisterPrompt(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ duration: 0.2 }}
-              className="relative w-full max-w-md rounded-2xl overflow-hidden shadow-2xl bg-card border border-border"
-              onClick={e => e.stopPropagation()}
-            >
+      <Dialog open={showRegisterPrompt} onOpenChange={setShowRegisterPrompt}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="sr-only">
+              {isLoggedIn
+                ? (isEs ? 'Ya estás dentro' : 'You are already in')
+                : (isEs ? 'Regístrate para participar' : 'Sign up to participate')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-2 space-y-5">
+            <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <Rocket className="h-8 w-8 text-primary" />
+            </div>
+            <h3 className="text-2xl font-heading font-bold">
+              {isLoggedIn
+                ? (isEs ? 'Ya estás dentro' : 'You are already in')
+                : (isEs ? 'Regístrate para participar' : 'Sign up to participate')}
+            </h3>
+            <p className="text-muted-foreground font-body">
+              {isLoggedIn
+                ? (isEs ? 'Volvé a tu panel para acceder al evento, grabaciones y aplicar a este tipo de misiones.' : 'Head back to your dashboard to access the live event, recordings, and apply for these missions.')
+                : (isEs ? 'Únete gratis a GOPHORA para acceder al evento en vivo, grabaciones y aplicar a este tipo de misiones.' : 'Join GOPHORA free to access the live event, recordings, and apply for these missions.')}
+            </p>
+            <div className="flex flex-col gap-3">
               <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowRegisterPrompt(false)}
-                className="absolute top-3 right-3 z-10"
+                size="lg"
+                className="w-full gap-2 bg-primary hover:bg-primary/90 text-white"
+                onClick={handleJoinFreeFromPrompt}
               >
-                <X className="h-5 w-5" />
+                {isLoggedIn
+                  ? (isEs ? 'Ir a mi panel' : 'Go to dashboard')
+                  : (isEs ? 'Unirme gratis' : 'Join free')} <ArrowRight className="h-4 w-4" />
               </Button>
-              <div className="p-8 text-center">
-                <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-5">
-                  <Rocket className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="text-2xl font-heading font-bold mb-3">
-                  {isLoggedIn
-                    ? (isEs ? 'Ya estás dentro' : 'You are already in')
-                    : (isEs ? 'Regístrate para participar' : 'Sign up to participate')}
-                </h3>
-                <p className="text-muted-foreground font-body mb-6">
-                  {isLoggedIn
-                    ? (isEs ? 'Volvé a tu panel para acceder al evento, grabaciones y aplicar a este tipo de misiones.' : 'Head back to your dashboard to access the live event, recordings, and apply for these missions.')
-                    : (isEs ? 'Únete gratis a GOPHORA para acceder al evento en vivo, grabaciones y aplicar a este tipo de misiones.' : 'Join GOPHORA free to access the live event, recordings, and apply for these missions.')}
-                </p>
-                <div className="flex flex-col gap-3">
-                  <Button
-                    size="lg"
-                    className="w-full gap-2 bg-primary hover:bg-primary/90 text-white"
-                    onClick={handleJoinFreeFromPrompt}
-                  >
-                    {isLoggedIn
-                      ? (isEs ? 'Ir a mi panel' : 'Go to dashboard')
-                      : (isEs ? 'Unirme gratis' : 'Join free')} <ArrowRight className="h-4 w-4" />
-                  </Button>
-                  {!isLoggedIn && (
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="w-full"
-                      onClick={handleAlreadyHaveAccount}
-                    >
-                      {isEs ? 'Ya tengo cuenta' : 'I already have an account'}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              {!isLoggedIn && (
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleAlreadyHaveAccount}
+                >
+                  {isEs ? 'Ya tengo cuenta' : 'I already have an account'}
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ========== PROJECT DETAIL MODAL ========== */}
       <Dialog open={!!detailProject} onOpenChange={(o) => !o && setDetailProject(null)}>
@@ -681,7 +663,13 @@ const Landing = () => {
                           href={detailProject.video_link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          onClick={(e) => { if (!isLoggedIn) { e.preventDefault(); setShowRegisterPrompt(true); } }}
+                          onClick={(e) => {
+                            if (!isLoggedIn) {
+                              e.preventDefault();
+                              setDetailProject(null);
+                              setTimeout(() => setShowRegisterPrompt(true), 0);
+                            }
+                          }}
                           className="inline-flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 hover:underline font-body font-semibold bg-red-500/5 border border-red-500/20 px-3 py-1.5 rounded-lg"
                         >
                           <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
@@ -693,7 +681,13 @@ const Landing = () => {
                           href={detailProject.resource_link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          onClick={(e) => { if (!isLoggedIn) { e.preventDefault(); setShowRegisterPrompt(true); } }}
+                          onClick={(e) => {
+                            if (!isLoggedIn) {
+                              e.preventDefault();
+                              setDetailProject(null);
+                              setTimeout(() => setShowRegisterPrompt(true), 0);
+                            }
+                          }}
                           className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-body bg-primary/5 px-3 py-1.5 rounded-lg"
                         >
                           <BookOpen className="h-3 w-3" />
@@ -753,7 +747,10 @@ const Landing = () => {
                         if (isLoggedIn) {
                           navigate('/marketplace');
                         } else {
-                          setShowRegisterPrompt(true);
+                          // Defer so the detail Dialog finishes unmounting before
+                          // the register Dialog mounts — otherwise Radix focus-traps
+                          // collide and clicks inside the second modal die.
+                          setTimeout(() => setShowRegisterPrompt(true), 0);
                         }
                       }}
                     >
