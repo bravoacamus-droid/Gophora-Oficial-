@@ -828,6 +828,65 @@ export function useSubmitTutorApplication() {
   });
 }
 
+// Tutors can edit any course they submitted. RLS on academy_courses
+// (UPDATE WHERE submitted_by = auth.uid()) enforces ownership.
+export function useUpdateCourseAsTutor() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      course_id: string;
+      patch: Partial<AcademyCourse> & {
+        delivery_mode?: 'live' | 'recorded';
+        live_at?: string | null;
+      };
+      examQuestions?: Array<{ question: string; question_es: string; options: string[]; options_es: string[]; correct_index: number }>;
+    }) => {
+      if (!user) throw new Error('Not authenticated');
+      const updates: any = { ...payload.patch };
+      if (updates.delivery_mode === 'recorded') updates.live_at = null;
+      const { error } = await db
+        .from('academy_courses')
+        .update(updates)
+        .eq('id', payload.course_id)
+        .eq('submitted_by', user.id);
+      if (error) throw error;
+
+      if (payload.examQuestions && payload.examQuestions.length > 0) {
+        const { error: delErr } = await db
+          .from('course_exam_questions')
+          .delete()
+          .eq('course_id', payload.course_id);
+        if (delErr) throw delErr;
+
+        const questions = payload.examQuestions.map((q: any, i: number) => {
+          const en = q.question?.trim() || '';
+          const es = q.question_es?.trim() || '';
+          const enOpts = Array.isArray(q.options) ? q.options : [];
+          const esOptsRaw = Array.isArray(q.options_es) ? q.options_es : [];
+          const esHasContent = esOptsRaw.some((s: any) => typeof s === 'string' && s.trim().length > 0);
+          return {
+            course_id: payload.course_id,
+            question: en || es,
+            question_es: es || en || null,
+            options: enOpts,
+            options_es: esHasContent ? esOptsRaw : enOpts,
+            correct_index: q.correct_index,
+            sort_order: i,
+          };
+        });
+        const { error: qError } = await db.from('course_exam_questions').insert(questions);
+        if (qError) throw qError;
+      }
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['academy-courses'] });
+      queryClient.invalidateQueries({ queryKey: ['academy-courses-all'] });
+      queryClient.invalidateQueries({ queryKey: ['course-exam-questions', variables.course_id] });
+    },
+  });
+}
+
 export function useSubmitCourseAsTutor() {
   const { user } = useAuth();
   const queryClient = useQueryClient();

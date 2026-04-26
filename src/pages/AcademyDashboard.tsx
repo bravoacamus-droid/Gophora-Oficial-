@@ -24,7 +24,7 @@ import {
   useCourseProgress, useToggleCourseCompletion, useSharedPrompts,
   useCreateSharedPrompt, getExplorerLevel, EXPLORER_LEVELS,
   useTutorApplication, useSubmitTutorApplication,
-  useSubmitCourseAsTutor, useIncrementViews,
+  useSubmitCourseAsTutor, useUpdateCourseAsTutor, useIncrementViews,
   useTrackToolUsage,
   useSharedPromptsWithStats, useTrackPromptUse,
   useSearchPrompts, useImprovePrompt,
@@ -125,22 +125,26 @@ const AcademyDashboard = () => {
   const [showTutorForm, setShowTutorForm] = useState(false);
   const [tutorForm, setTutorForm] = useState({ bio: '', expertise: '', portfolio_url: '' });
   const [showCourseForm, setShowCourseForm] = useState(false);
+  const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const updateCourse = useUpdateCourseAsTutor();
+  const defaultInstructorName = user?.user_metadata?.username || user?.email?.split('@')[0] || '';
   const [courseForm, setCourseForm] = useState({
     title: '', description: '', external_url: '', thumbnail_url: '',
     duration_minutes: 30, skill_level: 'beginner', language: 'en',
     skills_learned: '', path_id: '',
+    instructor_name: defaultInstructorName,
     delivery_mode: 'recorded' as 'live' | 'recorded',
     live_at: '',
   });
   const [examQuestions, setExamQuestions] = useState<Array<{
     question: string; question_es: string; options: string[]; options_es: string[]; correct_index: number;
   }>>([
-    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
-    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
-    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
-    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
-    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 },
+    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: -1 },
+    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: -1 },
+    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: -1 },
+    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: -1 },
+    { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: -1 },
   ]);
   const [parsingPdf, setParsingPdf] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -384,7 +388,16 @@ const AcademyDashboard = () => {
     if (!courseForm.title || !courseForm.external_url || !courseForm.path_id) return;
     const validQuestions = examQuestions.filter(q => q.question.trim() && q.options.every(o => o.trim()));
     if (validQuestions.length < 5) {
-      toast.error(isEs ? 'Debes agregar al menos 5 preguntas' : 'Add at least 5 questions');
+      toast.error(isEs ? 'Debes agregar al menos 5 preguntas con sus 4 opciones llenas' : 'Add at least 5 questions with all 4 options filled');
+      return;
+    }
+    const missingCorrect = validQuestions.findIndex(q => q.correct_index < 0 || q.correct_index > 3);
+    if (missingCorrect !== -1) {
+      toast.error(
+        isEs
+          ? `La pregunta ${missingCorrect + 1} no tiene marcada la respuesta correcta. Click en el círculo verde de la opción correcta.`
+          : `Question ${missingCorrect + 1} has no correct answer marked. Click the green circle of the correct option.`
+      );
       return;
     }
     submitCourse.mutate(
@@ -401,7 +414,7 @@ const AcademyDashboard = () => {
           path_id: courseForm.path_id,
           category: selectedCategory || 'general',
           platform: courseForm.delivery_mode === 'live' ? 'Live' : 'External',
-          instructor_name: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Tutor',
+          instructor_name: courseForm.instructor_name?.trim() || defaultInstructorName || 'Tutor',
           delivery_mode: courseForm.delivery_mode,
           live_at: courseForm.delivery_mode === 'live' && courseForm.live_at ? courseForm.live_at : null,
         } as any,
@@ -411,9 +424,7 @@ const AcademyDashboard = () => {
         onSuccess: () => {
           toast.success(isEs ? '¡Curso enviado para revisión!' : 'Course submitted for review!');
           setShowCourseForm(false);
-          setSelectedCategory('');
-          setCourseForm({ title: '', description: '', external_url: '', thumbnail_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', path_id: '', delivery_mode: 'recorded', live_at: '' });
-          setExamQuestions(Array(5).fill(null).map(() => ({ question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 })));
+          resetCourseForm();
         },
         onError: (err: any) => {
           toast.error(err?.message || (isEs ? 'No se pudo enviar el curso' : 'Could not submit course'));
@@ -465,6 +476,108 @@ const AcademyDashboard = () => {
 
   const handleCourseClick = (course: AcademyCourse) => {
     if (course.external_url) incrementViews.mutate(course.id);
+  };
+
+  const resetCourseForm = () => {
+    setCourseForm({ title: '', description: '', external_url: '', thumbnail_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', path_id: '', instructor_name: defaultInstructorName, delivery_mode: 'recorded', live_at: '' });
+    setExamQuestions(Array(5).fill(null).map(() => ({ question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: -1 })));
+    setSelectedCategory('');
+    setEditingCourseId(null);
+  };
+
+  const handleEditCourseClick = async (course: AcademyCourse) => {
+    setEditingCourseId(course.id);
+    setSelectedCategory(course.category || 'general');
+    const liveAtLocal = course.live_at
+      ? new Date(course.live_at).toISOString().slice(0, 16)
+      : '';
+    setCourseForm({
+      title: course.title || '',
+      description: course.description || '',
+      external_url: course.external_url || '',
+      thumbnail_url: course.thumbnail_url || '',
+      duration_minutes: course.duration_minutes || 30,
+      skill_level: course.skill_level || 'beginner',
+      language: course.language || 'en',
+      skills_learned: (course.skills_learned || []).join(', '),
+      path_id: course.path_id || '',
+      instructor_name: course.instructor_name || defaultInstructorName,
+      delivery_mode: (course as any).delivery_mode === 'live' ? 'live' : 'recorded',
+      live_at: liveAtLocal,
+    });
+    setShowCourseForm(true);
+
+    const { data, error } = await supabase
+      .from('course_exam_questions')
+      .select('*')
+      .eq('course_id', course.id)
+      .order('sort_order');
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    if (data && data.length > 0) {
+      const loaded = data.map((q: any) => ({
+        question: q.question || '',
+        question_es: q.question_es || '',
+        options: Array.isArray(q.options) ? q.options : (typeof q.options === 'string' ? JSON.parse(q.options) : ['', '', '', '']),
+        options_es: Array.isArray(q.options_es) ? q.options_es : (typeof q.options_es === 'string' ? JSON.parse(q.options_es) : ['', '', '', '']),
+        correct_index: typeof q.correct_index === 'number' ? q.correct_index : -1,
+      }));
+      while (loaded.length < 5) {
+        loaded.push({ question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: -1 });
+      }
+      setExamQuestions(loaded);
+    }
+  };
+
+  const handleUpdateCourse = () => {
+    if (!editingCourseId) return;
+    if (!courseForm.title || !courseForm.external_url || !courseForm.path_id) return;
+    const validQuestions = examQuestions.filter(q => q.question.trim() && q.options.every(o => o.trim()));
+    if (validQuestions.length < 5) {
+      toast.error(isEs ? 'Debes mantener al menos 5 preguntas con sus 4 opciones llenas' : 'Keep at least 5 questions with all 4 options filled');
+      return;
+    }
+    const missingCorrect = validQuestions.findIndex(q => q.correct_index < 0 || q.correct_index > 3);
+    if (missingCorrect !== -1) {
+      toast.error(
+        isEs
+          ? `La pregunta ${missingCorrect + 1} no tiene marcada la respuesta correcta.`
+          : `Question ${missingCorrect + 1} has no correct answer marked.`
+      );
+      return;
+    }
+    updateCourse.mutate(
+      {
+        course_id: editingCourseId,
+        patch: {
+          title: courseForm.title,
+          description: courseForm.description,
+          external_url: courseForm.external_url,
+          thumbnail_url: courseForm.thumbnail_url || null,
+          duration_minutes: courseForm.duration_minutes,
+          skill_level: courseForm.skill_level,
+          language: courseForm.language,
+          skills_learned: courseForm.skills_learned.split(',').map(s => s.trim()).filter(Boolean),
+          path_id: courseForm.path_id,
+          instructor_name: courseForm.instructor_name?.trim() || defaultInstructorName || 'Tutor',
+          delivery_mode: courseForm.delivery_mode,
+          live_at: courseForm.delivery_mode === 'live' && courseForm.live_at ? courseForm.live_at : null,
+        } as any,
+        examQuestions: validQuestions,
+      },
+      {
+        onSuccess: () => {
+          toast.success(isEs ? '¡Curso actualizado!' : 'Course updated!');
+          setShowCourseForm(false);
+          resetCourseForm();
+        },
+        onError: (err: any) => {
+          toast.error(err?.message || (isEs ? 'No se pudo actualizar el curso' : 'Could not update course'));
+        },
+      }
+    );
   };
 
   const toolCategories = [...new Set(tools.map(t => t.category))];
@@ -1158,12 +1271,14 @@ const AcademyDashboard = () => {
                   </div>
 
                   {/* Course Upload Dialog */}
-                  <Dialog open={showCourseForm} onOpenChange={open => { if (!open) { setShowCourseForm(false); setSelectedCategory(''); } }}>
+                  <Dialog open={showCourseForm} onOpenChange={open => { if (!open) { setShowCourseForm(false); resetCourseForm(); } }}>
                     <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle className="font-heading flex items-center gap-2">
-                          <Upload className="h-5 w-5 text-primary" />
-                          {isEs ? 'Nuevo Curso' : 'New Course'}
+                          {editingCourseId ? <PenTool className="h-5 w-5 text-primary" /> : <Upload className="h-5 w-5 text-primary" />}
+                          {editingCourseId
+                            ? (isEs ? 'Editar Curso' : 'Edit Course')
+                            : (isEs ? 'Nuevo Curso' : 'New Course')}
                         </DialogTitle>
                       </DialogHeader>
 
@@ -1181,6 +1296,19 @@ const AcademyDashboard = () => {
                         <div>
                           <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">{isEs ? 'Título *' : 'Title *'}</label>
                           <Input value={courseForm.title} onChange={e => setCourseForm(f => ({ ...f, title: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                            {isEs ? 'Nombre del Tutor *' : 'Tutor Name *'}
+                          </label>
+                          <Input
+                            value={courseForm.instructor_name}
+                            onChange={e => setCourseForm(f => ({ ...f, instructor_name: e.target.value }))}
+                            placeholder={isEs ? 'Aparece como el autor del curso' : 'Shown as the course author'}
+                          />
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            {isEs ? 'Este nombre aparece en el curso y en el certificado de los exploradores.' : 'This name shows on the course and on explorer certificates.'}
+                          </p>
                         </div>
                         <div>
                           <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">{isEs ? 'Descripción' : 'Description'}</label>
@@ -1302,6 +1430,14 @@ const AcademyDashboard = () => {
                               </Button>
                             </div>
                           </div>
+                          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 mb-3">
+                            <p className="text-[11px] text-foreground/80 leading-snug">
+                              <span className="font-heading font-bold">{isEs ? '⚠️ Importante: ' : '⚠️ Important: '}</span>
+                              {isEs
+                                ? 'Por cada pregunta, escribí las 4 opciones y hace click en el círculo verde de la opción CORRECTA. Sin marcar la correcta, no podés enviar el curso.'
+                                : 'For each question, write the 4 options and click the green circle of the CORRECT option. You cannot submit without marking the correct answer.'}
+                            </p>
+                          </div>
                           {parsingPdf && (
                             <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 mb-3 flex items-center gap-2">
                               <Loader2 className="h-4 w-4 animate-spin text-primary" />
@@ -1319,29 +1455,54 @@ const AcademyDashboard = () => {
                                 </div>
                                 <Input value={eq.question} onChange={e => { const u = [...examQuestions]; u[qi] = { ...u[qi], question: e.target.value }; setExamQuestions(u); }} placeholder={isEs ? 'Pregunta *' : 'Question *'} className="text-sm" />
                                 <Input value={eq.question_es} onChange={e => { const u = [...examQuestions]; u[qi] = { ...u[qi], question_es: e.target.value }; setExamQuestions(u); }} placeholder={isEs ? 'Pregunta en español' : 'Spanish (optional)'} className="text-sm" />
-                                <div className="grid grid-cols-2 gap-2">
-                                  {eq.options.map((opt, oi) => (
-                                    <div key={oi} className="flex items-center gap-1">
-                                      <input type="radio" name={`correct-${qi}`} checked={eq.correct_index === oi} onChange={() => { const u = [...examQuestions]; u[qi] = { ...u[qi], correct_index: oi }; setExamQuestions(u); }} className="accent-primary shrink-0" />
-                                      <Input value={opt} onChange={e => { const u = [...examQuestions]; const o = [...u[qi].options]; o[oi] = e.target.value; u[qi] = { ...u[qi], options: o }; setExamQuestions(u); }} placeholder={`${String.fromCharCode(65 + oi)}.`} className="text-xs h-8" />
-                                    </div>
-                                  ))}
+                                <p className="text-[10px] text-muted-foreground italic">
+                                  {isEs ? '👇 Hace click en el círculo verde de la opción CORRECTA' : '👇 Click the green circle on the CORRECT option'}
+                                </p>
+                                <div className="space-y-1.5">
+                                  {eq.options.map((opt, oi) => {
+                                    const isCorrect = eq.correct_index === oi;
+                                    return (
+                                      <div key={oi} className={`flex items-center gap-2 rounded-lg border p-1.5 transition-colors ${isCorrect ? 'border-green-500/50 bg-green-500/10' : 'border-border/40 bg-background'}`}>
+                                        <button
+                                          type="button"
+                                          onClick={() => { const u = [...examQuestions]; u[qi] = { ...u[qi], correct_index: oi }; setExamQuestions(u); }}
+                                          title={isEs ? 'Marcar como respuesta correcta' : 'Mark as correct answer'}
+                                          className={`shrink-0 h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all ${isCorrect ? 'border-green-500 bg-green-500 text-white' : 'border-muted-foreground/40 hover:border-green-500 hover:bg-green-500/10'}`}
+                                        >
+                                          {isCorrect ? <CheckCircle2 className="h-4 w-4" /> : <span className="text-[10px] font-heading font-bold text-muted-foreground">{String.fromCharCode(65 + oi)}</span>}
+                                        </button>
+                                        <Input value={opt} onChange={e => { const u = [...examQuestions]; const o = [...u[qi].options]; o[oi] = e.target.value; u[qi] = { ...u[qi], options: o }; setExamQuestions(u); }} placeholder={isEs ? `Opción ${String.fromCharCode(65 + oi)}` : `Option ${String.fromCharCode(65 + oi)}`} className="text-xs h-8 flex-1" />
+                                        {isCorrect && (
+                                          <Badge className="bg-green-500 text-white text-[10px] shrink-0">
+                                            ✓ {isEs ? 'Correcta' : 'Correct'}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             ))}
                           </div>
                           {examQuestions.length < 20 && (
-                            <Button variant="outline" size="sm" className="mt-2 w-full" onClick={() => setExamQuestions(prev => [...prev, { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 }])}>
+                            <Button variant="outline" size="sm" className="mt-2 w-full" onClick={() => setExamQuestions(prev => [...prev, { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: -1 }])}>
                               + {isEs ? 'Agregar pregunta' : 'Add question'}
                             </Button>
                           )}
                         </div>
 
                         <div className="flex gap-2 justify-end pt-2">
-                          <Button variant="outline" onClick={() => { setShowCourseForm(false); setSelectedCategory(''); }}>{isEs ? 'Cancelar' : 'Cancel'}</Button>
-                          <Button onClick={handleSubmitCourse} disabled={!courseForm.title || !courseForm.external_url || !courseForm.path_id || submitCourse.isPending}>
-                            <Upload className="h-4 w-4 mr-2" /> {isEs ? 'Enviar para Revisión' : 'Submit for Review'}
-                          </Button>
+                          <Button variant="outline" onClick={() => { setShowCourseForm(false); resetCourseForm(); }}>{isEs ? 'Cancelar' : 'Cancel'}</Button>
+                          {editingCourseId ? (
+                            <Button onClick={handleUpdateCourse} disabled={!courseForm.title || !courseForm.external_url || !courseForm.path_id || !courseForm.instructor_name?.trim() || updateCourse.isPending}>
+                              {updateCourse.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <PenTool className="h-4 w-4 mr-2" />}
+                              {isEs ? 'Guardar Cambios' : 'Save Changes'}
+                            </Button>
+                          ) : (
+                            <Button onClick={handleSubmitCourse} disabled={!courseForm.title || !courseForm.external_url || !courseForm.path_id || !courseForm.instructor_name?.trim() || submitCourse.isPending}>
+                              <Upload className="h-4 w-4 mr-2" /> {isEs ? 'Enviar para Revisión' : 'Submit for Review'}
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </DialogContent>
@@ -1478,7 +1639,7 @@ const AcademyDashboard = () => {
                       </h3>
                       <div className="rounded-xl border border-border/50 bg-card overflow-hidden divide-y divide-border/50">
                         {tutorCourses.map(course => (
-                          <div key={course.id} className="p-4 flex items-center justify-between gap-4">
+                          <div key={course.id} className="p-4 flex items-center justify-between gap-4 hover:bg-muted/30 transition-colors cursor-pointer group" onClick={() => handleEditCourseClick(course)}>
                             <div className="flex items-center gap-3 min-w-0">
                               {course.thumbnail_url ? (
                                 <img src={course.thumbnail_url} alt="" className="h-12 w-20 rounded-lg object-cover shrink-0" />
@@ -1486,7 +1647,7 @@ const AcademyDashboard = () => {
                                 <div className="h-12 w-20 rounded-lg bg-muted flex items-center justify-center shrink-0"><Play className="h-5 w-5 text-muted-foreground" /></div>
                               )}
                               <div className="min-w-0">
-                                <p className="font-heading font-semibold text-sm truncate">{course.title}</p>
+                                <p className="font-heading font-semibold text-sm truncate group-hover:text-primary transition-colors">{course.title}</p>
                                 <div className="flex items-center gap-2 mt-0.5">
                                   <Badge variant={course.course_status === 'published' ? 'default' : 'secondary'} className="text-[10px]">
                                     {course.course_status === 'published' ? (isEs ? 'Publicado' : 'Published') : (isEs ? 'En revisión' : 'Under Review')}
@@ -1496,12 +1657,26 @@ const AcademyDashboard = () => {
                                 </div>
                               </div>
                             </div>
-                            <div className="text-right shrink-0">
-                              <p className="text-xs text-muted-foreground">{isEs ? 'Recompensa' : 'Reward'}</p>
-                              <p className="font-heading font-bold text-sm text-primary">${((course.views_count || 0) * 0.01).toFixed(2)}</p>
+                            <div className="flex items-center gap-3 shrink-0">
+                              <div className="text-right">
+                                <p className="text-xs text-muted-foreground">{isEs ? 'Recompensa' : 'Reward'}</p>
+                                <p className="font-heading font-bold text-sm text-primary">${((course.views_count || 0) * 0.01).toFixed(2)}</p>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => { e.stopPropagation(); handleEditCourseClick(course); }}
+                                className="gap-1"
+                              >
+                                <PenTool className="h-3.5 w-3.5" />
+                                {isEs ? 'Editar' : 'Edit'}
+                              </Button>
                             </div>
                           </div>
                         ))}
+                        <div className="p-3 text-[11px] text-muted-foreground italic text-center bg-muted/20">
+                          {isEs ? '💡 Hace click en cualquier curso para editarlo (incluye preguntas del examen).' : '💡 Click any course to edit it (exam questions included).'}
+                        </div>
                       </div>
                     </div>
                   )}
