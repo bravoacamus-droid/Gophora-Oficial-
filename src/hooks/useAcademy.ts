@@ -151,6 +151,50 @@ export function useAllAcademyCourses() {
   });
 }
 
+// ─── Path enrollments ───────────────────────────────────────────────────
+
+export interface PathEnrollment {
+  id: string;
+  user_id: string;
+  path_id: string;
+  started_at: string;
+  completed_at: string | null;
+}
+
+export function useMyPathEnrollments() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['path-enrollments', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await db
+        .from('path_enrollments')
+        .select('*')
+        .eq('user_id', user.id);
+      if (error) throw error;
+      return (data || []) as PathEnrollment[];
+    },
+    enabled: !!user,
+  });
+}
+
+export function useEnrollInPath() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (pathId: string) => {
+      if (!user) throw new Error('Not authenticated');
+      const { error } = await db
+        .from('path_enrollments')
+        .insert({ user_id: user.id, path_id: pathId });
+      if (error && !String(error.message || '').includes('duplicate')) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['path-enrollments'] });
+    },
+  });
+}
+
 export function useAcademyTools() {
   return useQuery({
     queryKey: ['academy-tools'],

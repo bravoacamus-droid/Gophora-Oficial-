@@ -29,6 +29,7 @@ import {
   useSharedPromptsWithStats, useTrackPromptUse,
   useSearchPrompts, useImprovePrompt,
   usePlaybooks, useMyPlaybooks, useCreatePlaybook, useDeletePlaybook, useCompletePlaybook,
+  useMyPathEnrollments, useEnrollInPath,
   type AcademyCourse,
   type AcademyTool,
   type PromptPlaybook,
@@ -43,6 +44,7 @@ import {
 } from '@/hooks/useAcademySocial';
 import CourseExam from '@/components/CourseExam';
 import CertificateCard from '@/components/CertificateCard';
+import PremiumCertificate from '@/components/PremiumCertificate';
 import { useAIRecommendations } from '@/hooks/useRecommendations';
 import YouTubeVideoPlayer, { isYouTubeUrl, extractYouTubeId, getYouTubeThumbnail } from '@/components/YouTubeVideoPlayer';
 import { motion } from 'framer-motion';
@@ -73,6 +75,9 @@ const AcademyDashboard = () => {
   const { data: progress = [] } = useCourseProgress();
   const { data: prompts = [] } = useSharedPromptsWithStats();
   const trackPromptUse = useTrackPromptUse();
+  const { data: pathEnrollments = [] } = useMyPathEnrollments();
+  const enrollInPath = useEnrollInPath();
+  const enrolledPathIds = new Set(pathEnrollments.map((e: any) => e.path_id));
   const improvePrompt = useImprovePrompt();
   const { data: playbooks = [] } = usePlaybooks();
   const { data: myPlaybooks = [] } = useMyPlaybooks();
@@ -580,31 +585,68 @@ const AcademyDashboard = () => {
 
           {/* ── LEARNING PATHS ── */}
           <TabsContent value="paths" className="mt-4 space-y-6">
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+              <div className="flex items-center gap-3">
+                <Award className="h-5 w-5 text-primary shrink-0" />
+                <p className="text-xs font-body text-muted-foreground leading-relaxed">
+                  {isEs
+                    ? <>Inscríbete en una ruta y completa todos sus cursos. Al terminar el último, <span className="font-semibold text-foreground">se emite automáticamente un certificado oficial GOPHORA</span> con QR de verificación pública y descarga en PDF.</>
+                    : <>Enrol in a path and complete every course in it. Once you finish the last one, <span className="font-semibold text-foreground">an official GOPHORA certificate is issued automatically</span> with public QR verification and PDF download.</>}
+                </p>
+              </div>
+            </div>
             {paths.map(path => {
               const pathCourses = courses.filter(c => c.path_id === path.id).filter(c => courseLangFilter === 'all' || c.language === courseLangFilter);
               const pathCompleted = pathCourses.filter(c => completedIds.has(c.id)).length;
               const pct = pathCourses.length ? (pathCompleted / pathCourses.length) * 100 : 0;
               if (pathCourses.length === 0) return null;
+              const isEnrolled = enrolledPathIds.has(path.id);
+              const isComplete = pct === 100;
               return (
                 <Card key={path.id} className="overflow-hidden">
                   <div className="bg-gradient-to-r from-primary/5 to-transparent p-5 border-b border-border/50">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                       <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center">
                         {iconMap[path.icon] || <BookOpen className="h-5 w-5" />}
                       </div>
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <h3 className="font-heading font-bold">{isEs ? path.title_es || path.title : path.title}</h3>
                         <p className="text-xs text-muted-foreground">
                           {pathCompleted}/{pathCourses.length} {isEs ? 'completados' : 'completed'} · {Math.round(pct)}%
                         </p>
                       </div>
-                      {pct === 100 && (
-                        <Badge className="bg-primary/10 text-primary border-primary/20">
-                          <CheckCircle2 className="h-3 w-3 mr-1" /> {isEs ? 'Completada' : 'Completed'}
+                      {isComplete ? (
+                        <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> {isEs ? 'Completada · cert. emitido' : 'Completed · cert. issued'}
                         </Badge>
+                      ) : isEnrolled ? (
+                        <Badge variant="outline" className="text-xs">
+                          {isEs ? 'Inscrito' : 'Enrolled'}
+                        </Badge>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          onClick={() => enrollInPath.mutate(path.id, {
+                            onSuccess: () => toast.success(isEs ? '¡Inscrito en la ruta!' : 'Enrolled in path!'),
+                          })}
+                          disabled={enrollInPath.isPending}
+                        >
+                          <UserPlus className="h-3.5 w-3.5" />
+                          {isEs ? 'Inscribirme' : 'Enrol'}
+                        </Button>
                       )}
                     </div>
                     <Progress value={pct} className="h-1.5 mt-3" />
+                    {isComplete && (
+                      <div className="mt-3 flex items-center gap-2 text-[11px] text-emerald-600 dark:text-emerald-400 font-body">
+                        <Award className="h-3.5 w-3.5" />
+                        {isEs
+                          ? 'Tu certificado oficial está listo. Andá a la pestaña "Certificados" para descargarlo.'
+                          : 'Your official certificate is ready. Head to the "Certificates" tab to download it.'}
+                      </div>
+                    )}
                   </div>
                   <CardContent className="p-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -740,7 +782,18 @@ const AcademyDashboard = () => {
           </TabsContent>
 
           {/* ── CERTIFICATES TAB ── */}
-          <TabsContent value="certificates" className="mt-4">
+          <TabsContent value="certificates" className="mt-4 space-y-6">
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+              <div className="flex items-center gap-3">
+                <Award className="h-5 w-5 text-primary shrink-0" />
+                <p className="text-xs font-body text-muted-foreground leading-relaxed">
+                  {isEs
+                    ? <>Cada certificado de GOPHORA es <span className="font-semibold text-foreground">verificable públicamente</span> con QR + URL única. Descargás un PDF premium con el sello oficial y compartís el link en LinkedIn / CV.</>
+                    : <>Every GOPHORA certificate is <span className="font-semibold text-foreground">publicly verifiable</span> via QR + unique URL. Download a premium PDF with the official seal and share the link on LinkedIn / CV.</>}
+                </p>
+              </div>
+            </div>
+
             {certificates.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {certificates.map((cert: any) => (
@@ -748,10 +801,53 @@ const AcademyDashboard = () => {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-16">
-                <Award className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground font-heading">{isEs ? 'No tienes certificados aún.' : 'No certificates yet.'}</p>
-                <p className="text-sm text-muted-foreground mt-1">{isEs ? 'Aprueba exámenes para obtener certificados verificables.' : 'Pass exams to earn verifiable certificates.'}</p>
+              <div className="space-y-6">
+                <div className="text-center py-8">
+                  <Award className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                  <p className="text-muted-foreground font-heading">{isEs ? 'No tienes certificados aún.' : 'No certificates yet.'}</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {isEs
+                      ? 'Completá una ruta o aprobá un examen para emitir tu primer certificado oficial.'
+                      : 'Complete a path or pass an exam to issue your first official certificate.'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-heading uppercase tracking-widest text-muted-foreground mb-3 text-center">
+                    {isEs ? 'Vista previa de un certificado oficial' : 'Sample of an official certificate'}
+                  </p>
+                  <div className="bg-muted/30 rounded-xl p-4 flex justify-center overflow-hidden">
+                    <div
+                      style={{
+                        transform: 'scale(0.5)',
+                        transformOrigin: 'top center',
+                        width: 1200,
+                        height: 848 * 0.5,
+                      }}
+                    >
+                      <PremiumCertificate
+                        data={{
+                          explorerName: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Tu Nombre',
+                          courseTitle: isEs ? 'Automatización con IA — Ruta Marketing' : 'AI Automation — Marketing Path',
+                          achievementTitle: isEs ? 'Ruta de aprendizaje completada' : 'Learning path completed',
+                          achievementSummary: isEs
+                            ? 'Completaste todos los cursos de la ruta con honores en GOPHORA Academy.'
+                            : 'You completed every course in the path with honors at GOPHORA Academy.',
+                          tutorName: 'GOPHORA Academy',
+                          certificateCode: 'GP-PREVIEW-DEMO-260424',
+                          issuedAt: new Date().toISOString(),
+                          certType: 'path',
+                          verifyUrl: `${window.location.origin}/cert/GP-PREVIEW-DEMO-260424`,
+                          isEs,
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center mt-3 font-body italic">
+                    {isEs
+                      ? 'Este es un ejemplo. Tu certificado real llevará tu nombre, código único y QR de verificación pública.'
+                      : 'This is a preview. Your real certificate will carry your name, unique code, and public verification QR.'}
+                  </p>
+                </div>
               </div>
             )}
           </TabsContent>

@@ -25,6 +25,7 @@ import ResetPassword from "@/pages/ResetPassword";
 import Onboarding from "@/pages/Onboarding";
 import NotFound from "./pages/NotFound";
 import PublicPassport from "./pages/PublicPassport";
+import PublicCertificate from "./pages/PublicCertificate";
 import AuthConfirm from "./pages/AuthConfirm";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,7 @@ const App = () => (
               </Route>
 
               <Route path="/passport/:explorerId" element={<PublicPassport />} />
+              <Route path="/cert/:code" element={<PublicCertificate />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
