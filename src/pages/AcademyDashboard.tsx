@@ -17,7 +17,7 @@ import {
   GraduationCap, Flame, Shield, Bot, Image, Video, PenTool,
   FileText, GitBranch, Workflow, Globe, Eye, ThumbsUp, Play,
   Users, Sparkles, Upload, Heart, HeartOff, UserPlus, UserCheck,
-  FileUp, BarChart3, Loader2, Download, Copy
+  FileUp, BarChart3, Loader2, Download, Copy, Map
 } from 'lucide-react';
 import {
   useAcademyPaths, useAcademyCourses, useAcademyTools,
@@ -31,6 +31,8 @@ import {
   usePlaybooks, useMyPlaybooks, useCreatePlaybook, useDeletePlaybook, useCompletePlaybook,
   useMyPathEnrollments, useEnrollInPath,
   usePathsWithAuthors, useMyPaths, useCreatePath, useDeletePath,
+  useMyFavorites, useToggleFavorite,
+  useSkillGap, useRecommendedPlaybooks, useRecommendedPaths,
   type AcademyCourse,
   type AcademyTool,
   type PromptPlaybook,
@@ -82,6 +84,13 @@ const AcademyDashboard = () => {
   const { data: pathEnrollments = [] } = useMyPathEnrollments();
   const enrollInPath = useEnrollInPath();
   const enrolledPathIds = new Set(pathEnrollments.map((e: any) => e.path_id));
+  const { data: myFavorites = [] } = useMyFavorites();
+  const toggleFavoriteItem = useToggleFavorite();
+  const favoritePathIds = new Set(myFavorites.filter((f) => f.item_type === 'path').map((f) => f.item_id));
+  const favoritePlaybookIds = new Set(myFavorites.filter((f) => f.item_type === 'playbook').map((f) => f.item_id));
+  const { data: skillGap = [] } = useSkillGap();
+  const { data: recommendedPlaybooks = [] } = useRecommendedPlaybooks(4);
+  const { data: recommendedPaths = [] } = useRecommendedPaths(3);
   const improvePrompt = useImprovePrompt();
   const { data: playbooks = [] } = usePlaybooks();
   const { data: myPlaybooks = [] } = useMyPlaybooks();
@@ -647,6 +656,13 @@ const AcademyDashboard = () => {
                           {pathCompleted}/{pathCourses.length} {isEs ? 'completados' : 'completed'} · {Math.round(pct)}%
                         </p>
                       </div>
+                      <button
+                        onClick={() => toggleFavoriteItem.mutate({ itemType: 'path', itemId: path.id, isFavorite: favoritePathIds.has(path.id) })}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                        title={favoritePathIds.has(path.id) ? (isEs ? 'Quitar de favoritos' : 'Remove from favorites') : (isEs ? 'Agregar a favoritos' : 'Add to favorites')}
+                      >
+                        <Heart className={`h-4 w-4 ${favoritePathIds.has(path.id) ? 'fill-destructive text-destructive' : ''}`} />
+                      </button>
                       {isComplete ? (
                         <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
                           <CheckCircle2 className="h-3 w-3 mr-1" /> {isEs ? 'Completada · cert. emitido' : 'Completed · cert. issued'}
@@ -696,22 +712,145 @@ const AcademyDashboard = () => {
           </TabsContent>
 
           {/* ── FAVORITES TAB ── */}
-          <TabsContent value="favorites" className="mt-4">
-            {favoriteCourses.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                {favoriteCourses.map(course => (
-                  <CourseVideoCard key={course.id} course={course} isEs={isEs}
-                    completed={completedIds.has(course.id)} onOpen={() => setSelectedCourse(course)}
-                    isFavorite onToggleFavorite={() => toggleFavorite.mutate({ courseId: course.id, isFavorite: true })} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-16">
-                <Heart className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground font-heading">{isEs ? 'No tienes cursos favoritos aún.' : 'No favorite courses yet.'}</p>
-                <p className="text-sm text-muted-foreground mt-1">{isEs ? 'Haz clic en ❤️ en cualquier curso para guardarlo.' : 'Click ❤️ on any course to save it.'}</p>
-              </div>
-            )}
+          <TabsContent value="favorites" className="mt-4 space-y-8">
+            {(() => {
+              const favPlaybooks = playbooks.filter((pb: any) => favoritePlaybookIds.has(pb.id));
+              const favPaths = paths.filter((p: any) => favoritePathIds.has(p.id));
+              const totalFavs = favoriteCourses.length + favPlaybooks.length + favPaths.length;
+
+              if (totalFavs === 0) {
+                return (
+                  <div className="text-center py-16">
+                    <Heart className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                    <p className="text-muted-foreground font-heading">
+                      {isEs ? 'Todavía no guardaste nada en favoritos.' : 'No favorites yet.'}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                      {isEs
+                        ? 'Hace click en el ❤️ de cualquier curso, ruta o playbook para guardarlo. Acá vas a tener todo lo que querés volver a ver.'
+                        : 'Click the ❤️ on any course, path or playbook to save it. Everything you want to revisit lives here.'}
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <>
+                  {/* Counter pill row */}
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <Badge variant="secondary" className="gap-1">
+                      <BookOpen className="h-3 w-3" />
+                      {favoriteCourses.length} {isEs ? 'cursos' : 'courses'}
+                    </Badge>
+                    <Badge variant="secondary" className="gap-1">
+                      <Map className="h-3 w-3" />
+                      {favPaths.length} {isEs ? 'rutas' : 'paths'}
+                    </Badge>
+                    <Badge variant="secondary" className="gap-1">
+                      <Workflow className="h-3 w-3" />
+                      {favPlaybooks.length} playbooks
+                    </Badge>
+                  </div>
+
+                  {/* Cursos */}
+                  {favoriteCourses.length > 0 && (
+                    <div>
+                      <h3 className="font-heading font-bold text-base mb-3 flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-primary" />
+                        {isEs ? 'Cursos favoritos' : 'Favorite courses'}
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                        {favoriteCourses.map(course => (
+                          <CourseVideoCard key={course.id} course={course} isEs={isEs}
+                            completed={completedIds.has(course.id)} onOpen={() => setSelectedCourse(course)}
+                            isFavorite onToggleFavorite={() => toggleFavorite.mutate({ courseId: course.id, isFavorite: true })} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Rutas */}
+                  {favPaths.length > 0 && (
+                    <div>
+                      <h3 className="font-heading font-bold text-base mb-3 flex items-center gap-2">
+                        <Map className="h-4 w-4 text-primary" />
+                        {isEs ? 'Rutas favoritas' : 'Favorite paths'}
+                      </h3>
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {favPaths.map((p: any) => {
+                          const cnt = courses.filter(c => c.path_id === p.id).length;
+                          const completed = courses.filter(c => c.path_id === p.id && completedIds.has(c.id)).length;
+                          return (
+                            <div key={p.id} className="rounded-xl border border-border/50 bg-card p-4 space-y-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                    {iconMap[p.icon] || <BookOpen className="h-4 w-4" />}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-heading font-semibold text-sm truncate">{isEs ? p.title_es || p.title : p.title}</p>
+                                    <p className="text-[11px] text-muted-foreground">{isEs ? 'por ' : 'by '}{p.authorName || 'GOPHORA'}</p>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => toggleFavoriteItem.mutate({ itemType: 'path', itemId: p.id, isFavorite: true })}
+                                  className="text-destructive shrink-0"
+                                  title={isEs ? 'Quitar de favoritos' : 'Remove from favorites'}
+                                >
+                                  <Heart className="h-4 w-4 fill-destructive" />
+                                </button>
+                              </div>
+                              <div className="text-[11px] text-muted-foreground">{completed}/{cnt} {isEs ? 'cursos completados' : 'courses completed'}</div>
+                              <Progress value={cnt > 0 ? (completed / cnt) * 100 : 0} className="h-1" />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Playbooks */}
+                  {favPlaybooks.length > 0 && (
+                    <div>
+                      <h3 className="font-heading font-bold text-base mb-3 flex items-center gap-2">
+                        <Workflow className="h-4 w-4 text-primary" />
+                        {isEs ? 'Playbooks favoritos' : 'Favorite playbooks'}
+                      </h3>
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {favPlaybooks.map((pb: any) => (
+                          <button
+                            key={pb.id}
+                            onClick={() => setOpenedPlaybook(pb)}
+                            className="text-left rounded-xl border border-border/50 bg-card p-4 hover:border-primary/40 transition-colors space-y-2"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                {pb.skill && <Badge variant="outline" className="text-[10px]">{pb.skill}</Badge>}
+                                <Badge variant="secondary" className="text-[10px]">{pb.prompt_ids.length} {isEs ? 'pasos' : 'steps'}</Badge>
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFavoriteItem.mutate({ itemType: 'playbook', itemId: pb.id, isFavorite: true });
+                                }}
+                                className="text-destructive shrink-0"
+                                title={isEs ? 'Quitar de favoritos' : 'Remove from favorites'}
+                              >
+                                <Heart className="h-4 w-4 fill-destructive" />
+                              </button>
+                            </div>
+                            <p className="font-heading font-bold text-sm">{pb.title}</p>
+                            {pb.description && (
+                              <p className="text-xs text-muted-foreground font-body line-clamp-2">{pb.description}</p>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </TabsContent>
 
           {/* ── PROGRESS + SKILLS ── */}
@@ -1554,16 +1693,28 @@ const AcademyDashboard = () => {
                       onClick={() => setOpenedPlaybook(pb)}
                       className="text-left rounded-xl border border-border/50 bg-card p-4 hover:border-primary/40 transition-colors space-y-2"
                     >
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {pb.skill && <Badge variant="outline" className="text-[10px]">{pb.skill}</Badge>}
-                        <Badge variant="secondary" className="text-[10px]">
-                          {pb.prompt_ids.length} {isEs ? 'pasos' : 'steps'}
-                        </Badge>
-                        {pb.myCompletion && (
-                          <Badge className="text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
-                            ✓ {isEs ? 'Completado' : 'Completed'}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {pb.skill && <Badge variant="outline" className="text-[10px]">{pb.skill}</Badge>}
+                          <Badge variant="secondary" className="text-[10px]">
+                            {pb.prompt_ids.length} {isEs ? 'pasos' : 'steps'}
                           </Badge>
-                        )}
+                          {pb.myCompletion && (
+                            <Badge className="text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                              ✓ {isEs ? 'Completado' : 'Completed'}
+                            </Badge>
+                          )}
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavoriteItem.mutate({ itemType: 'playbook', itemId: pb.id, isFavorite: favoritePlaybookIds.has(pb.id) });
+                          }}
+                          className={`shrink-0 transition-colors ${favoritePlaybookIds.has(pb.id) ? 'text-destructive' : 'text-muted-foreground hover:text-destructive'}`}
+                          title={favoritePlaybookIds.has(pb.id) ? (isEs ? 'Quitar de favoritos' : 'Remove from favorites') : (isEs ? 'Agregar a favoritos' : 'Add to favorites')}
+                        >
+                          <Heart className={`h-4 w-4 ${favoritePlaybookIds.has(pb.id) ? 'fill-destructive' : ''}`} />
+                        </button>
                       </div>
                       <h4 className="font-heading font-bold text-sm">{pb.title}</h4>
                       {pb.description && (
@@ -1581,15 +1732,15 @@ const AcademyDashboard = () => {
           </TabsContent>
 
           {/* ── AI RECOMMENDATIONS ── */}
-          <TabsContent value="recommendations" className="mt-4">
-            <div className="flex items-center justify-between mb-6">
+          <TabsContent value="recommendations" className="mt-4 space-y-8">
+            <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-heading font-bold flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-primary" />
-                  {isEs ? 'Recomendado para ti' : 'Recommended for You'}
+                  {isEs ? 'Para ti' : 'For You'}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {isEs ? 'Cursos seleccionados por IA basados en tus habilidades y misiones disponibles' : 'AI-curated courses based on your skills and available missions'}
+                  {isEs ? 'Skills, rutas, playbooks y cursos personalizados según tu perfil y las misiones del marketplace.' : 'Skills, paths, playbooks and courses personalised from your profile and the marketplace.'}
                 </p>
               </div>
               <Button variant="outline" size="sm" onClick={() => refetchRecs()} disabled={recsLoading}>
@@ -1597,6 +1748,131 @@ const AcademyDashboard = () => {
                 {isEs ? 'Actualizar' : 'Refresh'}
               </Button>
             </div>
+
+            {/* ── Skill gap widget ── */}
+            {skillGap.length > 0 && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="h-10 w-10 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0">
+                    <Target className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-heading font-bold text-sm">
+                      {isEs ? 'Skills más demandadas que aún no tenés' : 'Most-wanted skills you still don\'t have'}
+                    </h3>
+                    <p className="text-xs text-muted-foreground font-body mt-0.5">
+                      {isEs
+                        ? 'Aprenderlas te abriría más misiones del marketplace al instante.'
+                        : 'Learning these would unlock more open missions instantly.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {skillGap.map((sg: any) => (
+                    <div key={sg.skill} className="flex items-center justify-between rounded-lg border border-border/50 bg-card px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-3.5 w-3.5 text-amber-500" />
+                        <span className="font-heading font-semibold text-sm">{sg.skill}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground font-body">
+                        <span>
+                          <span className="font-semibold text-foreground">{sg.openMissions}</span>{' '}
+                          {isEs ? 'misiones abiertas' : 'open missions'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Recommended paths ── */}
+            {recommendedPaths.length > 0 && (
+              <div>
+                <h3 className="font-heading font-bold text-base mb-3 flex items-center gap-2">
+                  <Map className="h-4 w-4 text-primary" />
+                  {isEs ? 'Rutas para empezar' : 'Paths to start'}
+                </h3>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {recommendedPaths.map((p: any) => {
+                    const cnt = courses.filter((c) => c.path_id === p.id).length;
+                    return (
+                      <div key={p.id} className="rounded-xl border border-primary/20 bg-card p-4 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                            {iconMap[p.icon] || <BookOpen className="h-4 w-4" />}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-heading font-semibold text-sm truncate">{isEs ? p.title_es || p.title : p.title}</p>
+                            <p className="text-[11px] text-muted-foreground">{cnt} {isEs ? 'cursos' : 'courses'}</p>
+                          </div>
+                        </div>
+                        {p.description && (
+                          <p className="text-xs text-muted-foreground font-body line-clamp-2">
+                            {isEs ? p.description_es || p.description : p.description}
+                          </p>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full gap-1.5 text-xs"
+                          onClick={() => {
+                            enrollInPath.mutate(p.id, {
+                              onSuccess: () => toast.success(isEs ? '¡Inscrito en la ruta!' : 'Enrolled!'),
+                            });
+                            setActiveTab('paths');
+                          }}
+                        >
+                          <UserPlus className="h-3 w-3" />
+                          {isEs ? 'Inscribirme y empezar' : 'Enrol and start'}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── Recommended playbooks ── */}
+            {recommendedPlaybooks.length > 0 && (
+              <div>
+                <h3 className="font-heading font-bold text-base mb-3 flex items-center gap-2">
+                  <Workflow className="h-4 w-4 text-primary" />
+                  {isEs ? 'Playbooks alineados a tu skill' : 'Playbooks matching your skill'}
+                </h3>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {recommendedPlaybooks.map((pb: any) => {
+                    const enrichedPb = playbooks.find((p: any) => p.id === pb.id) || pb;
+                    return (
+                      <button
+                        key={pb.id}
+                        onClick={() => setOpenedPlaybook(enrichedPb)}
+                        className="text-left rounded-xl border border-primary/20 bg-card p-4 hover:border-primary/40 transition-colors space-y-2"
+                      >
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {pb.skill && <Badge variant="outline" className="text-[10px]">{pb.skill}</Badge>}
+                          <Badge variant="secondary" className="text-[10px]">{pb.prompt_ids.length} {isEs ? 'pasos' : 'steps'}</Badge>
+                        </div>
+                        <p className="font-heading font-bold text-sm">{pb.title}</p>
+                        {pb.description && (
+                          <p className="text-xs text-muted-foreground font-body line-clamp-2">{pb.description}</p>
+                        )}
+                        <p className="text-[11px] text-muted-foreground">
+                          {pb.completion_count} {isEs ? 'completaron' : 'completed'}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── AI-recommended courses (pre-existing) ── */}
+            <div>
+              <h3 className="font-heading font-bold text-base mb-3 flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-primary" />
+                {isEs ? 'Cursos curados por IA' : 'AI-curated courses'}
+              </h3>
 
             {recsLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1678,6 +1954,7 @@ const AcademyDashboard = () => {
                 })}
               </div>
             )}
+            </div>
           </TabsContent>
 
         </Tabs>

@@ -320,6 +320,145 @@ export function useDeletePath() {
   });
 }
 
+// ─── Polymorphic favorites (paths + playbooks) ──────────────────────────
+// Course favorites still live in explorer_favorite_courses for backwards
+// compatibility — useMyFavoriteCourses + useToggleFavoriteCourse handle
+// those. This is for the new types.
+
+export type FavoriteItemType = 'path' | 'playbook';
+
+export function useMyFavorites() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['favorites', user?.id],
+    queryFn: async () => {
+      if (!user) return [] as Array<{ item_type: FavoriteItemType; item_id: string }>;
+      const { data, error } = await db
+        .from('favorites')
+        .select('item_type, item_id')
+        .eq('user_id', user.id);
+      if (error) throw error;
+      return (data || []) as Array<{ item_type: FavoriteItemType; item_id: string }>;
+    },
+    enabled: !!user,
+  });
+}
+
+export function useToggleFavorite() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ itemType, itemId, isFavorite }: { itemType: FavoriteItemType; itemId: string; isFavorite: boolean }) => {
+      if (!user) throw new Error('Not authenticated');
+      if (isFavorite) {
+        const { error } = await db
+          .from('favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('item_type', itemType)
+          .eq('item_id', itemId);
+        if (error) throw error;
+      } else {
+        const { error } = await db
+          .from('favorites')
+          .insert({ user_id: user.id, item_type: itemType, item_id: itemId });
+        if (error && !String(error.message || '').includes('duplicate')) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['favorites'] });
+    },
+  });
+}
+
+// Top open marketplace skills the user is NOT yet skilled in. Used by the
+// Para ti tab as a "skill gap" widget so explorers know what to learn next.
+export function useSkillGap() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['skill-gap', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const [{ data: missions }, { data: mySkills }] = await Promise.all([
+        db.from('missions').select('skill').eq('status', 'approved').limit(200),
+        db.from('explorer_skills').select('skill_name, category').eq('explorer_id', user.id),
+      ]);
+      const ownedNames = new Set<string>();
+      (mySkills || []).forEach((s: any) => {
+        if (s.skill_name) ownedNames.add(String(s.skill_name).toLowerCase());
+        if (s.category) ownedNames.add(String(s.category).toLowerCase());
+      });
+      const counts = new Map<string, number>();
+      (missions || []).forEach((m: any) => {
+        const k = String(m.skill || '').trim();
+        if (!k) return;
+        if (ownedNames.has(k.toLowerCase())) return;
+        counts.set(k, (counts.get(k) || 0) + 1);
+      });
+      const ranked = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([skill, openMissions]) => ({ skill, openMissions }));
+      return ranked;
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// Top playbooks for the user, ranked by approval_rate then total_uses,
+// optionally filtered by skill match against the user's profile skills.
+export function useRecommendedPlaybooks(limit: number = 4) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['recommended-playbooks', user?.id, limit],
+    queryFn: async () => {
+      if (!user) return [];
+      const [{ data: playbooks }, { data: profile }] = await Promise.all([
+        db.from('prompt_playbooks').select('*').eq('is_published', true),
+        db.from('explorer_profiles').select('skills').eq('user_id', user.id).maybeSingle(),
+      ]);
+      const list = (playbooks || []) as any[];
+      const profileSkills: string[] = Array.isArray(profile?.skills) ? (profile!.skills as string[]) : [];
+      const lower = profileSkills.map((s) => s.toLowerCase());
+      list.sort((a: any, b: any) => {
+        const aMatch = lower.some((s) => (a.skill || '').toLowerCase().includes(s) || s.includes((a.skill || '').toLowerCase()));
+        const bMatch = lower.some((s) => (b.skill || '').toLowerCase().includes(s) || s.includes((b.skill || '').toLowerCase()));
+        if (aMatch !== bMatch) return aMatch ? -1 : 1;
+        return (b.completion_count || 0) - (a.completion_count || 0);
+      });
+      return list.slice(0, limit);
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// Suggests learning paths the user is NOT enrolled in yet, sorted by
+// completion_count desc.
+export function useRecommendedPaths(limit: number = 3) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['recommended-paths', user?.id, limit],
+    queryFn: async () => {
+      if (!user) return [];
+      const [{ data: paths }, { data: enrollments }] = await Promise.all([
+        db.from('academy_paths').select('*').eq('is_published', true),
+        db.from('path_enrollments').select('path_id').eq('user_id', user.id),
+      ]);
+      const enrolled = new Set((enrollments || []).map((e: any) => e.path_id));
+      const list = (paths || []) as AcademyPath[];
+      const filtered = list.filter((p) => !enrolled.has(p.id));
+      // We don't track per-path popularity directly; rely on sort_order +
+      // recency as a soft proxy. Cheap to compute, deterministic.
+      filtered.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      return filtered.slice(0, limit);
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useAcademyTools() {
   return useQuery({
     queryKey: ['academy-tools'],
