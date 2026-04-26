@@ -130,6 +130,8 @@ const AcademyDashboard = () => {
     title: '', description: '', external_url: '', thumbnail_url: '',
     duration_minutes: 30, skill_level: 'beginner', language: 'en',
     skills_learned: '', path_id: '',
+    delivery_mode: 'recorded' as 'live' | 'recorded',
+    live_at: '',
   });
   const [examQuestions, setExamQuestions] = useState<Array<{
     question: string; question_es: string; options: string[]; options_es: string[]; correct_index: number;
@@ -398,9 +400,11 @@ const AcademyDashboard = () => {
           skills_learned: courseForm.skills_learned.split(',').map(s => s.trim()).filter(Boolean),
           path_id: courseForm.path_id,
           category: selectedCategory || 'general',
-          platform: 'External',
+          platform: courseForm.delivery_mode === 'live' ? 'Live' : 'External',
           instructor_name: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Tutor',
-        },
+          delivery_mode: courseForm.delivery_mode,
+          live_at: courseForm.delivery_mode === 'live' && courseForm.live_at ? courseForm.live_at : null,
+        } as any,
         examQuestions: validQuestions,
       },
       {
@@ -408,7 +412,7 @@ const AcademyDashboard = () => {
           toast.success(isEs ? '¡Curso enviado para revisión!' : 'Course submitted for review!');
           setShowCourseForm(false);
           setSelectedCategory('');
-          setCourseForm({ title: '', description: '', external_url: '', thumbnail_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', path_id: '' });
+          setCourseForm({ title: '', description: '', external_url: '', thumbnail_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', path_id: '', delivery_mode: 'recorded', live_at: '' });
           setExamQuestions(Array(5).fill(null).map(() => ({ question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: 0 })));
         },
         onError: (err: any) => {
@@ -1231,6 +1235,56 @@ const AcademyDashboard = () => {
                             <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">{isEs ? 'Skills (coma)' : 'Skills (comma)'}</label>
                             <Input value={courseForm.skills_learned} onChange={e => setCourseForm(f => ({ ...f, skills_learned: e.target.value }))} placeholder="Prompt Design, ..." />
                           </div>
+                        </div>
+
+                        {/* Delivery mode (Live vs Recorded) */}
+                        <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-3">
+                          <p className="text-xs font-heading font-bold uppercase tracking-widest text-muted-foreground">
+                            {isEs ? 'Modalidad' : 'Delivery mode'}
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setCourseForm(f => ({ ...f, delivery_mode: 'recorded', live_at: '' }))}
+                              className={`rounded-lg border p-3 text-left transition-colors ${courseForm.delivery_mode === 'recorded' ? 'border-blue-500/40 bg-blue-500/10' : 'border-border/50 hover:border-blue-500/30'}`}
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                <Play className={`h-3.5 w-3.5 ${courseForm.delivery_mode === 'recorded' ? 'text-blue-500' : 'text-muted-foreground'}`} />
+                                <span className="font-heading font-bold text-xs">{isEs ? 'GRABADA' : 'RECORDED'}</span>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground">
+                                {isEs ? 'Disponible siempre. El explorer la consume cuando quiera.' : 'Always available. Explorer watches anytime.'}
+                              </p>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCourseForm(f => ({ ...f, delivery_mode: 'live' }))}
+                              className={`rounded-lg border p-3 text-left transition-colors ${courseForm.delivery_mode === 'live' ? 'border-red-500/40 bg-red-500/10' : 'border-border/50 hover:border-red-500/30'}`}
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`h-1.5 w-1.5 rounded-full ${courseForm.delivery_mode === 'live' ? 'bg-red-500 animate-pulse' : 'bg-muted-foreground'}`} />
+                                <span className="font-heading font-bold text-xs">{isEs ? 'EN VIVO' : 'LIVE'}</span>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground">
+                                {isEs ? 'Webinar/clase con fecha. Te aparece en el countdown.' : 'Scheduled webinar. Shows up in the countdown.'}
+                              </p>
+                            </button>
+                          </div>
+                          {courseForm.delivery_mode === 'live' && (
+                            <div>
+                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                                {isEs ? 'Fecha y hora del en vivo' : 'Live session date and time'}
+                              </label>
+                              <Input
+                                type="datetime-local"
+                                value={courseForm.live_at}
+                                onChange={e => setCourseForm(f => ({ ...f, live_at: e.target.value }))}
+                              />
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                {isEs ? 'Pegá el link de Zoom/Meet en el campo "Link externo del video" arriba.' : 'Drop the Zoom/Meet link in the "External video link" field above.'}
+                              </p>
+                            </div>
+                          )}
                         </div>
 
                         {/* Exam Section with PDF Upload */}
@@ -2478,6 +2532,27 @@ function CourseVideoCard({
 }) {
   const title = isEs ? course.title_es || course.title : course.title;
 
+  // Live vs recorded badge state. A scheduled live course shows three
+  // sub-states: "EN VIVO AHORA" (within ±30 min of live_at), "EN VIVO en
+  // {dist}" (future), or "GRABADA" once the live window has elapsed.
+  const liveBadge = (() => {
+    if (course.delivery_mode !== 'live') return { kind: 'recorded' as const };
+    if (!course.live_at) return { kind: 'live-soon' as const, label: isEs ? 'EN VIVO' : 'LIVE' };
+    const now = Date.now();
+    const at = new Date(course.live_at).getTime();
+    const diffMin = (at - now) / 60_000;
+    if (Math.abs(diffMin) <= 30) return { kind: 'live-now' as const, label: isEs ? 'EN VIVO AHORA' : 'LIVE NOW' };
+    if (diffMin > 30) {
+      const hours = Math.round(diffMin / 60);
+      const days = Math.round(diffMin / 1440);
+      const dist = days >= 1
+        ? `${days}${isEs ? 'd' : 'd'}`
+        : `${hours}${isEs ? 'h' : 'h'}`;
+      return { kind: 'live-soon' as const, label: isEs ? `EN ${dist}` : `IN ${dist}` };
+    }
+    return { kind: 'recorded' as const };
+  })();
+
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="group cursor-pointer" onClick={onOpen}>
       <div className="relative overflow-hidden rounded-xl bg-muted mb-3 aspect-video">
@@ -2491,7 +2566,23 @@ function CourseVideoCard({
             </div>
           );
         })()}
-        <div className="absolute top-2 left-2 flex gap-1">
+        <div className="absolute top-2 left-2 flex gap-1 flex-wrap max-w-[80%]">
+          {liveBadge.kind === 'live-now' && (
+            <span className="bg-red-500 text-white text-[10px] font-heading font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-[0_0_8px_rgba(239,68,68,0.6)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" /> {liveBadge.label}
+            </span>
+          )}
+          {liveBadge.kind === 'live-soon' && (
+            <span className="bg-red-500/90 text-white text-[10px] font-heading font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+              {isEs ? 'EN VIVO ' : 'LIVE '}{liveBadge.label.replace(isEs ? 'EN ' : 'IN ', '· ')}
+            </span>
+          )}
+          {liveBadge.kind === 'recorded' && (
+            <span className="bg-blue-500/90 text-white text-[10px] font-heading font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+              <Play className="h-2.5 w-2.5 fill-white" /> {isEs ? 'GRABADA' : 'RECORDED'}
+            </span>
+          )}
           {completed && (
             <span className="bg-primary text-primary-foreground text-[10px] font-heading font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
               <CheckCircle2 className="h-3 w-3" /> {isEs ? 'Completado' : 'Completed'}

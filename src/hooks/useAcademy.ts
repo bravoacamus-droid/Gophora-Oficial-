@@ -40,6 +40,8 @@ export interface AcademyCourse {
   course_status: string;
   submitted_by: string | null;
   featured: boolean;
+  delivery_mode?: 'live' | 'recorded';
+  live_at?: string | null;
 }
 
 export interface AcademyTool {
@@ -836,13 +838,18 @@ export function useSubmitCourseAsTutor() {
       examQuestions?: Array<{ question: string; question_es: string; options: string[]; options_es: string[]; correct_index: number }>;
     }) => {
       if (!user) throw new Error('Not authenticated');
+      const insertPayload: any = {
+        ...payload.course,
+        submitted_by: user.id,
+        course_status: 'pending_review',
+      };
+      // Strip an empty live_at so Postgres receives NULL instead of "".
+      if (insertPayload.live_at === '' || insertPayload.live_at === undefined) {
+        insertPayload.live_at = null;
+      }
       const { data, error } = await db
         .from('academy_courses')
-        .insert({
-          ...payload.course,
-          submitted_by: user.id,
-          course_status: 'pending_review',
-        })
+        .insert(insertPayload)
         .select('id')
         .single();
       if (error) throw error;
