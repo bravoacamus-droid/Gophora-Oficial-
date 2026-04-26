@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Moon, Sun, Globe, Menu, X } from 'lucide-react';
 import gophoraLogo from '@/assets/gophora-logo.png';
+import NotificationsBell from '@/components/NotificationsBell';
 
 const Header = () => {
   const { language, setLanguage, t } = useLanguage();
@@ -67,6 +68,8 @@ const Header = () => {
           <Button variant="ghost" size="icon" onClick={toggleDark} title="Toggle theme">
             {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
+
+          {user && <NotificationsBell />}
 
           {user ? (
             <Button variant="ghost" size="sm" onClick={logout} className="hidden md:flex font-heading text-xs">

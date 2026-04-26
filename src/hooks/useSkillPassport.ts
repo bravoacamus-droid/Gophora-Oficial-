@@ -191,6 +191,9 @@ export const SKILL_CATEGORIES = [
 
 export const BADGE_DEFINITIONS = [
   { key: 'tutor', name: 'Tutor', nameEs: 'Tutor', icon: '🧑‍🏫', condition: 'Approved tutor application' },
+  { key: 'playbook_creator', name: 'Playbook Creator', nameEs: 'Creador de Playbooks', icon: '📘', condition: 'Publish 1+ playbook' },
+  { key: 'playbook_hero', name: 'Playbook Hero', nameEs: 'Héroe de Playbook', icon: '🌟', condition: 'A playbook with 10+ completions' },
+  { key: 'playbook_legend', name: 'Playbook Legend', nameEs: 'Leyenda de Playbook', icon: '💎', condition: 'A playbook with 50+ completions' },
   { key: 'ai_explorer', name: 'AI Explorer', nameEs: 'Experto IA', icon: '🤖', condition: 'Complete 3 AI courses' },
   { key: 'top_performer', name: 'Top Mission Performer', nameEs: 'Mejor Ejecutor de Misiones', icon: '🏆', condition: '10 missions completed' },
   { key: 'automation_specialist', name: 'Automation Specialist', nameEs: 'Especialista en Automatización', icon: '⚙️', condition: '3 automation skills' },
