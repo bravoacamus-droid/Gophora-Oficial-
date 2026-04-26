@@ -32,9 +32,10 @@ interface CourseExamProps {
   isEs: boolean;
   onPass: () => void;
   onClose: () => void;
+  onAttempt?: (info: { score: number; passed: boolean }) => void;
 }
 
-export default function CourseExam({ course, isEs, onPass, onClose }: CourseExamProps) {
+export default function CourseExam({ course, isEs, onPass, onClose, onAttempt }: CourseExamProps) {
   const { data: dbQuestions, isLoading } = useCourseExamQuestions(course.id);
 
   // Convert DB questions to exam format, or use fallback. The options_es
@@ -101,6 +102,7 @@ export default function CourseExam({ course, isEs, onPass, onClose }: CourseExam
     const didPass = score >= PASSING_SCORE;
     setPassed(didPass);
     setShowResults(true);
+    onAttempt?.({ score, passed: didPass });
     if (didPass) {
       onPass();
     }

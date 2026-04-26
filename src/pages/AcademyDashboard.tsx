@@ -49,6 +49,7 @@ import CourseExam from '@/components/CourseExam';
 import CertificateCard from '@/components/CertificateCard';
 import PremiumCertificate from '@/components/PremiumCertificate';
 import { useAIRecommendations } from '@/hooks/useRecommendations';
+import { useTrackActivity } from '@/hooks/useEngagement';
 import YouTubeVideoPlayer, { isYouTubeUrl, extractYouTubeId, getYouTubeThumbnail } from '@/components/YouTubeVideoPlayer';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -112,6 +113,7 @@ const AcademyDashboard = () => {
   const upsertSkills = useUpsertSkills();
   const recordAttempt = useRecordExamAttempt();
   const issueCert = useIssueCertificate();
+  const trackActivity = useTrackActivity();
   const { data: aiRecs = [], isLoading: recsLoading, refetch: refetchRecs } = useAIRecommendations();
 
   const [activeTab, setActiveTab] = useState('courses');
@@ -476,6 +478,7 @@ const AcademyDashboard = () => {
 
   const handleCourseClick = (course: AcademyCourse) => {
     if (course.external_url) incrementViews.mutate(course.id);
+    trackActivity.mutate('course_view');
   };
 
   const resetCourseForm = () => {
@@ -2333,6 +2336,7 @@ const AcademyDashboard = () => {
               </DialogHeader>
               <CourseExam course={selectedCourse} isEs={isEs}
                 onPass={() => handleExamPass(selectedCourse.id)}
+                onAttempt={() => trackActivity.mutate('exam_taken')}
                 onClose={() => { setShowExam(false); setSelectedCourse(null); }} />
             </>
           )}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTrackActivity } from '@/hooks/useEngagement';
 import { toast } from 'sonner';
 
 const MAX_EXPLORERS_PER_MISSION = 10;
@@ -14,6 +15,7 @@ export function useActivateMission() {
   const { user } = useAuth();
   const { language } = useLanguage();
   const isEs = language === 'es';
+  const trackActivity = useTrackActivity();
   const [activatingId, setActivatingId] = useState<string | null>(null);
 
   const activate = async (missionId: string, opts?: ActivateOptions): Promise<{ success: boolean }> => {
@@ -64,6 +66,7 @@ export function useActivateMission() {
         await (supabase.from('missions' as any).update({ status: 'assigned' as any }).eq('id', missionId) as any);
       }
 
+      trackActivity.mutate('mission_activated');
       toast.success(isEs ? '¡Misión tomada con éxito!' : 'Mission taken successfully!');
       opts?.onSuccess?.();
       return { success: true };
