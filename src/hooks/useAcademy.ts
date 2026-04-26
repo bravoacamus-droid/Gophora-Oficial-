@@ -10,6 +10,9 @@ export interface AcademyPath {
   description_es: string | null;
   icon: string;
   sort_order: number;
+  author_id?: string | null;
+  is_published?: boolean;
+  authorName?: string | null;
 }
 
 export interface AcademyCourse {
@@ -137,6 +140,39 @@ export function useAcademyCourses() {
   });
 }
 
+// Same as useAcademyPaths but each row gets `authorName` resolved from
+// the profiles table (or "GOPHORA Team" when author_id is NULL — those
+// are admin-curated paths). Used by the Rutas tab so explorers can see
+// who curated each path.
+export function usePathsWithAuthors() {
+  return useQuery({
+    queryKey: ['paths-with-authors'],
+    queryFn: async () => {
+      const { data: paths, error } = await db
+        .from('academy_paths')
+        .select('*')
+        .order('sort_order');
+      if (error) throw error;
+      const list = (paths || []) as AcademyPath[];
+      const authorIds = [...new Set(list.map((p) => p.author_id).filter(Boolean) as string[])];
+      let nameMap = new Map<string, string>();
+      if (authorIds.length > 0) {
+        const { data: profiles } = await db
+          .from('profiles')
+          .select('id, full_name, username')
+          .in('id', authorIds);
+        nameMap = new Map(
+          (profiles || []).map((p: any) => [p.id, p.full_name || p.username || 'Tutor'])
+        );
+      }
+      return list.map((p) => ({
+        ...p,
+        authorName: p.author_id ? (nameMap.get(p.author_id) || 'Tutor') : 'GOPHORA Team',
+      })) as AcademyPath[];
+    },
+  });
+}
+
 export function useAllAcademyCourses() {
   return useQuery({
     queryKey: ['academy-courses-all'],
@@ -191,6 +227,95 @@ export function useEnrollInPath() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['path-enrollments'] });
+    },
+  });
+}
+
+// ─── Tutor-authored paths ───────────────────────────────────────────────
+
+export function useMyPaths() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['my-paths', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await db
+        .from('academy_paths')
+        .select('*')
+        .eq('author_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []) as AcademyPath[];
+    },
+    enabled: !!user,
+  });
+}
+
+// Creates a learning path and reassigns the selected courses to it.
+// Tutors can only include their OWN courses (RLS on academy_courses
+// already enforces that — we just pre-filter the UI to avoid surprises).
+export function useCreatePath() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      title: string;
+      description?: string;
+      icon?: string;
+      courseIds: string[];
+    }) => {
+      if (!user) throw new Error('Not authenticated');
+      if (!payload.title.trim()) throw new Error('Falta el título');
+      if (!payload.courseIds || payload.courseIds.length < 2) {
+        throw new Error('Una ruta necesita al menos 2 cursos.');
+      }
+
+      const { data: path, error: pathErr } = await db
+        .from('academy_paths')
+        .insert({
+          author_id: user.id,
+          title: payload.title.trim(),
+          description: payload.description?.trim() || null,
+          icon: payload.icon || 'BookOpen',
+          is_published: true,
+        })
+        .select('id')
+        .single();
+      if (pathErr) throw pathErr;
+
+      const { error: courseErr } = await db
+        .from('academy_courses')
+        .update({ path_id: path.id })
+        .in('id', payload.courseIds);
+      if (courseErr) throw courseErr;
+
+      return path;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['academy-paths'] });
+      queryClient.invalidateQueries({ queryKey: ['my-paths'] });
+      queryClient.invalidateQueries({ queryKey: ['academy-courses'] });
+      queryClient.invalidateQueries({ queryKey: ['academy-courses-all'] });
+    },
+  });
+}
+
+export function useDeletePath() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (pathId: string) => {
+      if (!user) throw new Error('Not authenticated');
+      const { error } = await db
+        .from('academy_paths')
+        .delete()
+        .eq('id', pathId)
+        .eq('author_id', user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['academy-paths'] });
+      queryClient.invalidateQueries({ queryKey: ['my-paths'] });
     },
   });
 }

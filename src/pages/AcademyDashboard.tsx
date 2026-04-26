@@ -30,6 +30,7 @@ import {
   useSearchPrompts, useImprovePrompt,
   usePlaybooks, useMyPlaybooks, useCreatePlaybook, useDeletePlaybook, useCompletePlaybook,
   useMyPathEnrollments, useEnrollInPath,
+  usePathsWithAuthors, useMyPaths, useCreatePath, useDeletePath,
   type AcademyCourse,
   type AcademyTool,
   type PromptPlaybook,
@@ -69,7 +70,10 @@ const AcademyDashboard = () => {
   const { user } = useAuth();
   const isEs = language === 'es';
 
-  const { data: paths = [] } = useAcademyPaths();
+  const { data: paths = [] } = usePathsWithAuthors();
+  const { data: myPaths = [] } = useMyPaths();
+  const createPath = useCreatePath();
+  const deletePath = useDeletePath();
   const { data: courses = [] } = useAcademyCourses();
   const { data: tools = [] } = useAcademyTools();
   const { data: progress = [] } = useCourseProgress();
@@ -136,6 +140,8 @@ const AcademyDashboard = () => {
   const [openedPlaybook, setOpenedPlaybook] = useState<PromptPlaybook | null>(null);
   const [playbookForm, setPlaybookForm] = useState({ title: '', description: '', skill: '', promptIds: [] as string[] });
   const [showPlaybookCreator, setShowPlaybookCreator] = useState(false);
+  const [showPathCreator, setShowPathCreator] = useState(false);
+  const [pathForm, setPathForm] = useState({ title: '', description: '', icon: 'BookOpen', courseIds: [] as string[] });
   const { data: searchResults = [] } = useSearchPrompts(promptSearch);
   const visiblePrompts = promptSearch.trim().length > 0 ? searchResults : prompts;
 
@@ -297,6 +303,31 @@ const AcademyDashboard = () => {
         },
         onError: (err: any) => {
           toast.error(err?.message || (isEs ? 'No se pudo crear el playbook' : 'Could not create playbook'));
+        },
+      }
+    );
+  };
+
+  const handleCreatePath = () => {
+    if (!pathForm.title.trim() || pathForm.courseIds.length < 2) {
+      toast.error(isEs ? 'Necesitás un título y al menos 2 cursos.' : 'You need a title and at least 2 courses.');
+      return;
+    }
+    createPath.mutate(
+      {
+        title: pathForm.title,
+        description: pathForm.description,
+        icon: pathForm.icon,
+        courseIds: pathForm.courseIds,
+      },
+      {
+        onSuccess: () => {
+          toast.success(isEs ? '¡Ruta publicada!' : 'Path published!');
+          setPathForm({ title: '', description: '', icon: 'BookOpen', courseIds: [] });
+          setShowPathCreator(false);
+        },
+        onError: (err: any) => {
+          toast.error(err?.message || (isEs ? 'No se pudo crear la ruta' : 'Could not create path'));
         },
       }
     );
@@ -612,6 +643,7 @@ const AcademyDashboard = () => {
                       <div className="flex-1 min-w-0">
                         <h3 className="font-heading font-bold">{isEs ? path.title_es || path.title : path.title}</h3>
                         <p className="text-xs text-muted-foreground">
+                          {isEs ? 'por ' : 'by '}<span className="font-semibold text-foreground">{path.authorName || 'GOPHORA Team'}</span>{' · '}
                           {pathCompleted}/{pathCourses.length} {isEs ? 'completados' : 'completed'} · {Math.round(pct)}%
                         </p>
                       </div>
@@ -1121,6 +1153,73 @@ const AcademyDashboard = () => {
                       </div>
                     </DialogContent>
                   </Dialog>
+
+                  {/* My Paths (tutor-curated learning paths) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-heading font-bold text-lg flex items-center gap-2">
+                        <BookOpen className="h-5 w-5 text-primary" /> {isEs ? 'Mis Rutas' : 'My Paths'}
+                      </h3>
+                      <Button
+                        size="sm"
+                        onClick={() => setShowPathCreator(true)}
+                        disabled={!isTutor || tutorCourses.length < 2}
+                        title={
+                          !isTutor
+                            ? (isEs ? 'Solo tutores aprobados pueden crear rutas' : 'Only approved tutors can create paths')
+                            : (tutorCourses.length < 2
+                              ? (isEs ? 'Necesitás al menos 2 cursos publicados para armar una ruta' : 'You need at least 2 published courses to build a path')
+                              : '')
+                        }
+                      >
+                        <UserPlus className="h-4 w-4 mr-1" />
+                        {isEs ? 'Crear Ruta' : 'Create Path'}
+                      </Button>
+                    </div>
+                    {myPaths.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-border/50 p-6 text-center">
+                        <BookOpen className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">
+                          {isTutor
+                            ? (tutorCourses.length < 2
+                              ? (isEs ? 'Publicá al menos 2 cursos primero. Las rutas se arman juntando tus cursos en un orden curado, y al completarla los exploradores reciben un certificado oficial.' : 'Publish at least 2 courses first. Paths bundle them into a curated order, and explorers earn an official certificate when they finish.')
+                              : (isEs ? 'Aún no creaste ninguna ruta. Hace click en "Crear Ruta" arriba.' : 'No paths yet. Click "Create Path" above.'))
+                            : (isEs ? 'Convertite en tutor primero para crear rutas.' : 'Become a tutor first to create paths.')}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-border/50 bg-card overflow-hidden divide-y divide-border/50">
+                        {myPaths.map(p => {
+                          const courseCount = courses.filter(c => c.path_id === p.id).length;
+                          return (
+                            <div key={p.id} className="p-4 flex items-center justify-between gap-4">
+                              <div className="min-w-0">
+                                <p className="font-heading font-semibold text-sm truncate">{p.title}</p>
+                                <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground font-body">
+                                  <Badge variant="outline" className="text-[10px]">{courseCount} {isEs ? 'cursos' : 'courses'}</Badge>
+                                  {p.is_published === false && (
+                                    <Badge variant="secondary" className="text-[10px]">{isEs ? 'Borrador' : 'Draft'}</Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive shrink-0"
+                                onClick={() => {
+                                  if (confirm(isEs ? '¿Eliminar esta ruta? Los cursos asociados quedarán sin ruta.' : 'Delete this path? Associated courses will lose their path.')) {
+                                    deletePath.mutate(p.id);
+                                  }
+                                }}
+                              >
+                                {isEs ? 'Eliminar' : 'Delete'}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
 
                   {/* My Playbooks (tutor side of Idea 2) */}
                   <div>
@@ -1913,6 +2012,112 @@ const AcademyDashboard = () => {
               <Button onClick={handleCreatePlaybook} disabled={createPlaybook.isPending || !playbookForm.title.trim() || playbookForm.promptIds.length < 2}>
                 <Upload className="h-4 w-4 mr-2" />
                 {isEs ? 'Publicar Playbook' : 'Publish Playbook'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Path creator modal (tutor side) ── */}
+      <Dialog open={showPathCreator} onOpenChange={setShowPathCreator}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-lg flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-primary" />
+              {isEs ? 'Crear Ruta de Aprendizaje' : 'Create Learning Path'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+              <p className="text-xs font-body text-muted-foreground leading-relaxed">
+                {isEs
+                  ? <>Una ruta encadena tus cursos en un orden curado. Cuando un explorer completa todos los cursos, <span className="font-semibold text-foreground">se le emite automáticamente un certificado oficial GOPHORA</span> firmado por vos.</>
+                  : <>A path chains your courses in a curated order. When an explorer completes every course, <span className="font-semibold text-foreground">an official GOPHORA certificate signed by you is auto-issued.</span></>}
+              </p>
+            </div>
+            <Input
+              placeholder={isEs ? 'Título (ej. "Marketing con IA — Nivel inicial")' : 'Title (e.g. "AI Marketing — Beginner")'}
+              value={pathForm.title}
+              onChange={(e) => setPathForm((p) => ({ ...p, title: e.target.value }))}
+            />
+            <Textarea
+              placeholder={isEs ? 'Descripción: ¿qué aprende el explorer al terminar la ruta?' : 'Description: what does the explorer learn after the path?'}
+              value={pathForm.description}
+              onChange={(e) => setPathForm((p) => ({ ...p, description: e.target.value }))}
+              rows={3}
+            />
+            <div>
+              <label className="text-[10px] font-heading uppercase tracking-widest text-muted-foreground mb-1 block">{isEs ? 'Icono' : 'Icon'}</label>
+              <div className="grid grid-cols-8 gap-2">
+                {['BookOpen', 'Brain', 'Zap', 'Code', 'Palette', 'Briefcase', 'Bot', 'Image', 'Video', 'PenTool', 'FileText', 'Search', 'GitBranch', 'Workflow', 'MessageSquare', 'Wrench'].map((iconKey) => (
+                  <button
+                    key={iconKey}
+                    type="button"
+                    onClick={() => setPathForm((p) => ({ ...p, icon: iconKey }))}
+                    className={`h-10 rounded-lg border flex items-center justify-center transition-colors ${pathForm.icon === iconKey ? 'border-primary bg-primary/10 text-primary' : 'border-border/50 hover:border-primary/40 text-muted-foreground'}`}
+                  >
+                    {iconMap[iconKey]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-heading font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                {isEs ? `Cursos en la ruta (${pathForm.courseIds.length})` : `Courses in path (${pathForm.courseIds.length})`}
+              </p>
+              <p className="text-[11px] text-muted-foreground font-body mb-2">
+                {isEs ? 'Solo podés incluir tus propios cursos publicados. Click para agregar/quitar; el orden es el orden en que los seleccionaste.' : 'Only your own published courses can be included. Click to add/remove; order is the order you selected them in.'}
+              </p>
+              {tutorCourses.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border/50 p-4 text-center text-xs text-muted-foreground">
+                  {isEs ? 'Aún no tenés cursos publicados. Crea cursos primero desde "Crear Curso".' : 'No published courses yet. Create courses first from "Create Course".'}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-border/50 max-h-[260px] overflow-y-auto divide-y divide-border/50">
+                  {tutorCourses.map((c) => {
+                    const idx = pathForm.courseIds.indexOf(c.id);
+                    const inPath = idx >= 0;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setPathForm((pf) => ({
+                            ...pf,
+                            courseIds: inPath ? pf.courseIds.filter((id) => id !== c.id) : [...pf.courseIds, c.id],
+                          }));
+                        }}
+                        className={`w-full text-left px-3 py-2 flex items-center justify-between gap-2 hover:bg-muted/40 transition-colors ${inPath ? 'bg-primary/5' : ''}`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {inPath && (
+                            <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-heading font-bold flex items-center justify-center shrink-0">
+                              {idx + 1}
+                            </span>
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-heading font-semibold text-xs truncate">{c.title}</p>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[10px] text-muted-foreground capitalize">{c.skill_level}</span>
+                              <span className="text-[10px] text-muted-foreground">• {c.duration_minutes} min</span>
+                              {c.path_id && c.path_id !== pathForm.title && (
+                                <span className="text-[10px] text-yellow-600 dark:text-yellow-400">• {isEs ? 'ya en otra ruta' : 'already in another path'}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        {inPath ? <CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> : <Circle className="h-4 w-4 text-muted-foreground shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="outline" onClick={() => setShowPathCreator(false)}>{isEs ? 'Cancelar' : 'Cancel'}</Button>
+              <Button onClick={handleCreatePath} disabled={createPath.isPending || !pathForm.title.trim() || pathForm.courseIds.length < 2}>
+                <Upload className="h-4 w-4 mr-2" />
+                {isEs ? 'Publicar Ruta' : 'Publish Path'}
               </Button>
             </div>
           </div>
