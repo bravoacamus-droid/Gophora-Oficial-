@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   Users, FolderOpen, Zap, DollarSign, BarChart3, CheckCircle, XCircle, Ban, UserCheck,
   CreditCard, Banknote, ExternalLink, Wallet, Building2, Bitcoin, CalendarIcon, Search, X,
-  Download, Image, ChevronDown, ChevronUp, FileText, Clock, ArrowRight, Eye, GraduationCap, Plus, Trash2, Star, Play
+  Download, Image, ChevronDown, ChevronUp, FileText, Clock, ArrowRight, Eye, GraduationCap, Plus, Trash2, Star, Play, Loader2
 } from 'lucide-react';
 import { format, startOfDay, endOfDay, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -54,6 +54,8 @@ const AdminPanel = () => {
   const [academyPaths, setAcademyPaths] = useState<any[]>([]);
   const [tutorApplications, setTutorApplications] = useState<any[]>([]);
   const [showAddCourse, setShowAddCourse] = useState(false);
+  const [commissionDetail, setCommissionDetail] = useState<any | null>(null);
+  const [loadingCommission, setLoadingCommission] = useState(false);
   const [selectedCoursePreview, setSelectedCoursePreview] = useState<any>(null);
   const [courseStatusFilter, setCourseStatusFilter] = useState<string>('all');
   const [newCourse, setNewCourse] = useState({
@@ -906,13 +908,127 @@ const AdminPanel = () => {
                   <p className="text-xs text-muted-foreground font-heading uppercase tracking-wider">Budget Pagado</p>
                   <p className="text-2xl font-heading font-bold text-green-500 mt-1">${stats.paidBudget?.toLocaleString()}</p>
                 </div>
-                <div className="rounded-lg border border-border/50 p-4">
-                  <p className="text-xs text-muted-foreground font-heading uppercase tracking-wider">Comisión GOPHORA (10%)</p>
+                <button
+                  onClick={async () => {
+                    setLoadingCommission(true);
+                    try {
+                      const data = await adminCall('get_commission_detail');
+                      setCommissionDetail(data);
+                    } catch (err: any) {
+                      toast.error(err.message);
+                    } finally {
+                      setLoadingCommission(false);
+                    }
+                  }}
+                  className="rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 p-4 text-left transition-colors group"
+                >
+                  <p className="text-xs text-muted-foreground font-heading uppercase tracking-wider flex items-center justify-between">
+                    Comisión GOPHORA (10%)
+                    <span className="text-[10px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">Ver detalle →</span>
+                  </p>
                   <p className="text-2xl font-heading font-bold text-primary mt-1">${stats.commission?.toLocaleString()}</p>
-                </div>
+                </button>
               </div>
             </div>
           )}
+
+          {/* Commission detail modal */}
+          <Dialog open={!!commissionDetail || loadingCommission} onOpenChange={(o) => { if (!o) setCommissionDetail(null); }}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="font-heading flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-primary" />
+                  Detalle de Comisión GOPHORA
+                </DialogTitle>
+              </DialogHeader>
+              {loadingCommission ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : commissionDetail && (
+                <div className="space-y-6">
+                  {/* Totals */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
+                      <p className="text-[10px] font-heading uppercase tracking-wider text-muted-foreground">Proyectos pagos</p>
+                      <p className="text-xl font-heading font-bold mt-1">{commissionDetail.totals.projectCount}</p>
+                    </div>
+                    <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
+                      <p className="text-[10px] font-heading uppercase tracking-wider text-muted-foreground">Monto pagado</p>
+                      <p className="text-xl font-heading font-bold text-green-500 mt-1">${commissionDetail.totals.paidOut.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                      <p className="text-[10px] font-heading uppercase tracking-wider text-primary">Comisión 10%</p>
+                      <p className="text-xl font-heading font-bold text-primary mt-1">${commissionDetail.totals.commission.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
+                      <p className="text-[10px] font-heading uppercase tracking-wider text-muted-foreground">Exploradores beneficiados</p>
+                      <p className="text-xl font-heading font-bold mt-1">{commissionDetail.totals.beneficiaries}</p>
+                    </div>
+                  </div>
+
+                  {/* Top explorers */}
+                  {commissionDetail.topExplorers.length > 0 && (
+                    <div>
+                      <h3 className="font-heading font-bold text-sm uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <Star className="h-4 w-4 text-amber-500" /> Top Exploradores
+                      </h3>
+                      <div className="rounded-lg border border-border/50 divide-y divide-border/50">
+                        {commissionDetail.topExplorers.map((ex: any, i: number) => (
+                          <div key={ex.email} className="flex items-center gap-3 p-3">
+                            <span className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-heading font-bold shrink-0 ${i === 0 ? 'bg-amber-500/20 text-amber-600' : i === 1 ? 'bg-zinc-400/20 text-zinc-600' : i === 2 ? 'bg-orange-700/20 text-orange-700' : 'bg-muted text-muted-foreground'}`}>{i + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-heading font-semibold truncate">{ex.name || ex.email.split('@')[0]}</p>
+                              <p className="text-[11px] text-muted-foreground truncate">{ex.email}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-heading font-bold">${ex.total.toLocaleString()}</p>
+                              <p className="text-[10px] text-muted-foreground">{ex.missions} misiones</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Project breakdown */}
+                  {commissionDetail.projects.length > 0 && (
+                    <div>
+                      <h3 className="font-heading font-bold text-sm uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 text-primary" /> Proyectos pagos
+                      </h3>
+                      <div className="rounded-lg border border-border/50 overflow-hidden">
+                        <table className="w-full text-xs">
+                          <thead className="bg-muted/50">
+                            <tr>
+                              <th className="px-3 py-2 text-left font-heading">Proyecto</th>
+                              <th className="px-3 py-2 text-left font-heading">Empresa</th>
+                              <th className="px-3 py-2 text-right font-heading">Budget</th>
+                              <th className="px-3 py-2 text-right font-heading">Pagado</th>
+                              <th className="px-3 py-2 text-right font-heading text-primary">Comisión</th>
+                              <th className="px-3 py-2 text-right font-heading">Explorers</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/50">
+                            {commissionDetail.projects.map((p: any) => (
+                              <tr key={p.id} className="hover:bg-muted/30">
+                                <td className="px-3 py-2 font-heading font-semibold truncate max-w-[200px]">{p.title}</td>
+                                <td className="px-3 py-2 text-muted-foreground">{p.companyName || p.companyEmail || '—'}</td>
+                                <td className="px-3 py-2 text-right">${p.budget.toLocaleString()}</td>
+                                <td className="px-3 py-2 text-right text-green-500">${p.paidOut.toLocaleString()}</td>
+                                <td className="px-3 py-2 text-right text-primary font-heading font-bold">${p.commission.toLocaleString()}</td>
+                                <td className="px-3 py-2 text-right">{p.explorerCount}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
 
           {/* ── COURSES TAB ── */}
           {activeTab === 'Courses' && (
@@ -1194,6 +1310,26 @@ const AdminPanel = () => {
                               try { await adminCall('review_tutor', { application_id: app.id, status: 'rejected' }); toast.success('Tutor rechazado'); loadData(); } catch (err: any) { toast.error(err.message); }
                             }}>
                               <XCircle className="h-3 w-3" /> Rechazar
+                            </Button>
+                          </div>
+                        )}
+
+                        {app.status === 'approved' && (
+                          <div className="flex gap-2 justify-end pt-2 border-t border-border/30">
+                            <Button size="sm" variant="outline" className="gap-1 text-xs font-heading text-destructive border-destructive/30" onClick={async () => {
+                              const reason = window.prompt('Motivo (opcional) — el tutor lo verá en su notificación:');
+                              if (reason === null) return; // user cancelled
+                              if (!window.confirm('¿Seguro que querés revocar el acceso de tutor? Se eliminará el rol y los cursos quedarán huérfanos hasta que otro tutor los adopte.')) return;
+                              try {
+                                const { error } = await supabase.rpc('admin_revoke_tutor', { _user_id: app.user_id, _reason: reason || null });
+                                if (error) throw error;
+                                toast.success('Tutor revocado');
+                                loadData();
+                              } catch (err: any) {
+                                toast.error(err.message);
+                              }
+                            }}>
+                              <XCircle className="h-3 w-3" /> Revocar Tutor
                             </Button>
                           </div>
                         )}

@@ -398,6 +398,99 @@ serve(async (req) => {
         break;
       }
 
+      case 'get_commission_detail': {
+        // Detail behind the "Comisión GOPHORA" card on Revenue tab.
+        // Returns one row per project with its budget, paid amount,
+        // 10% commission slice, plus the top-3 explorers by reward earned.
+        const [paidProjects, topAssignments] = await Promise.all([
+          supabase
+            .from('projects')
+            .select(`id, title, budget, payment_status, status, created_at,
+              profiles (email, full_name),
+              missions (
+                id, status, reward,
+                mission_assignments (
+                  status, reward:reward,
+                  profile:explorer_profiles (
+                    profiles (email, full_name)
+                  )
+                )
+              )
+            `)
+            .eq('payment_status', 'paid')
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('mission_assignments')
+            .select(`
+              status,
+              mission:mission_id (reward),
+              profile:explorer_profiles (
+                profiles (email, full_name)
+              )
+            `)
+            .in('status', ['completed', 'funds_released']),
+        ]);
+        if (paidProjects.error) throw paidProjects.error;
+        if (topAssignments.error) throw topAssignments.error;
+
+        const projectRows = (paidProjects.data || []).map((p: any) => {
+          const budget = Number(p.budget || 0);
+          const completedMissions = (p.missions || []).filter((m: any) =>
+            ['approved', 'completed', 'funds_released'].includes(m.status)
+          );
+          const paidOut = completedMissions.reduce((s: number, m: any) => s + Number(m.reward || 0), 0);
+          const explorerSet = new Set<string>();
+          completedMissions.forEach((m: any) => {
+            (m.mission_assignments || []).forEach((a: any) => {
+              const email = a.profile?.profiles?.email;
+              if (email) explorerSet.add(email);
+            });
+          });
+          return {
+            id: p.id,
+            title: p.title,
+            companyEmail: p.profiles?.email || null,
+            companyName: p.profiles?.full_name || null,
+            createdAt: p.created_at,
+            status: p.status,
+            budget,
+            paidOut,
+            commission: Math.round(paidOut * 0.1 * 100) / 100,
+            explorerCount: explorerSet.size,
+          };
+        });
+
+        // Top explorers by total reward
+        const explorerTotals = new Map<string, { email: string; name: string | null; total: number; missions: number }>();
+        (topAssignments.data || []).forEach((a: any) => {
+          const email = a.profile?.profiles?.email;
+          if (!email) return;
+          const reward = Number(a.mission?.reward || 0);
+          const cur = explorerTotals.get(email) || { email, name: a.profile?.profiles?.full_name || null, total: 0, missions: 0 };
+          cur.total += reward;
+          cur.missions += 1;
+          explorerTotals.set(email, cur);
+        });
+        const topExplorers = [...explorerTotals.values()]
+          .sort((a, b) => b.total - a.total)
+          .slice(0, 5);
+
+        const totalPaidOut = projectRows.reduce((s: number, p: any) => s + p.paidOut, 0);
+        const totalCommission = projectRows.reduce((s: number, p: any) => s + p.commission, 0);
+
+        result = {
+          projects: projectRows,
+          topExplorers,
+          totals: {
+            projectCount: projectRows.length,
+            paidOut: totalPaidOut,
+            commission: totalCommission,
+            beneficiaries: explorerTotals.size,
+          },
+        };
+        break;
+      }
+
       default:
         return jsonResponse({ error: `Action '${action}' not implemented` }, 400);
     }

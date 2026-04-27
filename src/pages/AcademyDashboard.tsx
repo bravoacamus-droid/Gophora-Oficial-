@@ -181,7 +181,9 @@ const AcademyDashboard = () => {
     { question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: -1 },
   ]);
   const [parsingPdf, setParsingPdf] = useState(false);
+  const [parsingExcel, setParsingExcel] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
   const [quickStartTool, setQuickStartTool] = useState<AcademyTool | null>(null);
   const trackToolUsage = useTrackToolUsage();
   const [promptSearch, setPromptSearch] = useState('');
@@ -472,6 +474,111 @@ const AcademyDashboard = () => {
     );
   };
 
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setParsingExcel(true);
+    try {
+      // Lazy-load xlsx so it doesn't bloat the main bundle.
+      const XLSX = await import('xlsx');
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      // header:1 → array of rows of values, including the header row.
+      const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false, defval: '' });
+      if (rows.length < 2) {
+        toast.error(isEs ? 'El archivo no tiene preguntas. Asegurate de incluir la fila de encabezado + al menos 5 preguntas.' : 'File has no questions. Include the header row + at least 5 questions.');
+        return;
+      }
+
+      // Map header row → column indexes. Accept English and Spanish.
+      const header = rows[0].map(c => String(c || '').trim().toLowerCase());
+      const findCol = (...names: string[]) => {
+        for (const n of names) {
+          const i = header.findIndex(h => h === n);
+          if (i !== -1) return i;
+        }
+        return -1;
+      };
+      const colQ = findCol('question', 'pregunta');
+      const colA = findCol('option_a', 'a', 'opcion_a', 'opción a');
+      const colB = findCol('option_b', 'b', 'opcion_b', 'opción b');
+      const colC = findCol('option_c', 'c', 'opcion_c', 'opción c');
+      const colD = findCol('option_d', 'd', 'opcion_d', 'opción d');
+      const colCorrect = findCol('correct', 'correcta', 'respuesta_correcta', 'answer');
+      const colQEs = findCol('question_es', 'pregunta_es');
+
+      if ([colQ, colA, colB, colC, colD, colCorrect].some(i => i < 0)) {
+        toast.error(
+          isEs
+            ? 'Faltan columnas obligatorias. Necesitamos: question | option_a | option_b | option_c | option_d | correct'
+            : 'Missing required columns. Need: question | option_a | option_b | option_c | option_d | correct'
+        );
+        return;
+      }
+
+      const parsed: typeof examQuestions = [];
+      for (let r = 1; r < rows.length; r++) {
+        const row = rows[r];
+        const q = String(row[colQ] || '').trim();
+        if (!q) continue;
+        const opts = [
+          String(row[colA] || '').trim(),
+          String(row[colB] || '').trim(),
+          String(row[colC] || '').trim(),
+          String(row[colD] || '').trim(),
+        ];
+        if (opts.some(o => !o)) continue;
+        const correctRaw = String(row[colCorrect] || '').trim().toLowerCase();
+        // Accept "A"/"B"/"C"/"D" or 1..4 or 0..3
+        let correctIndex = -1;
+        if (['a', 'b', 'c', 'd'].includes(correctRaw)) correctIndex = ['a', 'b', 'c', 'd'].indexOf(correctRaw);
+        else if (/^[1-4]$/.test(correctRaw)) correctIndex = parseInt(correctRaw, 10) - 1;
+        else if (/^[0-3]$/.test(correctRaw)) correctIndex = parseInt(correctRaw, 10);
+        if (correctIndex < 0 || correctIndex > 3) continue;
+        parsed.push({
+          question: q,
+          question_es: colQEs >= 0 ? String(row[colQEs] || '').trim() : '',
+          options: opts,
+          options_es: ['', '', '', ''],
+          correct_index: correctIndex,
+        });
+      }
+
+      if (parsed.length < 5) {
+        toast.error(isEs ? `Solo se reconocieron ${parsed.length} preguntas válidas. Mínimo 5.` : `Only ${parsed.length} valid questions detected. Minimum 5.`);
+        return;
+      }
+      setExamQuestions(parsed);
+      toast.success(
+        isEs ? `${parsed.length} preguntas cargadas desde Excel` : `${parsed.length} questions loaded from Excel`,
+        { description: isEs ? 'Revisá las opciones marcadas como correctas antes de enviar.' : 'Review the marked correct answers before submitting.' }
+      );
+    } catch (err: any) {
+      toast.error(err.message || (isEs ? 'Error al procesar el archivo' : 'Error processing file'));
+    } finally {
+      setParsingExcel(false);
+      if (excelInputRef.current) excelInputRef.current.value = '';
+    }
+  };
+
+  const downloadExcelTemplate = () => {
+    const csv = 'question,option_a,option_b,option_c,option_d,correct,question_es\n'
+      + '"What does AI stand for?","Artificial Intelligence","Automatic Internet","Advanced Interface","Analog Input","A","¿Qué significa IA?"\n'
+      + '"Which is a no-code AI tool?","Make","Photoshop","Excel","Word","A","¿Cuál es una herramienta de IA sin código?"\n'
+      + '"What is prompt engineering?","Hardware design","Designing AI inputs","Network setup","Database tuning","B","¿Qué es la ingeniería de prompts?"\n'
+      + '"Best use of generative AI?","Mining","Creating text/images","Manufacturing","Cleaning","B","¿Mejor uso de la IA generativa?"\n'
+      + '"GOPHORA missions are completed in:","6 months","48-72 hours","1 week","1 year","B","¿En cuánto se completan las misiones?"\n';
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'gophora-exam-template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -727,6 +834,78 @@ const AcademyDashboard = () => {
 
           {/* ── COURSES TAB ── */}
           <TabsContent value="courses" className="mt-2">
+            {/* ── EN VIVO AHORA — Twitch-style feed of live sessions ── */}
+            {(() => {
+              const now = Date.now();
+              const liveCourses = courses.filter((c: any) => {
+                if (c.delivery_mode !== 'live' || !c.live_at) return false;
+                const at = new Date(c.live_at).getTime();
+                const diff = at - now;
+                // Show as "live" if scheduled within (-1h .. +3h) → covers
+                // sessions about to start through sessions probably still on air.
+                return diff > -60 * 60 * 1000 && diff < 3 * 60 * 60 * 1000;
+              }).slice(0, 6);
+              if (liveCourses.length === 0) return null;
+              return (
+                <div className="mb-8 rounded-xl border border-red-500/30 bg-gradient-to-br from-red-500/5 to-transparent p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-heading font-bold flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
+                      <span className="text-red-500">{isEs ? 'EN VIVO AHORA' : 'LIVE NOW'}</span>
+                      <span className="text-xs font-body text-muted-foreground font-normal">— {isEs ? 'unite a una clase en directo' : 'join a live class'}</span>
+                    </h2>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {liveCourses.map((c: any) => {
+                      const at = new Date(c.live_at).getTime();
+                      const diffMin = Math.round((at - now) / 60_000);
+                      const meetingUrl = c.meeting_url || c.external_url;
+                      return (
+                        <a
+                          key={c.id}
+                          href={meetingUrl || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => {
+                            if (!meetingUrl) {
+                              e.preventDefault();
+                              toast.info(isEs ? 'El tutor aún no agregó el link de la reunión' : 'Tutor has not added the meeting link yet');
+                            }
+                            trackActivity.mutate('course_view');
+                          }}
+                          className="group flex flex-col gap-2 rounded-lg border border-red-500/20 bg-card hover:border-red-500/50 hover:shadow-lg transition-all p-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-heading font-bold uppercase tracking-widest text-red-500 flex items-center gap-1">
+                              <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                              {diffMin <= 0
+                                ? (isEs ? 'EN AIRE' : 'ON AIR')
+                                : (isEs ? `EN ${diffMin}MIN` : `IN ${diffMin}MIN`)}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-body">
+                              {c.instructor_name || 'GOPHORA'}
+                            </span>
+                          </div>
+                          <p className="font-heading font-bold text-sm line-clamp-2 group-hover:text-red-500 transition-colors">
+                            {isEs ? (c.title_es || c.title) : c.title}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground font-body line-clamp-2">
+                            {isEs ? (c.description_es || c.description) : c.description}
+                          </p>
+                          <div className="flex items-center justify-between pt-1">
+                            <Badge variant="outline" className="text-[9px] capitalize">{c.skill_level}</Badge>
+                            <span className="text-[10px] font-heading font-bold text-red-500 group-hover:underline">
+                              {isEs ? 'Unirme →' : 'Join →'}
+                            </span>
+                          </div>
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
             {featuredCourses.length > 0 && (
               <div className="mb-8">
                 <h2 className="text-lg font-heading font-bold mb-4 flex items-center gap-2">
@@ -1523,26 +1702,45 @@ const AcademyDashboard = () => {
                               <GraduationCap className="h-4 w-4 text-primary" />
                               {isEs ? 'Examen (mín. 5 preguntas) *' : 'Exam (min. 5 questions) *'}
                             </h4>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <input ref={excelInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleExcelUpload} />
+                              <Button variant="default" size="sm" className="text-xs gap-1" onClick={() => excelInputRef.current?.click()} disabled={parsingExcel || parsingPdf}>
+                                {parsingExcel ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileUp className="h-3 w-3" />}
+                                {isEs ? 'Subir Excel/CSV' : 'Upload Excel/CSV'}
+                              </Button>
+                              <Button variant="ghost" size="sm" className="text-[10px] gap-1 h-7 px-2" onClick={downloadExcelTemplate}>
+                                <Download className="h-3 w-3" />
+                                {isEs ? 'Plantilla' : 'Template'}
+                              </Button>
                               <input ref={pdfInputRef} type="file" accept=".pdf" className="hidden" onChange={handlePdfUpload} />
-                              <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => pdfInputRef.current?.click()} disabled={parsingPdf}>
+                              <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => pdfInputRef.current?.click()} disabled={parsingPdf || parsingExcel}>
                                 {parsingPdf ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileUp className="h-3 w-3" />}
-                                {isEs ? 'Subir PDF' : 'Upload PDF'}
+                                {isEs ? 'PDF (IA)' : 'PDF (AI)'}
                               </Button>
                             </div>
                           </div>
-                          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 mb-3">
+                          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 mb-3 space-y-1">
                             <p className="text-[11px] text-foreground/80 leading-snug">
                               <span className="font-heading font-bold">{isEs ? '⚠️ Importante: ' : '⚠️ Important: '}</span>
                               {isEs
                                 ? 'Por cada pregunta, escribí las 4 opciones y hace click en el círculo verde de la opción CORRECTA. Sin marcar la correcta, no podés enviar el curso.'
                                 : 'For each question, write the 4 options and click the green circle of the CORRECT option. You cannot submit without marking the correct answer.'}
                             </p>
+                            <p className="text-[11px] text-foreground/70 leading-snug">
+                              <span className="font-heading font-bold">💡 {isEs ? 'Tip: ' : 'Tip: '}</span>
+                              {isEs
+                                ? 'Subí un Excel/CSV (botón "Subir Excel/CSV") y se cargan todas las preguntas con su respuesta correcta de una. Descargá la plantilla si no sabés el formato.'
+                                : 'Upload an Excel/CSV ("Upload Excel/CSV" button) to load all questions with their correct answer at once. Download the template if you don\'t know the format.'}
+                            </p>
                           </div>
-                          {parsingPdf && (
+                          {(parsingPdf || parsingExcel) && (
                             <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 mb-3 flex items-center gap-2">
                               <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                              <span className="text-xs text-muted-foreground">{isEs ? 'IA extrayendo preguntas del PDF...' : 'AI extracting questions from PDF...'}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {parsingExcel
+                                  ? (isEs ? 'Cargando preguntas desde Excel/CSV...' : 'Loading questions from Excel/CSV...')
+                                  : (isEs ? 'IA extrayendo preguntas del PDF...' : 'AI extracting questions from PDF...')}
+                              </span>
                             </div>
                           )}
                           <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
