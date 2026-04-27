@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useActivateMission } from '@/hooks/useActivateMission';
 import { Search, Clock, DollarSign, User, Zap, X, ArrowRight, FileText, CheckCircle, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const skills = ['All', 'Design', 'Web Development', 'Marketing', 'Data', 'Research', 'Operations'];
@@ -31,8 +31,10 @@ const Marketplace = () => {
   const { t, language } = useLanguage();
   const { user, companyProfile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const skillParam = searchParams.get('skill');
   const [search, setSearch] = useState('');
-  const [selectedSkill, setSelectedSkill] = useState('All');
+  const [selectedSkill, setSelectedSkill] = useState(skillParam && skills.includes(skillParam) ? skillParam : 'All');
   const [missions, setMissions] = useState<MarketplaceMission[]>([]);
   const [loading, setLoading] = useState(true);
   const [activatedMissionIds, setActivatedMissionIds] = useState<string[]>([]);

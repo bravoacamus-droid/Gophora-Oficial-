@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,7 +18,7 @@ import {
   GraduationCap, Flame, Shield, Bot, Image, Video, PenTool,
   FileText, GitBranch, Workflow, Globe, Eye, ThumbsUp, Play,
   Users, Sparkles, Upload, Heart, HeartOff, UserPlus, UserCheck,
-  FileUp, BarChart3, Loader2, Download, Copy, Map
+  FileUp, BarChart3, Loader2, Download, Copy, Map, ArrowRight
 } from 'lucide-react';
 import {
   useAcademyPaths, useAcademyCourses, useAcademyTools,
@@ -55,6 +56,35 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
+// Override DB-stored toolkit URLs with the free chat / consumer-facing
+// version of each tool. The seed migration originally pointed several entries
+// at API consoles or docs (e.g. platform.openai.com, anthropic.com/api), which
+// confused first-time explorers. Keeping this override in code means new
+// deploys take effect without waiting for the URL-fix migration to run.
+const toolUrlOverrides: Record<string, string> = {
+  'OpenAI (ChatGPT API)': 'https://chatgpt.com/',
+  'Anthropic Claude': 'https://claude.ai/',
+  'Google Gemini': 'https://gemini.google.com/app',
+  'Cohere': 'https://coral.cohere.com/',
+  'Stability AI': 'https://clipdrop.co/stable-diffusion',
+  'Replicate': 'https://replicate.com/explore',
+  'Remove.bg': 'https://www.remove.bg/',
+  'Photoroom': 'https://www.photoroom.com/',
+  'Runway': 'https://app.runwayml.com/',
+  'ElevenLabs': 'https://elevenlabs.io/app',
+  'AssemblyAI': 'https://www.assemblyai.com/playground',
+  'Suno': 'https://suno.com/create',
+  'Supabase': 'https://supabase.com/dashboard',
+  'Zapier': 'https://zapier.com/app/dashboard',
+  'Make (Integromat)': 'https://www.make.com/en/login',
+  'SerpAPI': 'https://serpapi.com/playground',
+  'Apify': 'https://console.apify.com/',
+  'Notion AI': 'https://www.notion.so/',
+};
+
+const resolveToolUrl = (tool: { name: string; url: string | null }) =>
+  toolUrlOverrides[tool.name] || tool.url || '';
+
 const iconMap: Record<string, React.ReactNode> = {
   Brain: <Brain className="h-5 w-5" />, Zap: <Zap className="h-5 w-5" />,
   Code: <Code className="h-5 w-5" />, Palette: <Palette className="h-5 w-5" />,
@@ -71,6 +101,7 @@ const levelIcons = [Shield, Star, Flame, Rocket, Award];
 const AcademyDashboard = () => {
   const { language } = useLanguage();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isEs = language === 'es';
 
   const { data: paths = [] } = usePathsWithAuthors();
@@ -260,14 +291,18 @@ const AcademyDashboard = () => {
   const handleCopyAndOpenPrompt = async (prompt: SharedPromptWithStats) => {
     try {
       await navigator.clipboard.writeText(prompt.content);
-      toast.success(isEs ? 'Prompt copiado. Pegá con Ctrl+V (Cmd+V).' : 'Prompt copied. Paste with Ctrl+V (Cmd+V).');
+      toast.success(
+        isEs ? 'Prompt copiado al portapapeles' : 'Prompt copied to clipboard',
+        {
+          description: isEs
+            ? 'Pegalo (Ctrl+V / Cmd+V) en la IA gratis de tu elección — Toolkit tiene los enlaces directos a las versiones gratuitas.'
+            : 'Paste it (Ctrl+V / Cmd+V) in any free AI of your choice — Toolkit has direct links to the free versions.',
+        }
+      );
     } catch {
       toast.error(isEs ? 'No se pudo copiar al portapapeles' : 'Could not copy to clipboard');
     }
     trackPromptUse.mutate({ promptId: prompt.id });
-    if (prompt.toolUrl) {
-      window.open(prompt.toolUrl, '_blank', 'noopener');
-    }
   };
 
   const handleImproveDraft = () => {
@@ -1156,12 +1191,31 @@ const AcademyDashboard = () => {
               ))}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredTools.map(tool => (
+              {filteredTools.map(tool => {
+                const resolvedUrl = resolveToolUrl(tool);
+                let toolDomain = '';
+                try { toolDomain = resolvedUrl ? new URL(resolvedUrl).hostname : ''; } catch { /* ignore */ }
+                return (
                 <Card key={tool.id} className="hover:border-primary/30 transition-all">
                   <CardContent className="p-5">
                     <div className="flex items-start gap-3 mb-3">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                        {iconMap[tool.icon] || <Wrench className="h-5 w-5" />}
+                      <div className="h-10 w-10 rounded-lg bg-white dark:bg-white/95 border border-border/50 flex items-center justify-center shrink-0 overflow-hidden">
+                        {toolDomain ? (
+                          <img
+                            src={`https://www.google.com/s2/favicons?domain=${toolDomain}&sz=64`}
+                            alt={tool.name}
+                            className="h-7 w-7 object-contain"
+                            onError={(e) => {
+                              const img = e.currentTarget;
+                              const fallback = img.nextElementSibling as HTMLElement | null;
+                              img.style.display = 'none';
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <span className={`h-7 w-7 ${toolDomain ? 'hidden' : 'flex'} items-center justify-center text-primary`}>
+                          {iconMap[tool.icon] || <Wrench className="h-5 w-5" />}
+                        </span>
                       </div>
                       <div>
                         <h4 className="font-heading font-bold text-sm">{tool.name}</h4>
@@ -1185,7 +1239,7 @@ const AcademyDashboard = () => {
                           <Sparkles className="h-3 w-3 mr-1" /> {isEs ? 'Quick Start' : 'Quick Start'}
                         </Button>
                       )}
-                      {tool.url && (
+                      {resolvedUrl && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -1193,15 +1247,16 @@ const AcademyDashboard = () => {
                           asChild
                           onClick={() => trackToolUsage.mutate({ toolId: tool.id })}
                         >
-                          <a href={tool.url} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-3 w-3 mr-1" /> {isEs ? 'Aprender más' : 'Learn more'}
+                          <a href={resolvedUrl} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-3 w-3 mr-1" /> {isEs ? 'Abrir herramienta' : 'Open tool'}
                           </a>
                         </Button>
                       )}
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           </TabsContent>
 
@@ -2000,8 +2055,13 @@ const AcademyDashboard = () => {
                   {isEs ? 'Skills, rutas, playbooks y cursos personalizados según tu perfil y las misiones del marketplace.' : 'Skills, paths, playbooks and courses personalised from your profile and the marketplace.'}
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => refetchRecs()} disabled={recsLoading}>
-                {recsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              <Button variant="outline" size="sm" onClick={async () => {
+                const r = await refetchRecs();
+                if (r.isSuccess) {
+                  toast.success(isEs ? 'Recomendaciones actualizadas' : 'Recommendations refreshed');
+                }
+              }} disabled={recsLoading}>
+                {recsLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Sparkles className="h-4 w-4 mr-1" />}
                 {isEs ? 'Actualizar' : 'Refresh'}
               </Button>
             </div>
@@ -2026,7 +2086,11 @@ const AcademyDashboard = () => {
                 </div>
                 <div className="space-y-2">
                   {skillGap.map((sg: any) => (
-                    <div key={sg.skill} className="flex items-center justify-between rounded-lg border border-border/50 bg-card px-3 py-2">
+                    <button
+                      key={sg.skill}
+                      onClick={() => navigate(`/marketplace?skill=${encodeURIComponent(sg.skill)}`)}
+                      className="w-full flex items-center justify-between rounded-lg border border-border/50 bg-card hover:border-amber-500/40 hover:bg-amber-500/5 px-3 py-2 transition-colors group"
+                    >
                       <div className="flex items-center gap-2">
                         <Zap className="h-3.5 w-3.5 text-amber-500" />
                         <span className="font-heading font-semibold text-sm">{sg.skill}</span>
@@ -2036,8 +2100,9 @@ const AcademyDashboard = () => {
                           <span className="font-semibold text-foreground">{sg.openMissions}</span>{' '}
                           {isEs ? 'misiones abiertas' : 'open missions'}
                         </span>
+                        <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-amber-500" />
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -2798,9 +2863,9 @@ function CourseVideoCard({
             </span>
           )}
         </div>
-        <div className="absolute top-2 right-2">
+        <div className="absolute top-2 right-2 z-20">
           {onToggleFavorite && (
-            <button onClick={e => { e.stopPropagation(); onToggleFavorite(); }}
+            <button onClick={e => { e.stopPropagation(); e.preventDefault(); onToggleFavorite(); }}
               className="h-7 w-7 rounded-full bg-background/80 backdrop-blur flex items-center justify-center hover:bg-background transition-colors">
               <Heart className={`h-3.5 w-3.5 ${isFavorite ? 'fill-destructive text-destructive' : 'text-muted-foreground'}`} />
             </button>

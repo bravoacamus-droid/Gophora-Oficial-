@@ -1130,7 +1130,7 @@ const AdminPanel = () => {
                       <div key={app.id} className="p-5 space-y-4">
                         <div className="flex items-start justify-between gap-4">
                           <div className="space-y-1">
-                            <p className="font-heading font-semibold text-base">{app.full_name || 'Sin nombre'}</p>
+                            <p className="font-heading font-semibold text-base">{app.full_name || app.email?.split('@')[0] || 'Sin nombre'}</p>
                             <p className="text-xs text-muted-foreground">{app.email || app.user_id}</p>
                             <p className="text-xs text-muted-foreground flex items-center gap-1">
                               <Clock className="h-3 w-3" /> {format(new Date(app.created_at), 'dd MMM yyyy, HH:mm', { locale: es })}

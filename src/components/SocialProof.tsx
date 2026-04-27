@@ -37,13 +37,13 @@ export default function SocialProof() {
       <h3 className="font-heading font-bold text-xs mb-3 text-muted-foreground uppercase tracking-wider">
         {isEs ? '🌐 Comunidad GOPHORA' : '🌐 GOPHORA Community'}
       </h3>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {stats.map((stat) => (
-          <div key={stat.label} className="flex items-center gap-2 p-2 rounded-lg">
+          <div key={stat.label} className="flex items-center gap-2 p-2 rounded-lg min-w-0">
             <stat.icon className="h-3.5 w-3.5 text-primary shrink-0" />
-            <div>
+            <div className="min-w-0">
               <span className="text-sm font-heading font-bold">{stat.value.toLocaleString()}</span>
-              <p className="text-[9px] text-muted-foreground font-body leading-tight">{stat.label}</p>
+              <p className="text-[9px] text-muted-foreground font-body leading-tight truncate">{stat.label}</p>
             </div>
           </div>
         ))}

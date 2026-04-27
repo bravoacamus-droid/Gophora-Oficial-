@@ -438,7 +438,7 @@ const ProjectCreate = () => {
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-6">
               <div className="flex items-center gap-3 mb-4">
                 <Cpu className="h-6 w-6 text-primary" />
-                <h2 className="font-heading font-bold text-lg">AI Mission Architect</h2>
+                <h2 className="font-heading font-bold text-lg">Visnity AI</h2>
               </div>
               <p className="text-sm text-muted-foreground font-body mb-2">
                 Tu proyecto <span className="font-semibold text-foreground">"{projectTitle}"</span> ha sido analizado y dividido en <span className="font-semibold text-primary">{missions.length}</span> micro-misiones ejecutables basadas en tu presupuesto de ${budgetNum.toLocaleString()}.
@@ -644,6 +644,34 @@ const ProjectCreate = () => {
             {/* Wallet Info */}
             <div className="rounded-xl border border-border/50 bg-card p-6 space-y-4">
               <h3 className="font-heading font-bold text-sm uppercase tracking-wider">Datos de Pago</h3>
+
+              {/* Card / debit option (Takenos) */}
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-primary" />
+                  <p className="font-heading font-bold text-sm">
+                    Pagar con tarjeta de crédito o débito · Pay with credit or debit card
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground font-body leading-relaxed">
+                  Este es el link para realizar el pago por GOPHORA con tarjeta de crédito o débito, de forma fácil y rápida.
+                </p>
+                <p className="text-xs text-muted-foreground font-body leading-relaxed italic">
+                  This is the link to make the payment for GOPHORA using a credit or debit card, quickly and easily.
+                </p>
+                <a
+                  href="https://app.takenos.com/pay/ec357ec3-d309-4fc9-b6ce-ce88e91d79ab"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 mt-1 px-3 py-2 rounded-md bg-primary text-primary-foreground text-xs font-heading font-bold hover:bg-primary/90 transition-colors"
+                >
+                  app.takenos.com →
+                </a>
+              </div>
+
+              <div className="text-xs text-muted-foreground font-heading uppercase tracking-wider">
+                — o pagar en cripto (USDT) · or pay in crypto (USDT) —
+              </div>
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">

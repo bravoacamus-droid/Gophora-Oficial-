@@ -208,6 +208,7 @@ const CompanyDashboard = () => {
   };
 
   const activeProjects = projects.filter((p) => p.status === 'active');
+  const completedProjects = projects.filter((p) => p.status === 'completed');
   const completedMissions = missions.filter((m) => m.status === 'approved');
   const inProgressMissions = missions.filter((m) => m.status === 'assigned');
   const totalBudget = missions.reduce((sum, m) => sum + Number(m.reward || 0), 0);
@@ -294,12 +295,12 @@ const CompanyDashboard = () => {
         {/* KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
-            { icon: FolderOpen, label: isEs ? 'Proyectos' : 'Projects', value: String(activeProjects.length), accent: true },
+            { icon: FolderOpen, label: isEs ? 'Proyectos Completados' : 'Completed Projects', value: String(completedProjects.length), accent: true },
             { icon: Target, label: isEs ? 'Misiones' : 'Missions', value: String(missions.length) },
-            { icon: CheckCircle, label: isEs ? 'Completadas' : 'Completed', value: String(completedMissions.length) },
+            { icon: CheckCircle, label: isEs ? 'Misiones Completadas' : 'Missions Completed', value: String(completedMissions.length) },
             { icon: Users, label: isEs ? 'Exploradores' : 'Explorers', value: String(uniqueExplorersTotal.size) },
             { icon: DollarSign, label: isEs ? 'Invertido' : 'Invested', value: `$${totalBudget.toLocaleString()}` },
-            { icon: Wallet, label: isEs ? 'Balance' : 'Balance', value: `$${balance.toLocaleString()}`, accent: true },
+            { icon: Wallet, label: isEs ? 'Pagado en Misiones' : 'Paid to Missions', value: `$${usedBudget.toLocaleString()}`, accent: true },
           ].map((stat, i) => (
             <motion.div
               key={i}
@@ -307,10 +308,10 @@ const CompanyDashboard = () => {
               variants={fadeUp}
               initial="hidden"
               animate="visible"
-              className={`rounded-xl border p-4 transition-all hover:shadow-md ${stat.accent ? (isInvestor && stat.label === (isEs ? 'Balance' : 'Balance') ? 'border-amber-500/30 bg-amber-500/5' : 'border-primary/30 bg-primary/5') : 'border-border/50 bg-card'}`}
+              className={`rounded-xl border p-4 transition-all hover:shadow-md ${stat.accent ? (isInvestor && stat.label === (isEs ? 'Pagado en Misiones' : 'Paid to Missions') ? 'border-amber-500/30 bg-amber-500/5' : 'border-primary/30 bg-primary/5') : 'border-border/50 bg-card'}`}
             >
               <div className="flex items-center gap-2 mb-2">
-                <stat.icon className={`h-4 w-4 ${stat.accent ? (isInvestor && stat.label === (isEs ? 'Balance' : 'Balance') ? 'text-amber-600' : 'text-primary') : 'text-muted-foreground'}`} />
+                <stat.icon className={`h-4 w-4 ${stat.accent ? (isInvestor && stat.label === (isEs ? 'Pagado en Misiones' : 'Paid to Missions') ? 'text-amber-600' : 'text-primary') : 'text-muted-foreground'}`} />
                 <span className="text-xs text-muted-foreground font-body">{stat.label}</span>
               </div>
               <p className="text-2xl font-heading font-bold">{stat.value}</p>
@@ -348,7 +349,24 @@ const CompanyDashboard = () => {
                   <span className="text-muted-foreground font-body">{isEs ? 'Proyectos Participados' : 'Venture Projects'}</span>
                   <span className="font-heading font-bold">0</span>
                 </div>
-                <Button variant="outline" size="sm" className="w-full text-[10px] h-8 border-amber-500/30 text-amber-600 hover:bg-amber-50">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-[10px] h-8 border-amber-500/30 text-amber-600 hover:bg-amber-50"
+                  onClick={() => {
+                    toast.info(
+                      isEs
+                        ? '🚀 Modo Inversor en desarrollo'
+                        : '🚀 Investor mode coming soon',
+                      {
+                        description: isEs
+                          ? 'Pronto podrás explorar proyectos abiertos a inversión, ver cotizaciones generadas por IA y firmar acuerdos de equity directamente desde GOPHORA.'
+                          : 'Soon you\'ll be able to browse projects open to investment, review AI-generated quotes and sign equity agreements right from GOPHORA.',
+                        duration: 6000,
+                      }
+                    );
+                  }}
+                >
                   {isEs ? 'Explorar Proyectos para Invertir' : 'Browse Projects to Invest'}
                 </Button>
               </div>

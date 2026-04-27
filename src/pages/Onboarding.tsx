@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,8 @@ import { toast } from 'sonner';
 
 const Onboarding = () => {
     const { user, accountType, refreshProfile, updateAccountType, isAdmin, onboardingCompleted } = useAuth();
+    const { language } = useLanguage();
+    const isEs = language === 'es';
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -170,8 +173,8 @@ const Onboarding = () => {
                             className="space-y-8 text-center"
                         >
                             <div className="space-y-2">
-                                <h1 className="text-3xl font-heading font-black">Bienvenido a GOPHORA</h1>
-                                <p className="text-muted-foreground font-body">¿Qué quieres hacer en GOPHORA?</p>
+                                <h1 className="text-3xl font-heading font-black">{isEs ? 'Bienvenido a GOPHORA' : 'Welcome to GOPHORA'}</h1>
+                                <p className="text-muted-foreground font-body">{isEs ? '¿Qué quieres hacer en GOPHORA?' : 'What do you want to do on GOPHORA?'}</p>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <button
@@ -179,16 +182,16 @@ const Onboarding = () => {
                                     className="p-6 rounded-2xl border-2 border-border hover:border-primary transition-all text-left group"
                                 >
                                     <User className="h-10 w-10 text-primary mb-4 group-hover:scale-110 transition-transform" />
-                                    <h3 className="font-heading font-bold text-lg">Aprender y ganar dinero</h3>
-                                    <p className="text-sm text-muted-foreground mt-1">Ejecuta misiones reales con IA, aprende viendo proyectos en vivo y genera ingresos.</p>
+                                    <h3 className="font-heading font-bold text-lg">{isEs ? 'Aprender y ganar dinero' : 'Learn and earn money'}</h3>
+                                    <p className="text-sm text-muted-foreground mt-1">{isEs ? 'Ejecuta misiones reales con IA, aprende viendo proyectos en vivo y genera ingresos.' : 'Run real AI missions, learn from live projects and earn income.'}</p>
                                 </button>
                                 <button
                                     onClick={() => handleSelectRole('company')}
                                     className="p-6 rounded-2xl border-2 border-border hover:border-primary transition-all text-left group"
                                 >
                                     <Building2 className="h-10 w-10 text-primary mb-4 group-hover:scale-110 transition-transform" />
-                                    <h3 className="font-heading font-bold text-lg">Publicar un proyecto</h3>
-                                    <p className="text-sm text-muted-foreground mt-1">Completa trabajos en menos de 72 horas con una red de exploradores que usan IA.</p>
+                                    <h3 className="font-heading font-bold text-lg">{isEs ? 'Publicar un proyecto' : 'Publish a project'}</h3>
+                                    <p className="text-sm text-muted-foreground mt-1">{isEs ? 'Completa trabajos en menos de 72 horas con una red de exploradores que usan IA.' : 'Get work done in under 72h with a network of explorers powered by AI.'}</p>
                                 </button>
                             </div>
                         </motion.div>
@@ -203,13 +206,17 @@ const Onboarding = () => {
                             className="space-y-6 text-center"
                         >
                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-heading font-semibold uppercase tracking-wider mb-2">
-                                <Sparkles className="h-3.5 w-3.5" /> Onboarding Inteligente
+                                <Sparkles className="h-3.5 w-3.5" /> {isEs ? 'Onboarding Inteligente' : 'Smart Onboarding'}
                             </div>
                             <h1 className="text-3xl md:text-4xl font-heading font-black">
-                                {accountType === 'explorer' ? '¡Bienvenido, Explorer!' : '¡Bienvenida, Empresa!'}
+                                {accountType === 'explorer'
+                                    ? (isEs ? '¡Bienvenido, Explorer!' : 'Welcome, Explorer!')
+                                    : (isEs ? '¡Bienvenida, Empresa!' : 'Welcome, Company!')}
                             </h1>
                             <p className="text-muted-foreground font-body">
-                                Vamos a configurar tu perfil usando IA para que empieces a {accountType === 'explorer' ? 'ganar' : 'crecer'} hoy mismo.
+                                {isEs
+                                    ? `Vamos a configurar tu perfil usando IA para que empieces a ${accountType === 'explorer' ? 'ganar' : 'crecer'} hoy mismo.`
+                                    : `Let's set up your profile with AI so you can start ${accountType === 'explorer' ? 'earning' : 'growing'} today.`}
                             </p>
                             <div className="flex flex-col gap-4 items-center py-6">
                                 {accountType === 'explorer' ? (
@@ -223,11 +230,11 @@ const Onboarding = () => {
                                     onClick={() => setStep(0)}
                                     className="text-muted-foreground hover:text-primary text-xs uppercase tracking-tighter"
                                 >
-                                    ¿Equivocado? Cambiar de rol o tipo de cuenta
+                                    {isEs ? '¿Equivocado? Cambiar de rol o tipo de cuenta' : 'Wrong choice? Change role or account type'}
                                 </Button>
                             </div>
                             <Button size="lg" className="w-full font-heading tracking-wide h-14 text-lg" onClick={nextStep}>
-                                Comenzar Configuración <ArrowRight className="ml-2 h-5 w-5" />
+                                {isEs ? 'Comenzar Configuración' : 'Start Setup'} <ArrowRight className="ml-2 h-5 w-5" />
                             </Button>
                         </motion.div>
                     )}
@@ -242,27 +249,27 @@ const Onboarding = () => {
                         >
                             <div className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-widest font-heading">¿Qué sabes hacer? (Tus skills)</Label>
+                                    <Label className="text-xs uppercase tracking-widest font-heading">{isEs ? '¿Qué sabes hacer? (Tus skills)' : 'What can you do? (Your skills)'}</Label>
                                     <Textarea
-                                        placeholder="Ej: Edición de video, Diseño UI, Redacción, React, Ventas..."
+                                        placeholder={isEs ? 'Ej: Edición de video, Diseño UI, Redacción, React, Ventas...' : 'E.g. Video editing, UI design, Copywriting, React, Sales...'}
                                         value={skills}
                                         onChange={e => setSkills(e.target.value)}
                                         className="h-24"
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-widest font-heading">¿Cuánto tiempo tienes al día?</Label>
+                                    <Label className="text-xs uppercase tracking-widest font-heading">{isEs ? '¿Cuánto tiempo tienes al día?' : 'How much time per day?'}</Label>
                                     <Input
                                         type="number"
-                                        placeholder="Horas por día (ej: 3)"
+                                        placeholder={isEs ? 'Horas por día (ej: 3)' : 'Hours per day (e.g. 3)'}
                                         value={availability}
                                         onChange={e => setAvailability(e.target.value)}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-widest font-heading">¿Cuál es tu objetivo?</Label>
+                                    <Label className="text-xs uppercase tracking-widest font-heading">{isEs ? '¿Cuál es tu objetivo?' : 'What is your goal?'}</Label>
                                     <Input
-                                        placeholder="Ej: Ganar dinero rápido, Aprender nuevas skills..."
+                                        placeholder={isEs ? 'Ej: Ganar dinero rápido, Aprender nuevas skills...' : 'E.g. Earn fast, learn new skills...'}
                                         value={objective}
                                         onChange={e => setObjective(e.target.value)}
                                     />
@@ -271,10 +278,10 @@ const Onboarding = () => {
                             <Button disabled={!skills || loading} className="w-full font-heading tracking-wide h-14" onClick={handleExplorerOnboarding}>
                                 {aiAnalyzing ? (
                                     <span className="flex items-center gap-2">
-                                        <Sparkles className="h-5 w-5 animate-spin" /> IA Generando Skill Passport...
+                                        <Sparkles className="h-5 w-5 animate-spin" /> {isEs ? 'IA Generando Skill Passport...' : 'AI Generating Skill Passport...'}
                                     </span>
                                 ) : (
-                                    <>Generar mi Perfil <ArrowRight className="ml-2 h-5 w-5" /></>
+                                    <>{isEs ? 'Generar mi Perfil' : 'Generate my Profile'} <ArrowRight className="ml-2 h-5 w-5" /></>
                                 )}
                             </Button>
                         </motion.div>
@@ -290,35 +297,35 @@ const Onboarding = () => {
                         >
                             <div className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-widest font-heading">Nombre de la Empresa / Proyecto</Label>
+                                    <Label className="text-xs uppercase tracking-widest font-heading">{isEs ? 'Nombre de la Empresa / Proyecto' : 'Company / Project Name'}</Label>
                                     <Input
-                                        placeholder="Ej: Gophora Tech"
+                                        placeholder={isEs ? 'Ej: Gophora Tech' : 'E.g. Gophora Tech'}
                                         value={companyName}
                                         onChange={e => setCompanyName(e.target.value)}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-widest font-heading">Industria</Label>
+                                    <Label className="text-xs uppercase tracking-widest font-heading">{isEs ? 'Industria' : 'Industry'}</Label>
                                     <Input
-                                        placeholder="Ej: Marketing, Desarrollo, E-commerce..."
+                                        placeholder={isEs ? 'Ej: Marketing, Desarrollo, E-commerce...' : 'E.g. Marketing, Development, E-commerce...'}
                                         value={industry}
                                         onChange={e => setIndustry(e.target.value)}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-widest font-heading">¿Qué misiones necesitas delegar?</Label>
+                                    <Label className="text-xs uppercase tracking-widest font-heading">{isEs ? '¿Qué misiones necesitas delegar?' : 'Which missions do you need to delegate?'}</Label>
                                     <Textarea
-                                        placeholder="Ej: Crear contenido para redes, soporte técnico, prospección..."
+                                        placeholder={isEs ? 'Ej: Crear contenido para redes, soporte técnico, prospección...' : 'E.g. Social media content, tech support, prospecting...'}
                                         value={needs}
                                         onChange={e => setNeeds(e.target.value)}
                                         className="h-24"
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-widest font-heading">Presupuesto Mensual ($)</Label>
+                                    <Label className="text-xs uppercase tracking-widest font-heading">{isEs ? 'Presupuesto Mensual ($)' : 'Monthly Budget ($)'}</Label>
                                     <Input
                                         type="number"
-                                        placeholder="Ej: 1000"
+                                        placeholder={isEs ? 'Ej: 1000' : 'E.g. 1000'}
                                         value={budget}
                                         onChange={e => setBudget(e.target.value)}
                                     />
@@ -327,10 +334,10 @@ const Onboarding = () => {
                             <Button disabled={!companyName || loading} className="w-full font-heading tracking-wide h-14" onClick={handleCompanyOnboarding}>
                                 {aiAnalyzing ? (
                                     <span className="flex items-center gap-2">
-                                        <Sparkles className="h-5 w-5 animate-spin" /> IA Diseñando tu Estrategia...
+                                        <Sparkles className="h-5 w-5 animate-spin" /> {isEs ? 'IA Diseñando tu Estrategia...' : 'AI Designing your Strategy...'}
                                     </span>
                                 ) : (
-                                    <>Finalizar Configuración <ArrowRight className="ml-2 h-5 w-5" /></>
+                                    <>{isEs ? 'Finalizar Configuración' : 'Finish Setup'} <ArrowRight className="ml-2 h-5 w-5" /></>
                                 )}
                             </Button>
                         </motion.div>
