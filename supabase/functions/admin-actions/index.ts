@@ -492,47 +492,47 @@ serve(async (req) => {
       }
 
       case 'get_investor_offers_log': {
-        // Read-only chronological feed of investor offers across the
-        // platform. Admins observe; the accept/decline decision lives
-        // with the project owner. Built as a sequence of small queries
-        // because investor_user_id FKs to auth.users (not profiles) so
-        // a single embed wouldn't resolve through PostgREST.
-        const { data: offers, error } = await supabase
+        // Read-only chronological feed of investor offers. Built as a
+        // sequence of small queries because investor_user_id FKs to
+        // auth.users (not profiles) so PostgREST can't auto-embed it.
+        const offersRes = await supabase
           .from('investor_offers')
           .select('id, project_id, investor_user_id, amount_usd, equity_percent, message, status, signed_pdf_url, created_at, reviewed_at')
           .order('created_at', { ascending: false })
           .limit(200);
-        if (error) throw error;
+        if (offersRes.error) throw offersRes.error;
+        const offerRows: any[] = offersRes.data || [];
 
-        const offerRows = offers || [];
-        const projectIds = [...new Set(offerRows.map((o: any) => o.project_id))];
-        const investorIds = [...new Set(offerRows.map((o: any) => o.investor_user_id))];
-        const allUserIds = [...new Set([...investorIds])];
+        const projectIds = Array.from(new Set(offerRows.map((o: any) => o.project_id))).filter(Boolean);
+        const investorIds = Array.from(new Set(offerRows.map((o: any) => o.investor_user_id))).filter(Boolean);
 
-        const [{ data: projectRows }, { data: profileRows }] = await Promise.all([
-          projectIds.length === 0
-            ? Promise.resolve({ data: [] }) as any
-            : supabase
-                .from('projects')
-                .select('id, title, industry, funding_percent_sought, cost_estimate, user_id')
-                .in('id', projectIds),
-          (() => {
-            const ownersFromProjects: string[] = [];
-            const ids = [...new Set([...allUserIds, ...ownersFromProjects])];
-            return ids.length === 0
-              ? Promise.resolve({ data: [] }) as any
-              : supabase.from('profiles').select('id, email, full_name').in('id', ids);
-          })(),
-        ]);
+        let projectRows: any[] = [];
+        if (projectIds.length > 0) {
+          const r = await supabase
+            .from('projects')
+            .select('id, title, industry, funding_percent_sought, cost_estimate, user_id')
+            .in('id', projectIds);
+          if (r.error) throw r.error;
+          projectRows = r.data || [];
+        }
 
-        const projectMap = new Map((projectRows || []).map((p: any) => [p.id, p]));
-        // Second pass for owner profiles now that we know who they are.
-        const ownerIds = [...new Set((projectRows || []).map((p: any) => p.user_id).filter(Boolean))];
-        const allProfileIds = [...new Set([...investorIds, ...ownerIds])];
-        const { data: allProfiles } = allProfileIds.length === 0
-          ? { data: [] } as any
-          : await supabase.from('profiles').select('id, email, full_name').in('id', allProfileIds);
-        const profileMap = new Map((allProfiles || []).map((p: any) => [p.id, p]));
+        const ownerIds = Array.from(new Set(projectRows.map((p: any) => p.user_id))).filter(Boolean);
+        const allProfileIds = Array.from(new Set([...investorIds, ...ownerIds]));
+
+        let profileRows: any[] = [];
+        if (allProfileIds.length > 0) {
+          const r = await supabase
+            .from('profiles')
+            .select('id, email, full_name')
+            .in('id', allProfileIds);
+          if (r.error) throw r.error;
+          profileRows = r.data || [];
+        }
+
+        const projectMap = new Map<string, any>();
+        for (const p of projectRows) projectMap.set(p.id, p);
+        const profileMap = new Map<string, any>();
+        for (const p of profileRows) profileMap.set(p.id, p);
 
         result = offerRows.map((o: any) => {
           const project = projectMap.get(o.project_id);

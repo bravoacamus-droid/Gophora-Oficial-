@@ -3,8 +3,9 @@
 // uploads to storage. This is intentionally lightweight — not a legal
 // contract. The platform's role is to store a tamper-resistant record of
 // what was offered, with names, amounts, percentages and timestamps.
-
-import jsPDF from 'jspdf';
+//
+// jsPDF is loaded dynamically so it lives in the same lazy chunk as
+// CertificateModal — keeps the main bundle slim.
 
 interface AgreementData {
   projectTitle: string;
@@ -22,6 +23,7 @@ interface AgreementData {
 }
 
 export async function generateInvestorAgreementPdf(d: AgreementData): Promise<Blob> {
+  const { default: jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 60;
