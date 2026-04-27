@@ -268,8 +268,24 @@ const CompanyDashboard = () => {
   const completedProjects = projects.filter((p) => p.status === 'completed');
   const completedMissions = missions.filter((m) => m.status === 'approved');
   const inProgressMissions = missions.filter((m) => m.status === 'assigned');
-  const totalBudget = missions.reduce((sum, m) => sum + Number(m.reward || 0), 0);
-  const usedBudget = missions.filter(m => ['approved', 'completed', 'funds_released'].includes(m.status)).reduce((sum, m) => sum + Number(m.reward || 0), 0);
+
+  // "Invertido" reflects what the company actually paid into GOPHORA (project
+  // budgets where payment_status='paid'). "Pagado en Misiones" reflects how
+  // much of that has been released to explorers — only assignments with
+  // status='funds_released' count, because that's the moment GOPHORA moves
+  // the money out. Older versions used mission.status='completed' which fires
+  // ALONGSIDE funds_released so the visible total looked similar; tying the
+  // calculation to assignment status is more direct and survives any future
+  // mission lifecycle change.
+  const totalBudget = projects
+    .filter((p) => p.payment_status === 'paid')
+    .reduce((sum, p) => sum + Number(p.budget || 0), 0);
+  const releasedMissionIds = new Set(
+    applications.filter((a) => a.status === 'funds_released').map((a) => a.mission_id)
+  );
+  const usedBudget = missions
+    .filter((m) => releasedMissionIds.has(m.id))
+    .reduce((sum, m) => sum + Number(m.reward || 0), 0);
   const balance = totalBudget - usedBudget;
   const pendingDeliveries = deliveries.filter((d) => d.status === 'submitted');
   const uniqueExplorersTotal = new Set(applications.filter(a => ['assigned', 'submitted', 'approved', 'completed', 'funds_released'].includes(a.status)).map(a => a.user_id));

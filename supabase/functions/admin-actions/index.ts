@@ -400,78 +400,132 @@ serve(async (req) => {
 
       case 'get_commission_detail': {
         // Detail behind the "Comisión GOPHORA" card on Revenue tab.
-        // Returns one row per project with its budget, paid amount,
-        // 10% commission slice, plus the top-3 explorers by reward earned.
-        const [paidProjects, topAssignments] = await Promise.all([
-          supabase
-            .from('projects')
-            .select(`id, title, budget, payment_status, status, created_at,
-              profiles (email, full_name),
-              missions (
-                id, status, reward,
-                mission_assignments (
-                  status, reward:reward,
-                  profile:explorer_profiles (
-                    profiles (email, full_name)
-                  )
-                )
-              )
-            `)
-            .eq('payment_status', 'paid')
-            .order('created_at', { ascending: false }),
-          supabase
-            .from('mission_assignments')
-            .select(`
-              status,
-              mission:mission_id (reward),
-              profile:explorer_profiles (
-                profiles (email, full_name)
-              )
-            `)
-            .in('status', ['completed', 'funds_released']),
-        ]);
-        if (paidProjects.error) throw paidProjects.error;
-        if (topAssignments.error) throw topAssignments.error;
+        // paidOut is computed from mission_assignments where status =
+        // 'funds_released' (i.e. the explorer actually got paid). Earlier
+        // versions used missions.status which never reaches 'funds_released'
+        // (that's an assignment-level state).
+        const projectsRes = await supabase
+          .from('projects')
+          .select('id, title, budget, payment_status, status, created_at, user_id')
+          .eq('payment_status', 'paid')
+          .order('created_at', { ascending: false });
+        if (projectsRes.error) throw projectsRes.error;
+        const paidProjectRows = projectsRes.data || [];
 
-        const projectRows = (paidProjects.data || []).map((p: any) => {
+        if (paidProjectRows.length === 0) {
+          result = { projects: [], topExplorers: [], totals: { projectCount: 0, paidOut: 0, commission: 0, beneficiaries: 0 } };
+          break;
+        }
+
+        const projectIds = paidProjectRows.map((p: any) => p.id);
+        const ownerIds = Array.from(new Set(paidProjectRows.map((p: any) => p.user_id))).filter(Boolean);
+
+        // Pull missions with their assignments so we can attribute paid
+        // funds back to a project. We deliberately fetch only assignments
+        // that have actually been paid (status='funds_released').
+        const missionsRes = await supabase
+          .from('missions')
+          .select('id, project_id, reward, status')
+          .in('project_id', projectIds);
+        if (missionsRes.error) throw missionsRes.error;
+        const missionRows = missionsRes.data || [];
+        const missionById = new Map<string, any>();
+        for (const m of missionRows) missionById.set(m.id, m);
+        const missionsByProject = new Map<string, any[]>();
+        for (const m of missionRows) {
+          const arr = missionsByProject.get(m.project_id) || [];
+          arr.push(m);
+          missionsByProject.set(m.project_id, arr);
+        }
+
+        const missionIds = missionRows.map((m: any) => m.id);
+        let assignmentRows: any[] = [];
+        if (missionIds.length > 0) {
+          const r = await supabase
+            .from('mission_assignments')
+            .select('id, mission_id, explorer_id, status')
+            .in('mission_id', missionIds)
+            .eq('status', 'funds_released');
+          if (r.error) throw r.error;
+          assignmentRows = r.data || [];
+        }
+
+        const explorerIds = Array.from(new Set(assignmentRows.map((a: any) => a.explorer_id))).filter(Boolean);
+        let explorerProfileRows: any[] = [];
+        if (explorerIds.length > 0) {
+          const r = await supabase
+            .from('explorer_profiles')
+            .select('id, user_id')
+            .in('id', explorerIds);
+          if (r.error) throw r.error;
+          explorerProfileRows = r.data || [];
+        }
+        const explorerToUser = new Map<string, string>();
+        for (const ep of explorerProfileRows) explorerToUser.set(ep.id, ep.user_id);
+
+        const allUserIds = Array.from(new Set([...ownerIds, ...explorerProfileRows.map((ep: any) => ep.user_id)])).filter(Boolean);
+        let profileRows: any[] = [];
+        if (allUserIds.length > 0) {
+          const r = await supabase
+            .from('profiles')
+            .select('id, email, full_name')
+            .in('id', allUserIds);
+          if (r.error) throw r.error;
+          profileRows = r.data || [];
+        }
+        const profileById = new Map<string, any>();
+        for (const p of profileRows) profileById.set(p.id, p);
+
+        // Aggregate per project
+        const explorersPerProject = new Map<string, Set<string>>();
+        const paidPerProject = new Map<string, number>();
+        for (const a of assignmentRows) {
+          const m = missionById.get(a.mission_id);
+          if (!m) continue;
+          const reward = Number(m.reward || 0);
+          paidPerProject.set(m.project_id, (paidPerProject.get(m.project_id) || 0) + reward);
+          const userId = explorerToUser.get(a.explorer_id);
+          if (userId) {
+            const set = explorersPerProject.get(m.project_id) || new Set<string>();
+            set.add(userId);
+            explorersPerProject.set(m.project_id, set);
+          }
+        }
+
+        const projectRows = paidProjectRows.map((p: any) => {
           const budget = Number(p.budget || 0);
-          const completedMissions = (p.missions || []).filter((m: any) =>
-            ['approved', 'completed', 'funds_released'].includes(m.status)
-          );
-          const paidOut = completedMissions.reduce((s: number, m: any) => s + Number(m.reward || 0), 0);
-          const explorerSet = new Set<string>();
-          completedMissions.forEach((m: any) => {
-            (m.mission_assignments || []).forEach((a: any) => {
-              const email = a.profile?.profiles?.email;
-              if (email) explorerSet.add(email);
-            });
-          });
+          const paidOut = paidPerProject.get(p.id) || 0;
+          const owner = profileById.get(p.user_id);
           return {
             id: p.id,
             title: p.title,
-            companyEmail: p.profiles?.email || null,
-            companyName: p.profiles?.full_name || null,
+            companyEmail: owner?.email || null,
+            companyName: owner?.full_name || null,
             createdAt: p.created_at,
             status: p.status,
             budget,
             paidOut,
             commission: Math.round(paidOut * 0.1 * 100) / 100,
-            explorerCount: explorerSet.size,
+            explorerCount: (explorersPerProject.get(p.id) || new Set()).size,
           };
         });
 
-        // Top explorers by total reward
+        // Top explorers by total reward (across all paid projects)
         const explorerTotals = new Map<string, { email: string; name: string | null; total: number; missions: number }>();
-        (topAssignments.data || []).forEach((a: any) => {
-          const email = a.profile?.profiles?.email;
-          if (!email) return;
-          const reward = Number(a.mission?.reward || 0);
-          const cur = explorerTotals.get(email) || { email, name: a.profile?.profiles?.full_name || null, total: 0, missions: 0 };
+        for (const a of assignmentRows) {
+          const userId = explorerToUser.get(a.explorer_id);
+          if (!userId) continue;
+          const profile = profileById.get(userId);
+          const email = profile?.email;
+          if (!email) continue;
+          const m = missionById.get(a.mission_id);
+          const reward = Number(m?.reward || 0);
+          const cur = explorerTotals.get(email) || { email, name: profile?.full_name || null, total: 0, missions: 0 };
           cur.total += reward;
           cur.missions += 1;
           explorerTotals.set(email, cur);
-        });
-        const topExplorers = [...explorerTotals.values()]
+        }
+        const topExplorers = Array.from(explorerTotals.values())
           .sort((a, b) => b.total - a.total)
           .slice(0, 5);
 
@@ -484,7 +538,7 @@ serve(async (req) => {
           totals: {
             projectCount: projectRows.length,
             paidOut: totalPaidOut,
-            commission: totalCommission,
+            commission: Math.round(totalCommission * 100) / 100,
             beneficiaries: explorerTotals.size,
           },
         };

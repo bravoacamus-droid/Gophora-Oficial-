@@ -131,12 +131,14 @@ const AdminPanel = () => {
     toast.success(`Reporte de retiros (${methodLabel}) descargado`);
   };
 
-  // Withdrawal daily summary
+  // Withdrawal daily summary. "approved" includes both approved and paid
+  // statuses so the running total doesn't drop when an admin marks a
+  // withdrawal as paid (it's still part of the approved amount).
   const withdrawalSummary = useMemo(() => {
     const pending = withdrawalRequests.filter((w: any) => w.status === 'pending');
     const pendingBank = pending.filter((w: any) => w.method === 'bank');
     const pendingCrypto = pending.filter((w: any) => w.method === 'crypto');
-    const approved = withdrawalRequests.filter((w: any) => w.status === 'approved');
+    const approved = withdrawalRequests.filter((w: any) => w.status === 'approved' || w.status === 'paid');
 
     return {
       totalPending: pending.length,
@@ -323,7 +325,22 @@ const AdminPanel = () => {
 
   return (
     <div className="container py-8 max-w-7xl">
-      <h1 className="text-2xl md:text-3xl font-heading font-bold mb-8">{t('admin.title')}</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-8">
+        <h1 className="text-2xl md:text-3xl font-heading font-bold">{t('admin.title')}</h1>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 text-xs font-heading"
+          disabled={loading}
+          onClick={async () => {
+            await loadData();
+            toast.success('Datos actualizados');
+          }}
+        >
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <BarChart3 className="h-3 w-3" />}
+          Refrescar
+        </Button>
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
@@ -354,20 +371,25 @@ const AdminPanel = () => {
           {/* ── OVERVIEW TAB ── */}
           {activeTab === 'Overview' && stats && (
             <div className="space-y-6">
-              {/* Stats Grid */}
+              {/* Stats Grid — each card jumps to the matching tab */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                {[
-                  { label: 'Usuarios', value: stats.totalUsers, icon: Users },
-                  { label: 'Proyectos', value: stats.totalProjects, icon: FolderOpen },
-                  { label: 'Misiones', value: stats.totalMissions, icon: Zap },
-                  { label: 'Budget Pagado', value: `$${stats.paidBudget?.toLocaleString()}`, icon: DollarSign },
-                  { label: 'Comisión', value: `$${stats.commission?.toLocaleString()}`, icon: BarChart3 },
-                ].map((stat, i) => (
-                  <div key={i} className="rounded-xl border border-border/50 bg-card p-4 text-center">
-                    <stat.icon className="h-5 w-5 text-primary mx-auto mb-2" />
+                {([
+                  { label: 'Usuarios', value: stats.totalUsers, icon: Users, target: 'Users' as Tab },
+                  { label: 'Proyectos', value: stats.totalProjects, icon: FolderOpen, target: 'Projects' as Tab },
+                  { label: 'Misiones', value: stats.totalMissions, icon: Zap, target: 'Missions' as Tab },
+                  { label: 'Budget Pagado', value: `$${stats.paidBudget?.toLocaleString()}`, icon: DollarSign, target: 'Payments' as Tab },
+                  { label: 'Comisión', value: `$${stats.commission?.toLocaleString()}`, icon: BarChart3, target: 'Revenue' as Tab },
+                ] as const).map((stat, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setActiveTab(stat.target)}
+                    className="rounded-xl border border-border/50 bg-card p-4 text-center hover:border-primary/40 hover:shadow-md transition-all group"
+                  >
+                    <stat.icon className="h-5 w-5 text-primary mx-auto mb-2 group-hover:scale-110 transition-transform" />
                     <div className="text-xl font-heading font-bold">{stat.value}</div>
-                    <div className="text-xs text-muted-foreground font-body">{stat.label}</div>
-                  </div>
+                    <div className="text-xs text-muted-foreground font-body group-hover:text-primary transition-colors">{stat.label}</div>
+                  </button>
                 ))}
               </div>
 
