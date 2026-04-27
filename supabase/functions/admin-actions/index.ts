@@ -491,6 +491,76 @@ serve(async (req) => {
         break;
       }
 
+      case 'get_investor_offers_log': {
+        // Read-only chronological feed of investor offers across the
+        // platform. Admins observe; the accept/decline decision lives
+        // with the project owner. Built as a sequence of small queries
+        // because investor_user_id FKs to auth.users (not profiles) so
+        // a single embed wouldn't resolve through PostgREST.
+        const { data: offers, error } = await supabase
+          .from('investor_offers')
+          .select('id, project_id, investor_user_id, amount_usd, equity_percent, message, status, signed_pdf_url, created_at, reviewed_at')
+          .order('created_at', { ascending: false })
+          .limit(200);
+        if (error) throw error;
+
+        const offerRows = offers || [];
+        const projectIds = [...new Set(offerRows.map((o: any) => o.project_id))];
+        const investorIds = [...new Set(offerRows.map((o: any) => o.investor_user_id))];
+        const allUserIds = [...new Set([...investorIds])];
+
+        const [{ data: projectRows }, { data: profileRows }] = await Promise.all([
+          projectIds.length === 0
+            ? Promise.resolve({ data: [] }) as any
+            : supabase
+                .from('projects')
+                .select('id, title, industry, funding_percent_sought, cost_estimate, user_id')
+                .in('id', projectIds),
+          (() => {
+            const ownersFromProjects: string[] = [];
+            const ids = [...new Set([...allUserIds, ...ownersFromProjects])];
+            return ids.length === 0
+              ? Promise.resolve({ data: [] }) as any
+              : supabase.from('profiles').select('id, email, full_name').in('id', ids);
+          })(),
+        ]);
+
+        const projectMap = new Map((projectRows || []).map((p: any) => [p.id, p]));
+        // Second pass for owner profiles now that we know who they are.
+        const ownerIds = [...new Set((projectRows || []).map((p: any) => p.user_id).filter(Boolean))];
+        const allProfileIds = [...new Set([...investorIds, ...ownerIds])];
+        const { data: allProfiles } = allProfileIds.length === 0
+          ? { data: [] } as any
+          : await supabase.from('profiles').select('id, email, full_name').in('id', allProfileIds);
+        const profileMap = new Map((allProfiles || []).map((p: any) => [p.id, p]));
+
+        result = offerRows.map((o: any) => {
+          const project = projectMap.get(o.project_id);
+          const investor = profileMap.get(o.investor_user_id);
+          const owner = project ? profileMap.get(project.user_id) : null;
+          return {
+            id: o.id,
+            project_id: o.project_id,
+            amount_usd: Number(o.amount_usd),
+            equity_percent: Number(o.equity_percent),
+            message: o.message,
+            status: o.status,
+            signed_pdf_url: o.signed_pdf_url,
+            created_at: o.created_at,
+            reviewed_at: o.reviewed_at,
+            project_title: project?.title || 'Project',
+            project_industry: project?.industry || null,
+            project_cost_estimate: project?.cost_estimate ?? null,
+            project_funding_percent: project?.funding_percent_sought ?? null,
+            owner_email: owner?.email || null,
+            owner_name: owner?.full_name || null,
+            investor_email: investor?.email || null,
+            investor_name: investor?.full_name || null,
+          };
+        });
+        break;
+      }
+
       default:
         return jsonResponse({ error: `Action '${action}' not implemented` }, 400);
     }

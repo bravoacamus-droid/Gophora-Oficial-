@@ -87,6 +87,8 @@ const CompanyDashboard = () => {
   const [profile, setProfile] = useState<{ full_name?: string; username?: string } | null>(null);
   const [selectedProject, setSelectedProject] = useState<ProjectRow | null>(null);
   const [projectTab, setProjectTab] = useState('all');
+  const [investorOffers, setInvestorOffers] = useState<any[]>([]);
+  const [reviewingOfferId, setReviewingOfferId] = useState<string | null>(null);
 
   const loadData = async () => {
     if (!user) return;
@@ -103,6 +105,35 @@ const CompanyDashboard = () => {
 
     if (pRows.length > 0) {
       const projectIds = pRows.map((p) => p.id);
+
+      // Investor offers on this company's projects (RLS handles authorisation
+      // — the project_owner_sees_offers policy is the gate). We pull the
+      // investor email/name out of profiles in a second hop because there's
+      // no FK between investor_offers.investor_user_id and profiles for
+      // PostgREST to follow automatically.
+      const { data: offerRows } = await (supabase
+        .from('investor_offers' as any)
+        .select('id, project_id, investor_user_id, amount_usd, equity_percent, message, status, signed_pdf_url, created_at, reviewed_at')
+        .in('project_id', projectIds)
+        .order('created_at', { ascending: false }) as any);
+      const offers = offerRows || [];
+      const investorIds = [...new Set(offers.map((o: any) => o.investor_user_id))];
+      let investorMap = new Map<string, { email: string | null; full_name: string | null }>();
+      if (investorIds.length > 0) {
+        const { data: invRows } = await supabase
+          .from('profiles')
+          .select('id, email, full_name')
+          .in('id', investorIds);
+        investorMap = new Map((invRows || []).map((r: any) => [r.id, { email: r.email, full_name: r.full_name }]));
+      }
+      const projectTitleMap = new Map(pRows.map((p) => [p.id, p.title]));
+      setInvestorOffers(offers.map((o: any) => ({
+        ...o,
+        projectTitle: projectTitleMap.get(o.project_id) || 'Proyecto',
+        investorEmail: investorMap.get(o.investor_user_id)?.email || null,
+        investorName: investorMap.get(o.investor_user_id)?.full_name || null,
+      })));
+
       const { data: missionRows } = await supabase.from('missions').select('id, title, status, project_id, reward, skill').in('project_id', projectIds);
       const mRows = (missionRows || []) as MissionRow[];
       setMissions(mRows);
@@ -150,6 +181,7 @@ const CompanyDashboard = () => {
       setMissions([]);
       setDeliveries([]);
       setApplications([]);
+      setInvestorOffers([]);
     }
     setLoading(false);
   };
@@ -174,6 +206,31 @@ const CompanyDashboard = () => {
       toast.error(err.message || 'Error');
     } finally {
       setReviewingId(null);
+    }
+  };
+
+  const handleReviewOffer = async (offerId: string, newStatus: 'accepted' | 'declined') => {
+    setReviewingOfferId(offerId);
+    try {
+      const { error } = await (supabase
+        .from('investor_offers' as any)
+        .update({
+          status: newStatus,
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: user?.id ?? null,
+        })
+        .eq('id', offerId) as any);
+      if (error) throw error;
+      toast.success(
+        newStatus === 'accepted'
+          ? (isEs ? 'Oferta aceptada — el inversor recibió la notificación' : 'Offer accepted — investor was notified')
+          : (isEs ? 'Oferta rechazada' : 'Offer declined')
+      );
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Error');
+    } finally {
+      setReviewingOfferId(null);
     }
   };
 
@@ -359,6 +416,126 @@ const CompanyDashboard = () => {
                   </Button>
                 </Link>
               </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Investor offers received */}
+        {investorOffers.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+            className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-amber-600" />
+                <h2 className="font-heading font-bold text-sm">
+                  {isEs ? 'Ofertas de Inversores' : 'Investor Offers'}
+                </h2>
+                {investorOffers.some((o) => o.status === 'pending') && (
+                  <span className="text-[10px] font-heading font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-500 text-white">
+                    {investorOffers.filter((o) => o.status === 'pending').length} {isEs ? 'pendientes' : 'pending'}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground font-body italic">
+                {isEs
+                  ? 'Aceptá para iniciar el acuerdo formal · Rechazá si no encaja'
+                  : 'Accept to start formal agreement · Decline if not a fit'}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {investorOffers.map((o) => {
+                const isPending = o.status === 'pending';
+                const investorLabel = o.investorName || o.investorEmail?.split('@')[0] || (isEs ? 'Inversor' : 'Investor');
+                return (
+                  <div
+                    key={o.id}
+                    className={`rounded-lg border p-4 ${isPending ? 'border-amber-500/40 bg-card' : 'border-border/40 bg-muted/20 opacity-80'}`}
+                  >
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-heading font-semibold text-sm">{investorLabel}</p>
+                          {o.investorEmail && (
+                            <span className="text-[11px] text-muted-foreground font-body truncate">{o.investorEmail}</span>
+                          )}
+                          <Badge
+                            variant={isPending ? 'default' : 'outline'}
+                            className={`text-[9px] capitalize ${
+                              o.status === 'accepted' ? 'bg-green-500 text-white' :
+                              o.status === 'declined' ? 'bg-destructive/15 text-destructive border-destructive/30' :
+                              o.status === 'signed' ? 'bg-primary text-primary-foreground' :
+                              ''
+                            }`}
+                          >
+                            {o.status}
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground font-body mt-0.5">
+                          {isEs ? 'Proyecto: ' : 'Project: '} <span className="font-heading font-semibold text-foreground">{o.projectTitle}</span>
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xl font-heading font-black text-amber-600">${Number(o.amount_usd).toLocaleString()}</p>
+                        <p className="text-[11px] text-muted-foreground font-body">
+                          {isEs ? 'por' : 'for'} <span className="font-heading font-bold text-primary">{Number(o.equity_percent)}% equity</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {o.message && (
+                      <p className="text-xs text-muted-foreground font-body italic mb-3 leading-relaxed border-l-2 border-amber-500/30 pl-3">
+                        "{o.message}"
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-2 flex-wrap text-[11px]">
+                      {o.signed_pdf_url && (
+                        <a
+                          href={o.signed_pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-primary hover:underline font-heading"
+                        >
+                          <FileText className="h-3 w-3" /> {isEs ? 'Ver acuerdo firmado' : 'View signed agreement'}
+                        </a>
+                      )}
+                      <span className="text-muted-foreground font-body ml-auto">
+                        {new Date(o.created_at).toLocaleDateString(isEs ? 'es' : 'en', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+
+                    {isPending && (
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/40">
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-white gap-1 text-xs"
+                          disabled={reviewingOfferId === o.id}
+                          onClick={() => handleReviewOffer(o.id, 'accepted')}
+                        >
+                          <CheckCircle className="h-3 w-3" />
+                          {isEs ? 'Aceptar oferta' : 'Accept offer'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive border-destructive/30 hover:bg-destructive/10 gap-1 text-xs"
+                          disabled={reviewingOfferId === o.id}
+                          onClick={() => handleReviewOffer(o.id, 'declined')}
+                        >
+                          <XCircle className="h-3 w-3" />
+                          {isEs ? 'Rechazar' : 'Decline'}
+                        </Button>
+                        <p className="text-[10px] text-muted-foreground font-body italic ml-auto">
+                          {isEs
+                            ? 'Aceptar inicia el acuerdo formal — el monto NO se transfiere todavía.'
+                            : 'Accepting starts the formal agreement — the amount is NOT transferred yet.'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </motion.div>
         )}

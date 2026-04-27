@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   Users, FolderOpen, Zap, DollarSign, BarChart3, CheckCircle, XCircle, Ban, UserCheck,
   CreditCard, Banknote, ExternalLink, Wallet, Building2, Bitcoin, CalendarIcon, Search, X,
-  Download, Image, ChevronDown, ChevronUp, FileText, Clock, ArrowRight, Eye, GraduationCap, Plus, Trash2, Star, Play, Loader2
+  Download, Image, ChevronDown, ChevronUp, FileText, Clock, ArrowRight, Eye, GraduationCap, Plus, Trash2, Star, Play, Loader2, TrendingUp
 } from 'lucide-react';
 import { format, startOfDay, endOfDay, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -23,11 +23,12 @@ import { Badge } from '@/components/ui/badge';
 
 import { Textarea } from '@/components/ui/textarea';
 
-const tabs = ['Overview', 'Fund Releases', 'Withdrawals', 'Missions', 'Projects', 'Users', 'Payments', 'Revenue', 'Courses', 'Tutors'] as const;
+const tabs = ['Overview', 'Fund Releases', 'Withdrawals', 'Missions', 'Projects', 'Users', 'Payments', 'Revenue', 'Courses', 'Tutors', 'Investor Log'] as const;
 type Tab = typeof tabs[number];
 const tabIcons: Record<Tab, any> = {
   Overview: BarChart3, 'Fund Releases': Banknote, Withdrawals: Wallet,
-  Missions: Zap, Projects: FolderOpen, Users, Payments: CreditCard, Revenue: DollarSign, Courses: GraduationCap, Tutors: UserCheck
+  Missions: Zap, Projects: FolderOpen, Users, Payments: CreditCard, Revenue: DollarSign, Courses: GraduationCap, Tutors: UserCheck,
+  'Investor Log': TrendingUp,
 };
 
 const AdminPanel = () => {
@@ -56,6 +57,9 @@ const AdminPanel = () => {
   const [showAddCourse, setShowAddCourse] = useState(false);
   const [commissionDetail, setCommissionDetail] = useState<any | null>(null);
   const [loadingCommission, setLoadingCommission] = useState(false);
+  const [investorOffersLog, setInvestorOffersLog] = useState<any[]>([]);
+  const [loadingInvestorLog, setLoadingInvestorLog] = useState(false);
+  const [investorLogFilter, setInvestorLogFilter] = useState<string>('all');
   const [selectedCoursePreview, setSelectedCoursePreview] = useState<any>(null);
   const [courseStatusFilter, setCourseStatusFilter] = useState<string>('all');
   const [newCourse, setNewCourse] = useState({
@@ -177,6 +181,25 @@ const AdminPanel = () => {
   }, [adminCall]);
 
   useEffect(() => { if (isAdmin) loadData(); }, [isAdmin, loadData]);
+
+  // Lazy-load the investor offers log on tab activation. Heavy query — no
+  // need to refresh it on every page load.
+  useEffect(() => {
+    if (!isAdmin || activeTab !== 'Investor Log') return;
+    let cancelled = false;
+    (async () => {
+      setLoadingInvestorLog(true);
+      try {
+        const data = await adminCall('get_investor_offers_log');
+        if (!cancelled) setInvestorOffersLog(Array.isArray(data) ? data : []);
+      } catch (err: any) {
+        if (!cancelled) toast.error(err.message || 'Failed to load investor log');
+      } finally {
+        if (!cancelled) setLoadingInvestorLog(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isAdmin, activeTab, adminCall]);
 
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center"><div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /></div>;
@@ -1338,6 +1361,145 @@ const AdminPanel = () => {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* ── INVESTOR LOG TAB (read-only) ── */}
+          {activeTab === 'Investor Log' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <h2 className="text-xl font-heading font-bold flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-amber-500" />
+                    Log de Ofertas de Inversión
+                  </h2>
+                  <p className="text-xs text-muted-foreground font-body mt-0.5">
+                    Historial cronológico de toda la actividad inversor → empresa. Solo observación: la decisión de aceptar/rechazar la toma el dueño del proyecto.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select value={investorLogFilter} onValueChange={setInvestorLogFilter}>
+                    <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los estados</SelectItem>
+                      <SelectItem value="pending">Pendientes</SelectItem>
+                      <SelectItem value="accepted">Aceptadas</SelectItem>
+                      <SelectItem value="declined">Rechazadas</SelectItem>
+                      <SelectItem value="signed">Firmadas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* KPIs */}
+              {!loadingInvestorLog && investorOffersLog.length > 0 && (() => {
+                const totalOffered = investorOffersLog.reduce((s: number, o: any) => s + Number(o.amount_usd || 0), 0);
+                const acceptedCount = investorOffersLog.filter((o: any) => o.status === 'accepted' || o.status === 'signed').length;
+                const declinedCount = investorOffersLog.filter((o: any) => o.status === 'declined').length;
+                const pendingCount = investorOffersLog.filter((o: any) => o.status === 'pending').length;
+                return (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
+                      <p className="text-[10px] font-heading uppercase tracking-wider text-muted-foreground">Ofertas totales</p>
+                      <p className="text-xl font-heading font-bold mt-1">{investorOffersLog.length}</p>
+                    </div>
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                      <p className="text-[10px] font-heading uppercase tracking-wider text-amber-500">Volumen ofrecido</p>
+                      <p className="text-xl font-heading font-bold text-amber-600 mt-1">${totalOffered.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
+                      <p className="text-[10px] font-heading uppercase tracking-wider text-muted-foreground">Pendientes</p>
+                      <p className="text-xl font-heading font-bold mt-1">{pendingCount}</p>
+                    </div>
+                    <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
+                      <p className="text-[10px] font-heading uppercase tracking-wider text-muted-foreground">Aceptadas / Rechazadas</p>
+                      <p className="text-xl font-heading font-bold mt-1">
+                        <span className="text-green-500">{acceptedCount}</span> · <span className="text-destructive">{declinedCount}</span>
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {loadingInvestorLog ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
+                </div>
+              ) : (() => {
+                const filtered = investorLogFilter === 'all'
+                  ? investorOffersLog
+                  : investorOffersLog.filter((o: any) => o.status === investorLogFilter);
+                if (filtered.length === 0) {
+                  return (
+                    <div className="rounded-xl border border-dashed border-border/50 p-12 text-center text-muted-foreground font-body">
+                      No hay ofertas registradas{investorLogFilter !== 'all' ? ` con estado "${investorLogFilter}"` : ''}.
+                    </div>
+                  );
+                }
+                return (
+                  <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+                    <div className="divide-y divide-border/50">
+                      {filtered.map((o: any) => {
+                        const investor = o.investor_name || o.investor_email?.split('@')[0] || 'Inversor';
+                        const owner = o.owner_name || o.owner_email?.split('@')[0] || 'Empresa';
+                        return (
+                          <div key={o.id} className="p-4 hover:bg-muted/20 transition-colors">
+                            <div className="flex items-start justify-between gap-4 flex-wrap">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                  <span className="text-[10px] text-muted-foreground font-body">
+                                    {format(new Date(o.created_at), 'dd MMM yyyy, HH:mm', { locale: es })}
+                                  </span>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[9px] capitalize ${
+                                      o.status === 'accepted' || o.status === 'signed' ? 'bg-green-500/10 text-green-600 border-green-500/30' :
+                                      o.status === 'declined' ? 'bg-destructive/10 text-destructive border-destructive/30' :
+                                      o.status === 'pending' ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' :
+                                      ''
+                                    }`}
+                                  >
+                                    {o.status}
+                                  </Badge>
+                                  {o.project_industry && (
+                                    <Badge variant="secondary" className="text-[9px]">{o.project_industry}</Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm font-body">
+                                  <span className="font-heading font-semibold text-amber-600">{investor}</span>
+                                  <span className="text-muted-foreground"> ofreció a </span>
+                                  <span className="font-heading font-semibold">{owner}</span>
+                                  <span className="text-muted-foreground"> por proyecto </span>
+                                  <span className="font-heading font-semibold text-foreground">"{o.project_title}"</span>
+                                </p>
+                                {o.message && (
+                                  <p className="text-xs text-muted-foreground italic mt-1 line-clamp-2">"{o.message}"</p>
+                                )}
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-base font-heading font-bold text-amber-600">${Number(o.amount_usd).toLocaleString()}</p>
+                                <p className="text-[11px] text-muted-foreground font-body">
+                                  por <span className="font-heading font-bold text-primary">{Number(o.equity_percent)}% equity</span>
+                                </p>
+                                {o.signed_pdf_url && (
+                                  <a
+                                    href={o.signed_pdf_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[11px] text-primary hover:underline flex items-center gap-1 justify-end mt-1"
+                                  >
+                                    <FileText className="h-3 w-3" /> Acuerdo
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </>
