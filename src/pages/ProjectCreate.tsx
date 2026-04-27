@@ -50,6 +50,21 @@ const ProjectCreate = () => {
   const [videoLink, setVideoLink] = useState('');
   const [deadline, setDeadline] = useState('');
 
+  // Investor flow state
+  const [openToInvestors, setOpenToInvestors] = useState(false);
+  const [fundingPercentSought, setFundingPercentSought] = useState<10 | 25 | 50>(25);
+  const [aiQuoting, setAiQuoting] = useState(false);
+  const [aiQuote, setAiQuote] = useState<{
+    cost_estimate_usd: number;
+    justification: string;
+    funding_percent_sought: number;
+    equity_offered_percent: number;
+    industry: string;
+    cost_breakdown: { label: string; amount_usd: number }[];
+  } | null>(null);
+
+  const equityForFunding = (p: number) => (p >= 50 ? 15 : p >= 25 ? 10 : p >= 10 ? 5 : 0);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFiles(prev => [...prev, ...Array.from(e.target.files!)]);
@@ -245,6 +260,12 @@ const ProjectCreate = () => {
           payment_screenshot_url: screenshotUrl,
           specs_pdf_url: specsPdfUrl,
           tx_hash: txHash || null,
+          open_to_investors: openToInvestors,
+          funding_percent_sought: openToInvestors ? fundingPercentSought : null,
+          equity_offered_percent: openToInvestors ? equityForFunding(fundingPercentSought) : null,
+          cost_estimate: aiQuote?.cost_estimate_usd ?? null,
+          cost_justification: aiQuote?.justification ?? null,
+          industry: aiQuote?.industry ?? (openToInvestors ? category : null),
         } as any)
         .select()
         .single();
@@ -344,6 +365,140 @@ const ProjectCreate = () => {
                   Min. rate: ${MIN_HOURLY_RATE}/hr • GOPHORA fee: {COMMISSION_RATE * 100}%
                 </p>
               </div>
+            </div>
+
+            {/* Investor flow toggle */}
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={openToInvestors}
+                  onChange={(e) => setOpenToInvestors(e.target.checked)}
+                  className="mt-1 h-4 w-4 accent-amber-500 shrink-0"
+                />
+                <div className="flex-1">
+                  <p className="font-heading font-bold text-sm flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-amber-500" />
+                    Presentar este proyecto a inversores
+                  </p>
+                  <p className="text-xs text-muted-foreground font-body mt-1 leading-relaxed">
+                    Marcá esta opción y los inversores podrán ver tu proyecto en su panel para presentarte ofertas. La IA cotiza el costo realista de ejecutarlo y vos elegís cuánto querés que cubra el inversor a cambio de un porcentaje de equity.
+                  </p>
+                </div>
+              </label>
+
+              {openToInvestors && (
+                <div className="space-y-3 pt-2 border-t border-amber-500/20">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 border-amber-500/30 text-amber-600"
+                      disabled={aiQuoting || !projectTitle || !projectDescription}
+                      onClick={async () => {
+                        setAiQuoting(true);
+                        try {
+                          const { data, error } = await supabase.functions.invoke('quote-project', {
+                            body: {
+                              title: projectTitle,
+                              description: projectDescription,
+                              brief: resourceLink || null,
+                              industry: category,
+                              current_budget: budget ? Number(budget) : null,
+                              language: 'es',
+                            },
+                          });
+                          if (error) throw error;
+                          if ((data as any)?.error) throw new Error((data as any).error);
+                          setAiQuote(data as any);
+                          setFundingPercentSought((data as any).funding_percent_sought as 10 | 25 | 50);
+                          if (!budget && (data as any).cost_estimate_usd) setBudget(String((data as any).cost_estimate_usd));
+                          toast.success('Cotización generada por IA');
+                        } catch (err: any) {
+                          toast.error(err?.message || 'Error al cotizar el proyecto');
+                        } finally {
+                          setAiQuoting(false);
+                        }
+                      }}
+                    >
+                      {aiQuoting ? (
+                        <div className="h-3 w-3 border-2 border-amber-500/40 border-t-amber-500 rounded-full animate-spin" />
+                      ) : (
+                        <Cpu className="h-3.5 w-3.5" />
+                      )}
+                      {aiQuoting ? 'Cotizando…' : 'Cotizar con IA'}
+                    </Button>
+                    <span className="text-[11px] text-muted-foreground font-body">
+                      {projectTitle && projectDescription
+                        ? 'Usa título y descripción para estimar costo realista.'
+                        : 'Completá título y descripción primero.'}
+                    </span>
+                  </div>
+
+                  {aiQuote && (
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-heading font-bold uppercase tracking-wider text-primary">
+                          Cotización IA · {aiQuote.industry}
+                        </p>
+                        <p className="text-lg font-heading font-black text-primary">
+                          ${aiQuote.cost_estimate_usd.toLocaleString()}
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground font-body leading-relaxed whitespace-pre-wrap">
+                        {aiQuote.justification}
+                      </p>
+                      {aiQuote.cost_breakdown.length > 0 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1 border-t border-primary/15">
+                          {aiQuote.cost_breakdown.map((b, i) => (
+                            <div key={i} className="text-[10px]">
+                              <p className="text-muted-foreground truncate">{b.label}</p>
+                              <p className="font-heading font-bold">${b.amount_usd.toLocaleString()}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label className="font-heading text-xs tracking-wider uppercase">
+                      Cuánto buscás del inversor
+                    </Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([10, 25, 50] as const).map((tier) => {
+                        const equity = equityForFunding(tier);
+                        const active = fundingPercentSought === tier;
+                        return (
+                          <button
+                            key={tier}
+                            type="button"
+                            onClick={() => setFundingPercentSought(tier)}
+                            className={cn(
+                              "rounded-lg border p-3 text-left transition-colors",
+                              active
+                                ? "border-amber-500/50 bg-amber-500/15"
+                                : "border-border/40 hover:border-amber-500/30"
+                            )}
+                          >
+                            <p className="font-heading font-black text-lg">{tier}%</p>
+                            <p className="text-[10px] text-muted-foreground font-body uppercase tracking-wider">
+                              del proyecto
+                            </p>
+                            <p className="text-[11px] text-amber-600 font-heading font-bold mt-1">
+                              cedés {equity}% equity
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground font-body italic">
+                      💡 Cuanto más capital pidas al inversor, más participación cedés. La equivalencia es fija: 10%→5% · 25%→10% · 50%→15%.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
             <div>
               <Label className="font-heading text-xs tracking-wider uppercase flex items-center gap-2">

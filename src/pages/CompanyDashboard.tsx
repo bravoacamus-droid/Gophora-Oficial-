@@ -349,26 +349,15 @@ const CompanyDashboard = () => {
                   <span className="text-muted-foreground font-body">{isEs ? 'Proyectos Participados' : 'Venture Projects'}</span>
                   <span className="font-heading font-bold">0</span>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full text-[10px] h-8 border-amber-500/30 text-amber-600 hover:bg-amber-50"
-                  onClick={() => {
-                    toast.info(
-                      isEs
-                        ? '🚀 Modo Inversor en desarrollo'
-                        : '🚀 Investor mode coming soon',
-                      {
-                        description: isEs
-                          ? 'Pronto podrás explorar proyectos abiertos a inversión, ver cotizaciones generadas por IA y firmar acuerdos de equity directamente desde GOPHORA.'
-                          : 'Soon you\'ll be able to browse projects open to investment, review AI-generated quotes and sign equity agreements right from GOPHORA.',
-                        duration: 6000,
-                      }
-                    );
-                  }}
-                >
-                  {isEs ? 'Explorar Proyectos para Invertir' : 'Browse Projects to Invest'}
-                </Button>
+                <Link to="/invest" className="block">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-[10px] h-8 border-amber-500/30 text-amber-600 hover:bg-amber-50"
+                  >
+                    {isEs ? 'Explorar Proyectos para Invertir' : 'Browse Projects to Invest'}
+                  </Button>
+                </Link>
               </div>
             </div>
           </motion.div>

@@ -20,6 +20,7 @@ import Marketplace from "@/pages/Marketplace";
 import ProjectCreate from "@/pages/ProjectCreate";
 import AdminPanel from "@/pages/AdminPanel";
 import AcademyDashboard from "@/pages/AcademyDashboard";
+import InvestorBrowse from "@/pages/InvestorBrowse";
 import AuthCallback from "@/pages/AuthCallback";
 import ResetPassword from "@/pages/ResetPassword";
 import Onboarding from "@/pages/Onboarding";
@@ -59,6 +60,7 @@ const App = () => (
                 <Route path="/projects/create" element={<ProjectCreate />} />
                 <Route path="/admin" element={<AdminPanel />} />
                 <Route path="/academy" element={<AcademyDashboard />} />
+                <Route path="/invest" element={<InvestorBrowse />} />
               </Route>
 
               <Route path="/passport/:slug" element={<PublicPassport />} />
