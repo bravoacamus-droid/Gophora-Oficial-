@@ -49,6 +49,8 @@ const AdminPanel = () => {
   const [withdrawalNotes, setWithdrawalNotes] = useState<Record<string, string>>({});
   const [expandedMission, setExpandedMission] = useState<string | null>(null);
   const [selectedRelease, setSelectedRelease] = useState<any>(null);
+  const [rejectFeedback, setRejectFeedback] = useState('');
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
 
   // Courses management state
   const [adminCourses, setAdminCourses] = useState<any[]>([]);
@@ -220,6 +222,24 @@ const AdminPanel = () => {
   const handleReleaseFunds = async (applicationId: string) => {
     setReleasingId(applicationId);
     try { await adminCall('release_funds', { application_id: applicationId }); toast.success('Fondos liberados exitosamente'); setSelectedRelease(null); loadData(); } catch (err: any) { toast.error(err.message); } finally { setReleasingId(null); }
+  };
+  const handleRejectDelivery = async (applicationId: string) => {
+    if (!rejectFeedback.trim() || rejectFeedback.trim().length < 5) {
+      toast.error('Escribí un feedback de al menos 5 caracteres explicando por qué se rechaza.');
+      return;
+    }
+    setRejectingId(applicationId);
+    try {
+      await adminCall('reject_delivery', { application_id: applicationId, review_note: rejectFeedback.trim() });
+      toast.success('Entrega rechazada — el explorer recibió la notificación con tu feedback');
+      setSelectedRelease(null);
+      setRejectFeedback('');
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setRejectingId(null);
+    }
   };
   const handleSuspendUser = async (userId: string) => {
     try { await adminCall('suspend_user', { user_id: userId }); toast.success('User suspended'); loadData(); } catch (err: any) { toast.error(err.message); }
@@ -537,7 +557,7 @@ const AdminPanel = () => {
           )}
 
           {/* Release Detail Modal */}
-          <Dialog open={!!selectedRelease} onOpenChange={() => setSelectedRelease(null)}>
+          <Dialog open={!!selectedRelease} onOpenChange={(o) => { if (!o) { setSelectedRelease(null); setRejectFeedback(''); } }}>
             <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle className="font-heading">Detalle de Entrega</DialogTitle>
@@ -561,14 +581,47 @@ const AdminPanel = () => {
                   )}
                   {selectedRelease.review_note && (
                     <div>
-                      <p className="text-xs text-muted-foreground font-heading uppercase mb-1">Nota de Revisión</p>
-                      <p className="text-sm font-body italic">{selectedRelease.review_note}</p>
+                      <p className="text-xs text-muted-foreground font-heading uppercase mb-1">Nota previa</p>
+                      <p className="text-sm font-body italic text-muted-foreground">{selectedRelease.review_note}</p>
                     </div>
                   )}
-                  <Button className="w-full gap-2 font-heading" onClick={() => handleReleaseFunds(selectedRelease.id)}
-                    disabled={releasingId === selectedRelease.id}>
-                    <Banknote className="h-4 w-4" /> {releasingId === selectedRelease.id ? 'Liberando fondos...' : 'Confirmar Liberación de Fondos'}
-                  </Button>
+
+                  {/* Feedback box — required only when rejecting */}
+                  <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-2">
+                    <label className="text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider block">
+                      Feedback al explorer (obligatorio para rechazar)
+                    </label>
+                    <Textarea
+                      value={rejectFeedback}
+                      onChange={(e) => setRejectFeedback(e.target.value)}
+                      placeholder="Ej: La entrega no cumple con las especificaciones del PDF. Falta el ítem X y la sección Y está incompleta. Subí una nueva versión incluyendo ambos."
+                      rows={3}
+                      className="text-sm"
+                    />
+                    <p className="text-[10px] text-muted-foreground font-body">
+                      Si liberás los fondos, este campo se ignora. Si rechazás, el explorer recibe esta nota como notificación y puede re-entregar.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1 gap-2 font-heading text-destructive border-destructive/30 hover:bg-destructive/10"
+                      onClick={() => handleRejectDelivery(selectedRelease.id)}
+                      disabled={rejectingId === selectedRelease.id || releasingId === selectedRelease.id}
+                    >
+                      <XCircle className="h-4 w-4" />
+                      {rejectingId === selectedRelease.id ? 'Rechazando...' : 'Rechazar entrega'}
+                    </Button>
+                    <Button
+                      className="flex-1 gap-2 font-heading"
+                      onClick={() => handleReleaseFunds(selectedRelease.id)}
+                      disabled={releasingId === selectedRelease.id || rejectingId === selectedRelease.id}
+                    >
+                      <Banknote className="h-4 w-4" />
+                      {releasingId === selectedRelease.id ? 'Liberando...' : 'Liberar fondos'}
+                    </Button>
+                  </div>
                 </div>
               )}
             </DialogContent>

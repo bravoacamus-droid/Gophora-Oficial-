@@ -24,9 +24,29 @@ const formatRelative = (iso: string, isEs: boolean) => {
 };
 
 const iconForType = (type: string) => {
-  if (type === 'milestone') return '🎉';
-  if (type === 'playbook_completion') return '📘';
-  return '🔔';
+  switch (type) {
+    case 'milestone': return '🎉';
+    case 'playbook_completion': return '📘';
+    case 'mission_taken': return '🚀';
+    case 'mission_delivered': return '📦';
+    case 'mission_approved': return '✅';
+    case 'mission_rejected': return '❌';
+    case 'funds_released': return '💰';
+    case 'mission_completed': return '🎯';
+    case 'tutor_application': return '🧑‍🏫';
+    case 'tutor_approved': return '🎓';
+    case 'tutor_rejected': return '⚠️';
+    case 'tutor_revoked': return '🚫';
+    case 'new_project': return '📁';
+    case 'withdrawal_requested': return '💵';
+    case 'withdrawal_approved': return '💸';
+    case 'withdrawal_rejected': return '🔻';
+    case 'investor_offer_received': return '💎';
+    case 'investor_offer_accepted': return '🤝';
+    case 'investor_offer_declined': return '👋';
+    case 'investor_agreement_signed': return '✍️';
+    default: return '🔔';
+  }
 };
 
 const NotificationsBell = () => {
@@ -82,6 +102,9 @@ const NotificationsBell = () => {
               <p className="text-xs text-muted-foreground font-body">
                 {isEs ? 'No hay notificaciones aún.' : 'No notifications yet.'}
               </p>
+              <p className="text-[10px] text-muted-foreground font-body mt-1">
+                {isEs ? 'Cuando recibas una entrega, aprobación o oferta aparecerá acá.' : "You'll see deliveries, approvals and offers here."}
+              </p>
             </div>
           ) : (
             <ul className="divide-y divide-border/50">
@@ -114,6 +137,14 @@ const NotificationsBell = () => {
               })}
             </ul>
           )}
+        </div>
+        <div className="border-t border-border/50 px-4 py-2">
+          <button
+            onClick={() => { setOpen(false); navigate('/notifications'); }}
+            className="w-full text-xs font-heading font-bold text-primary hover:underline py-1"
+          >
+            {isEs ? 'Ver todas las notificaciones →' : 'View all notifications →'}
+          </button>
         </div>
       </PopoverContent>
     </Popover>

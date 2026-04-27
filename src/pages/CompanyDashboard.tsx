@@ -89,6 +89,7 @@ const CompanyDashboard = () => {
   const [projectTab, setProjectTab] = useState('all');
   const [investorOffers, setInvestorOffers] = useState<any[]>([]);
   const [reviewingOfferId, setReviewingOfferId] = useState<string | null>(null);
+  const [kpiDrilldown, setKpiDrilldown] = useState<null | 'completed_projects' | 'all_missions' | 'completed_missions' | 'explorers'>(null);
 
   const loadData = async () => {
     if (!user) return;
@@ -365,31 +366,49 @@ const CompanyDashboard = () => {
       </div>
 
       <div className="container max-w-6xl py-8 space-y-8">
-        {/* KPI Cards */}
+        {/* KPI Cards — most are drill-downs except the money totals */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          {[
-            { icon: FolderOpen, label: isEs ? 'Proyectos Completados' : 'Completed Projects', value: String(completedProjects.length), accent: true },
-            { icon: Target, label: isEs ? 'Misiones' : 'Missions', value: String(missions.length) },
-            { icon: CheckCircle, label: isEs ? 'Misiones Completadas' : 'Missions Completed', value: String(completedMissions.length) },
-            { icon: Users, label: isEs ? 'Exploradores' : 'Explorers', value: String(uniqueExplorersTotal.size) },
-            { icon: DollarSign, label: isEs ? 'Invertido' : 'Invested', value: `$${totalBudget.toLocaleString()}` },
-            { icon: Wallet, label: isEs ? 'Pagado en Misiones' : 'Paid to Missions', value: `$${usedBudget.toLocaleString()}`, accent: true },
-          ].map((stat, i) => (
-            <motion.div
-              key={i}
-              custom={i}
-              variants={fadeUp}
-              initial="hidden"
-              animate="visible"
-              className={`rounded-xl border p-4 transition-all hover:shadow-md ${stat.accent ? (isInvestor && stat.label === (isEs ? 'Pagado en Misiones' : 'Paid to Missions') ? 'border-amber-500/30 bg-amber-500/5' : 'border-primary/30 bg-primary/5') : 'border-border/50 bg-card'}`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <stat.icon className={`h-4 w-4 ${stat.accent ? (isInvestor && stat.label === (isEs ? 'Pagado en Misiones' : 'Paid to Missions') ? 'text-amber-600' : 'text-primary') : 'text-muted-foreground'}`} />
-                <span className="text-xs text-muted-foreground font-body">{stat.label}</span>
-              </div>
-              <p className="text-2xl font-heading font-bold">{stat.value}</p>
-            </motion.div>
-          ))}
+          {([
+            { icon: FolderOpen, label: isEs ? 'Proyectos Completados' : 'Completed Projects', value: String(completedProjects.length), accent: true, drill: 'completed_projects' as const },
+            { icon: Target, label: isEs ? 'Misiones' : 'Missions', value: String(missions.length), drill: 'all_missions' as const },
+            { icon: CheckCircle, label: isEs ? 'Misiones Completadas' : 'Missions Completed', value: String(completedMissions.length), drill: 'completed_missions' as const },
+            { icon: Users, label: isEs ? 'Exploradores' : 'Explorers', value: String(uniqueExplorersTotal.size), drill: 'explorers' as const },
+            { icon: DollarSign, label: isEs ? 'Invertido' : 'Invested', value: `$${totalBudget.toLocaleString()}`, drill: null },
+            { icon: Wallet, label: isEs ? 'Pagado en Misiones' : 'Paid to Missions', value: `$${usedBudget.toLocaleString()}`, accent: true, drill: null },
+          ] as const).map((stat, i) => {
+            const isPagado = stat.label === (isEs ? 'Pagado en Misiones' : 'Paid to Missions');
+            const accentClass = stat.accent
+              ? (isInvestor && isPagado ? 'border-amber-500/30 bg-amber-500/5' : 'border-primary/30 bg-primary/5')
+              : 'border-border/50 bg-card';
+            const iconClass = stat.accent
+              ? (isInvestor && isPagado ? 'text-amber-600' : 'text-primary')
+              : 'text-muted-foreground';
+            const interactive = stat.drill !== null;
+            return (
+              <motion.button
+                key={i}
+                type="button"
+                custom={i}
+                variants={fadeUp}
+                initial="hidden"
+                animate="visible"
+                onClick={() => { if (stat.drill) setKpiDrilldown(stat.drill); }}
+                disabled={!interactive}
+                className={`rounded-xl border p-4 text-left transition-all ${accentClass} ${interactive ? 'cursor-pointer hover:shadow-md hover:scale-[1.02]' : 'cursor-default'}`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <stat.icon className={`h-4 w-4 ${iconClass}`} />
+                  <span className="text-xs text-muted-foreground font-body">{stat.label}</span>
+                </div>
+                <p className="text-2xl font-heading font-bold">{stat.value}</p>
+                {interactive && (
+                  <p className="text-[10px] text-muted-foreground/60 font-body mt-1">
+                    {isEs ? 'Click para ver detalle' : 'Click for detail'}
+                  </p>
+                )}
+              </motion.button>
+            );
+          })}
         </div>
 
         {isInvestor && (
@@ -874,6 +893,147 @@ const CompanyDashboard = () => {
                   </div>
                 </div>
               </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* KPI drill-down dialog */}
+      <Dialog open={!!kpiDrilldown} onOpenChange={(o) => { if (!o) setKpiDrilldown(null); }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2">
+              {kpiDrilldown === 'completed_projects' && <><FolderOpen className="h-5 w-5 text-primary" /> {isEs ? 'Proyectos Completados' : 'Completed Projects'}</>}
+              {kpiDrilldown === 'all_missions' && <><Target className="h-5 w-5 text-primary" /> {isEs ? 'Todas las Misiones' : 'All Missions'}</>}
+              {kpiDrilldown === 'completed_missions' && <><CheckCircle className="h-5 w-5 text-primary" /> {isEs ? 'Misiones Completadas' : 'Completed Missions'}</>}
+              {kpiDrilldown === 'explorers' && <><Users className="h-5 w-5 text-primary" /> {isEs ? 'Exploradores' : 'Explorers'}</>}
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Completed projects */}
+          {kpiDrilldown === 'completed_projects' && (
+            completedProjects.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground font-body">
+                {isEs ? 'Aún no tenés proyectos marcados como completados.' : 'No completed projects yet.'}
+              </p>
+            ) : (
+              <div className="divide-y divide-border/50">
+                {completedProjects.map((p) => {
+                  const projMissions = missions.filter(m => m.project_id === p.id);
+                  return (
+                    <div key={p.id} className="py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-heading font-semibold text-sm">{p.title}</p>
+                          <p className="text-[11px] text-muted-foreground font-body line-clamp-1">{p.description}</p>
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            {projMissions.length} {isEs ? 'misiones' : 'missions'} · {p.category} · {new Date(p.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-heading font-bold text-primary">${Number(p.budget || 0).toLocaleString()}</p>
+                          <Badge variant="outline" className="text-[9px] mt-1">{p.payment_status}</Badge>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          )}
+
+          {/* All missions / Completed missions — both reuse mission rendering */}
+          {(kpiDrilldown === 'all_missions' || kpiDrilldown === 'completed_missions') && (() => {
+            const list = kpiDrilldown === 'completed_missions' ? completedMissions : missions;
+            if (list.length === 0) {
+              return (
+                <p className="py-10 text-center text-sm text-muted-foreground font-body">
+                  {isEs ? 'No hay misiones para mostrar.' : 'No missions to show.'}
+                </p>
+              );
+            }
+            const projectMap = new Map(projects.map((p) => [p.id, p.title]));
+            const missionApps = new Map<string, any[]>();
+            applications.forEach((a) => {
+              const arr = missionApps.get(a.mission_id) || [];
+              arr.push(a);
+              missionApps.set(a.mission_id, arr);
+            });
+            return (
+              <div className="divide-y divide-border/50">
+                {list.map((m: any) => {
+                  const apps = missionApps.get(m.id) || [];
+                  const released = apps.some((a: any) => a.status === 'funds_released');
+                  return (
+                    <div key={m.id} className="py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-heading font-semibold text-sm">{m.title}</p>
+                          <p className="text-[11px] text-muted-foreground font-body">
+                            {projectMap.get(m.project_id) || '—'} · {m.skill}
+                          </p>
+                          {apps.length > 0 && (
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              {apps.length} explorer{apps.length === 1 ? '' : 's'} · {apps.map((a: any) => a.explorerName).join(', ')}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-heading font-bold text-primary">${Number(m.reward || 0).toLocaleString()}</p>
+                          <Badge variant={released ? 'default' : 'outline'} className="text-[9px] mt-1 capitalize">
+                            {released ? (isEs ? 'pagada' : 'paid') : m.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
+          {/* Explorers */}
+          {kpiDrilldown === 'explorers' && (() => {
+            const explorerStats = new Map<string, { name: string; missions: number; completed: number; earned: number }>();
+            applications.forEach((a) => {
+              if (!['assigned', 'submitted', 'approved', 'completed', 'funds_released'].includes(a.status)) return;
+              const cur = explorerStats.get(a.user_id) || { name: a.explorerName || 'Explorer', missions: 0, completed: 0, earned: 0 };
+              cur.missions += 1;
+              if (a.status === 'funds_released') {
+                cur.completed += 1;
+                const m = missions.find((mm) => mm.id === a.mission_id);
+                cur.earned += Number(m?.reward || 0);
+              }
+              explorerStats.set(a.user_id, cur);
+            });
+            const list = Array.from(explorerStats.values()).sort((a, b) => b.earned - a.earned);
+            if (list.length === 0) {
+              return (
+                <p className="py-10 text-center text-sm text-muted-foreground font-body">
+                  {isEs ? 'Ningún explorer ha tomado misiones todavía.' : 'No explorers have taken missions yet.'}
+                </p>
+              );
+            }
+            return (
+              <div className="divide-y divide-border/50">
+                {list.map((ex, i) => (
+                  <div key={i} className="py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <Users className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-heading font-semibold text-sm truncate">{ex.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{ex.missions} {isEs ? 'misiones tomadas' : 'taken'} · {ex.completed} {isEs ? 'pagadas' : 'paid'}</p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-heading font-bold text-primary">${ex.earned.toLocaleString()}</p>
+                      <p className="text-[10px] text-muted-foreground">{isEs ? 'ganado' : 'earned'}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             );
           })()}
         </DialogContent>

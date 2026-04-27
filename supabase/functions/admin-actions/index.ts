@@ -231,6 +231,42 @@ serve(async (req) => {
         break;
       }
 
+      case 'reject_delivery': {
+        // Reverse path of release_funds: admin rejects an explorer's
+        // submitted delivery and writes a feedback note. The mission goes
+        // back to 'in_progress' so the explorer can re-deliver, and the
+        // mission_assignment_notify trigger pushes a notification to the
+        // explorer with the rejection reason.
+        const { application_id, review_note } = params;
+        if (!application_id) throw new Error('application_id is required');
+        if (!review_note || typeof review_note !== 'string' || review_note.trim().length < 5) {
+          throw new Error('Feedback de al menos 5 caracteres es obligatorio para rechazar');
+        }
+        const { data: appData, error: updErr } = await supabase
+          .from('mission_assignments')
+          .update({
+            status: 'rejected',
+            review_note: review_note.trim(),
+            reviewed_at: new Date().toISOString(),
+          })
+          .eq('id', application_id)
+          .select('mission_id')
+          .single();
+        if (updErr) throw updErr;
+
+        // Reopen the mission so a different explorer can take it (or the
+        // same one can re-submit). Falls back gracefully if the mission
+        // was already past that lifecycle stage.
+        if (appData?.mission_id) {
+          await supabase
+            .from('missions')
+            .update({ status: 'approved' })
+            .eq('id', appData.mission_id);
+        }
+        result = { success: true };
+        break;
+      }
+
       case 'get_withdrawals': {
         const { data, error } = await supabase
           .from('withdrawal_requests')
