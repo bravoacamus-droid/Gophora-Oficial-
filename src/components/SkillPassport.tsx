@@ -4,12 +4,14 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { usePassportStats, useExplorerBadges, SKILL_LEVELS, BADGE_DEFINITIONS } from '@/hooks/useSkillPassport';
+import CertificateCard from '@/components/CertificateCard';
 import { motion } from 'framer-motion';
 import {
   Shield, Award, BookOpen, Target, Star, Zap, TrendingUp, Share2,
-  Copy, CheckCircle, Radar, BarChart3, Clock
+  CheckCircle, Clock, Lock
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -47,12 +49,24 @@ export default function SkillPassport({ explorerId, isPublic }: SkillPassportPro
   const { data: stats, isLoading } = usePassportStats(explorerId);
   const { data: badges } = useExplorerBadges(explorerId);
   const [copied, setCopied] = useState(false);
+  const [openedBadge, setOpenedBadge] = useState<{ key: string; earned: boolean; awarded?: any } | null>(null);
+  const [openedCert, setOpenedCert] = useState<any | null>(null);
 
   const handleShare = () => {
-    const url = `${window.location.origin}/passport/${explorerId || 'me'}`;
+    // Prefer the user's stable public_slug. Fall back to the user_id if the
+    // slug isn't loaded yet (shouldn't happen post-migration but is safe).
+    const slug = stats?.publicSlug || explorerId;
+    if (!slug) {
+      toast.error(isEs ? 'Pasaporte aún no disponible para compartir' : 'Passport not ready to share yet');
+      return;
+    }
+    const url = `${window.location.origin}/passport/${slug}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
-    toast.success(isEs ? 'Link copiado al portapapeles' : 'Link copied to clipboard');
+    toast.success(
+      isEs ? 'Link copiado al portapapeles' : 'Link copied to clipboard',
+      { description: url }
+    );
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -81,9 +95,11 @@ export default function SkillPassport({ explorerId, isPublic }: SkillPassportPro
   // If no categories, use placeholder
   const hasRadar = radarData.length >= 3;
 
-  const displayName = stats.profile?.username
-    ? `@${stats.profile.username}`
-    : stats.profile?.full_name || 'Explorer';
+  const displayName =
+    stats.profile?.full_name
+      || (stats.profile?.username ? `@${stats.profile.username}` : null)
+      || (stats as any).explorerProfile?.name
+      || (isEs ? 'Explorador' : 'Explorer');
 
   return (
     <div className="space-y-6">
@@ -154,6 +170,71 @@ export default function SkillPassport({ explorerId, isPublic }: SkillPassportPro
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* ─── Bio + Track Record ─── */}
+      {(stats.profile?.bio || stats.missionsCompleted > 0 || (stats as any).rating != null) && (
+        <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={0.5}>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-heading flex items-center gap-2">
+                <Star className="h-4 w-4 text-primary" />
+                {isEs ? 'Trayectoria pública' : 'Public track record'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {stats.profile?.bio && (
+                <p className="text-sm text-muted-foreground font-body leading-relaxed">{stats.profile.bio}</p>
+              )}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="rounded-lg border border-border/40 bg-muted/30 p-3">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Target className="h-3 w-3 text-primary" />
+                    <span className="text-[9px] font-heading font-bold uppercase tracking-wider text-muted-foreground">
+                      {isEs ? 'Misiones entregadas' : 'Missions delivered'}
+                    </span>
+                  </div>
+                  <p className="text-lg font-heading font-bold">{stats.missionsCompleted}</p>
+                </div>
+                <div className="rounded-lg border border-border/40 bg-muted/30 p-3">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Clock className="h-3 w-3 text-primary" />
+                    <span className="text-[9px] font-heading font-bold uppercase tracking-wider text-muted-foreground">
+                      {isEs ? 'Tiempo prom. entrega' : 'Avg delivery time'}
+                    </span>
+                  </div>
+                  <p className="text-lg font-heading font-bold">
+                    {(stats as any).avgDeliveryHours != null
+                      ? `${(stats as any).avgDeliveryHours}h`
+                      : '—'}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border/40 bg-muted/30 p-3">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Star className="h-3 w-3 text-amber-500" />
+                    <span className="text-[9px] font-heading font-bold uppercase tracking-wider text-muted-foreground">
+                      {isEs ? 'Calificación' : 'Rating'}
+                    </span>
+                  </div>
+                  <p className="text-lg font-heading font-bold">
+                    {(stats as any).rating != null && (stats as any).rating > 0
+                      ? `${Number((stats as any).rating).toFixed(1)} ★`
+                      : '—'}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border/40 bg-muted/30 p-3">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Zap className="h-3 w-3 text-primary" />
+                    <span className="text-[9px] font-heading font-bold uppercase tracking-wider text-muted-foreground">
+                      {isEs ? 'Ganado en GOPHORA' : 'Earned on GOPHORA'}
+                    </span>
+                  </div>
+                  <p className="text-lg font-heading font-bold">${(stats.totalEarnings || 0).toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* ─── Mission Readiness ─── */}
       <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={1}>
@@ -268,21 +349,24 @@ export default function SkillPassport({ explorerId, isPublic }: SkillPassportPro
           <TabsContent value="badges" className="mt-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {BADGE_DEFINITIONS.map((def) => {
-                const earned = (badges || []).some((b: any) => b.badge_key === def.key);
+                const awarded = (badges || []).find((b: any) => b.badge_key === def.key);
+                const earned = !!awarded;
                 return (
-                  <div
+                  <button
                     key={def.key}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border text-center transition-all ${earned
-                        ? 'border-primary/30 bg-primary/5 hover:bg-primary/10'
-                        : 'border-border/20 opacity-30 grayscale'
+                    type="button"
+                    onClick={() => setOpenedBadge({ key: def.key, earned, awarded })}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border text-center transition-all hover:scale-[1.02] ${earned
+                        ? 'border-primary/30 bg-primary/5 hover:bg-primary/10 cursor-pointer'
+                        : 'border-border/20 opacity-50 grayscale hover:opacity-80 cursor-pointer'
                       }`}
                   >
-                    <span className="text-2xl">{def.icon}</span>
+                    <span className="text-2xl">{earned ? def.icon : '🔒'}</span>
                     <span className="text-xs font-heading font-bold leading-tight">
                       {isEs ? def.nameEs : def.name}
                     </span>
                     <span className="text-[10px] text-muted-foreground font-body">{def.condition}</span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -333,23 +417,103 @@ export default function SkillPassport({ explorerId, isPublic }: SkillPassportPro
             <CardContent>
               <div className="grid gap-2">
                 {stats.certificates.map((cert: any) => (
-                  <div key={cert.id} className="flex items-center gap-3 p-3 rounded-lg border border-border/30 bg-muted/20">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <button
+                    key={cert.id}
+                    type="button"
+                    onClick={() => setOpenedCert(cert)}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-border/30 bg-muted/20 hover:bg-muted/40 hover:border-primary/30 transition-colors text-left group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
                       <Award className="h-4 w-4 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-heading font-semibold text-sm truncate">{cert.course_title}</p>
+                      <p className="font-heading font-semibold text-sm truncate group-hover:text-primary transition-colors">{cert.course_title}</p>
                       <p className="text-[10px] text-muted-foreground font-body">
                         {new Date(cert.issued_at).toLocaleDateString()} • {cert.certificate_code}
                       </p>
                     </div>
-                  </div>
+                    <span className="text-[10px] text-muted-foreground font-heading uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                      {isEs ? 'Ver' : 'View'} →
+                    </span>
+                  </button>
                 ))}
               </div>
             </CardContent>
           </Card>
         </motion.div>
       )}
+
+      {/* ─── Badge detail modal ─── */}
+      <Dialog open={!!openedBadge} onOpenChange={(o) => !o && setOpenedBadge(null)}>
+        <DialogContent className="max-w-md">
+          {openedBadge && (() => {
+            const def = BADGE_DEFINITIONS.find((b) => b.key === openedBadge.key);
+            if (!def) return null;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="font-heading flex items-center gap-2">
+                    <span className="text-3xl">{openedBadge.earned ? def.icon : '🔒'}</span>
+                    <span>{isEs ? def.nameEs : def.name}</span>
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <div className={`rounded-lg border p-4 ${openedBadge.earned ? 'border-primary/30 bg-primary/5' : 'border-border/40 bg-muted/30'}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      {openedBadge.earned ? (
+                        <CheckCircle className="h-4 w-4 text-primary" />
+                      ) : (
+                        <Lock className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <span className={`text-xs font-heading font-bold uppercase tracking-wider ${openedBadge.earned ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {openedBadge.earned
+                          ? (isEs ? 'Insignia obtenida' : 'Badge earned')
+                          : (isEs ? 'Insignia bloqueada' : 'Badge locked')}
+                      </span>
+                    </div>
+                    <p className="text-sm font-body">
+                      <span className="font-heading font-bold">{isEs ? 'Cómo se obtiene: ' : 'How to earn: '}</span>
+                      {def.condition}
+                    </p>
+                    {openedBadge.earned && openedBadge.awarded?.earned_at && (
+                      <p className="text-xs text-muted-foreground font-body mt-2">
+                        {isEs ? 'Otorgada el ' : 'Awarded on '}
+                        {new Date(openedBadge.awarded.earned_at).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                  {!openedBadge.earned && !isPublic && (
+                    <p className="text-xs text-muted-foreground font-body">
+                      {isEs
+                        ? 'Seguí completando misiones, exámenes y cursos para desbloquearla. La verificamos automáticamente.'
+                        : 'Keep finishing missions, exams and courses to unlock it. We verify automatically.'}
+                    </p>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Certificate modal ─── */}
+      <Dialog open={!!openedCert} onOpenChange={(o) => !o && setOpenedCert(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {openedCert && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-heading flex items-center gap-2">
+                  <Award className="h-5 w-5 text-primary" />
+                  {openedCert.course_title}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="pt-2">
+                <CertificateCard certificate={openedCert} isEs={isEs} />
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

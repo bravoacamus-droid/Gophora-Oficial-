@@ -95,14 +95,15 @@ export function usePassportStats(explorerId?: string | null) {
       if (!id) return null;
 
       // Parallel queries
-      const [skillsRes, badgesRes, certsRes, progressRes, attemptsRes, appsRes, profileRes] = await Promise.all([
+      const [skillsRes, badgesRes, certsRes, progressRes, attemptsRes, appsRes, profileRes, explorerProfRes] = await Promise.all([
         db.from('explorer_skills').select('*').eq('explorer_id', id),
         db.from('explorer_badges').select('*').eq('explorer_id', id),
         db.from('certificates').select('*').eq('explorer_id', id),
         db.from('explorer_course_progress').select('*').eq('user_id', id).eq('completed', true),
         db.from('explorer_exam_attempts').select('*').eq('explorer_id', id).eq('passed', true),
         db.from('mission_assignments').select('*').eq('explorer_id', id).in('status', ['approved', 'completed', 'funds_released']),
-        db.from('profiles').select('full_name, username, avatar_url, bio, account_type').eq('id', id).single(),
+        db.from('profiles').select('full_name, username, avatar_url, bio, account_type').eq('id', id).maybeSingle(),
+        db.from('explorer_profiles').select('public_slug, name, rating, availability_hours').eq('user_id', id).maybeSingle(),
       ]);
 
       const skills = skillsRes.data || [];
@@ -112,6 +113,7 @@ export function usePassportStats(explorerId?: string | null) {
       const examsPassed = attemptsRes.data || [];
       const missionsCompleted = appsRes.data || [];
       const profile = profileRes.data;
+      const explorerProf = explorerProfRes.data;
 
       // Avg exam score
       const avgExamScore = examsPassed.length > 0
@@ -153,8 +155,19 @@ export function usePassportStats(explorerId?: string | null) {
         categories[cat].push(s);
       });
 
+      // Average delivery time (hours from assigned → reviewed) for completed
+      // missions. Lets the public passport show "ships in ~X h on average".
+      const deliveryTimes = missionsCompleted
+        .filter((m: any) => m.delivered_at && m.created_at)
+        .map((m: any) => (new Date(m.delivered_at).getTime() - new Date(m.created_at).getTime()) / 36e5);
+      const avgDeliveryHours = deliveryTimes.length
+        ? Math.round(deliveryTimes.reduce((s: number, h: number) => s + h, 0) / deliveryTimes.length)
+        : null;
+
       return {
         profile,
+        explorerProfile: explorerProf,
+        publicSlug: explorerProf?.public_slug || null,
         skills,
         badges,
         certificates,
@@ -162,6 +175,9 @@ export function usePassportStats(explorerId?: string | null) {
         examsPassed: examsPassed.length,
         missionsCompleted: missionsCompleted.length,
         avgExamScore: Math.round(avgExamScore),
+        avgDeliveryHours,
+        rating: explorerProf?.rating ?? null,
+        availabilityHours: explorerProf?.availability_hours ?? null,
         readinessScore,
         level,
         levelEs,

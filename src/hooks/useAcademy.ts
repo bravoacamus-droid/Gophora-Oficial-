@@ -42,6 +42,7 @@ export interface AcademyCourse {
   featured: boolean;
   delivery_mode?: 'live' | 'recorded';
   live_at?: string | null;
+  meeting_url?: string | null;
 }
 
 export interface AcademyTool {
@@ -839,12 +840,16 @@ export function useUpdateCourseAsTutor() {
       patch: Partial<AcademyCourse> & {
         delivery_mode?: 'live' | 'recorded';
         live_at?: string | null;
+        meeting_url?: string | null;
       };
       examQuestions?: Array<{ question: string; question_es: string; options: string[]; options_es: string[]; correct_index: number }>;
     }) => {
       if (!user) throw new Error('Not authenticated');
       const updates: any = { ...payload.patch };
-      if (updates.delivery_mode === 'recorded') updates.live_at = null;
+      if (updates.delivery_mode === 'recorded') {
+        updates.live_at = null;
+        updates.meeting_url = null;
+      }
       const { error } = await db
         .from('academy_courses')
         .update(updates)

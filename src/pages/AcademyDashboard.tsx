@@ -169,6 +169,7 @@ const AcademyDashboard = () => {
     instructor_name: defaultInstructorName,
     delivery_mode: 'recorded' as 'live' | 'recorded',
     live_at: '',
+    meeting_url: '',
   });
   const [examQuestions, setExamQuestions] = useState<Array<{
     question: string; question_es: string; options: string[]; options_es: string[]; correct_index: number;
@@ -454,6 +455,7 @@ const AcademyDashboard = () => {
           instructor_name: courseForm.instructor_name?.trim() || defaultInstructorName || 'Tutor',
           delivery_mode: courseForm.delivery_mode,
           live_at: courseForm.delivery_mode === 'live' && courseForm.live_at ? courseForm.live_at : null,
+          meeting_url: courseForm.delivery_mode === 'live' && courseForm.meeting_url ? courseForm.meeting_url.trim() : null,
         } as any,
         examQuestions: validQuestions,
       },
@@ -517,7 +519,7 @@ const AcademyDashboard = () => {
   };
 
   const resetCourseForm = () => {
-    setCourseForm({ title: '', description: '', external_url: '', thumbnail_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', path_id: '', instructor_name: defaultInstructorName, delivery_mode: 'recorded', live_at: '' });
+    setCourseForm({ title: '', description: '', external_url: '', thumbnail_url: '', duration_minutes: 30, skill_level: 'beginner', language: 'en', skills_learned: '', path_id: '', instructor_name: defaultInstructorName, delivery_mode: 'recorded', live_at: '', meeting_url: '' });
     setExamQuestions(Array(5).fill(null).map(() => ({ question: '', question_es: '', options: ['', '', '', ''], options_es: ['', '', '', ''], correct_index: -1 })));
     setSelectedCategory('');
     setEditingCourseId(null);
@@ -542,6 +544,7 @@ const AcademyDashboard = () => {
       instructor_name: course.instructor_name || defaultInstructorName,
       delivery_mode: (course as any).delivery_mode === 'live' ? 'live' : 'recorded',
       live_at: liveAtLocal,
+      meeting_url: (course as any).meeting_url || '',
     });
     setShowCourseForm(true);
 
@@ -602,6 +605,7 @@ const AcademyDashboard = () => {
           instructor_name: courseForm.instructor_name?.trim() || defaultInstructorName || 'Tutor',
           delivery_mode: courseForm.delivery_mode,
           live_at: courseForm.delivery_mode === 'live' && courseForm.live_at ? courseForm.live_at : null,
+          meeting_url: courseForm.delivery_mode === 'live' && courseForm.meeting_url ? courseForm.meeting_url.trim() : null,
         } as any,
         examQuestions: validQuestions,
       },
@@ -1482,18 +1486,32 @@ const AcademyDashboard = () => {
                             </button>
                           </div>
                           {courseForm.delivery_mode === 'live' && (
-                            <div>
-                              <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
-                                {isEs ? 'Fecha y hora del en vivo' : 'Live session date and time'}
-                              </label>
-                              <Input
-                                type="datetime-local"
-                                value={courseForm.live_at}
-                                onChange={e => setCourseForm(f => ({ ...f, live_at: e.target.value }))}
-                              />
-                              <p className="text-[10px] text-muted-foreground mt-1">
-                                {isEs ? 'Pegá el link de Zoom/Meet en el campo "Link externo del video" arriba.' : 'Drop the Zoom/Meet link in the "External video link" field above.'}
-                              </p>
+                            <div className="space-y-3">
+                              <div>
+                                <label className="text-xs font-heading font-semibold text-muted-foreground mb-1 block">
+                                  {isEs ? 'Fecha y hora del en vivo *' : 'Live session date and time *'}
+                                </label>
+                                <Input
+                                  type="datetime-local"
+                                  value={courseForm.live_at}
+                                  onChange={e => setCourseForm(f => ({ ...f, live_at: e.target.value }))}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs font-heading font-semibold text-red-500 mb-1 flex items-center gap-1.5">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                                  {isEs ? 'Link de la reunión (Zoom / Meet) *' : 'Meeting link (Zoom / Meet) *'}
+                                </label>
+                                <Input
+                                  type="url"
+                                  placeholder="https://meet.google.com/xxx-yyyy-zzz"
+                                  value={courseForm.meeting_url}
+                                  onChange={e => setCourseForm(f => ({ ...f, meeting_url: e.target.value }))}
+                                />
+                                <p className="text-[10px] text-muted-foreground mt-1">
+                                  {isEs ? 'Este link aparece como "Unirme al en vivo" cuando empiece la sesión.' : 'This shows up as "Join live" when the session starts.'}
+                                </p>
+                              </div>
                             </div>
                           )}
                         </div>

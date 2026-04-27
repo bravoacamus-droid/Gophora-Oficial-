@@ -61,7 +61,7 @@ const App = () => (
                 <Route path="/academy" element={<AcademyDashboard />} />
               </Route>
 
-              <Route path="/passport/:explorerId" element={<PublicPassport />} />
+              <Route path="/passport/:slug" element={<PublicPassport />} />
               <Route path="/cert/:code" element={<PublicCertificate />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
