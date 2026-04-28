@@ -175,7 +175,7 @@ export async function generateInvestorAgreementPdf(d: AgreementData): Promise<Bl
   // Footer
   doc.setFontSize(7);
   doc.setTextColor(150, 150, 150);
-  doc.text('GOPHORA · gophora-oficial.vercel.app · ' + d.date.toISOString(), margin, doc.internal.pageSize.getHeight() - 30);
+  doc.text('GOPHORA · gophora.com · ' + d.date.toISOString(), margin, doc.internal.pageSize.getHeight() - 30);
 
   return doc.output('blob');
 }
