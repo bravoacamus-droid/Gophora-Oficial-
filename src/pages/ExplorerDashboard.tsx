@@ -21,6 +21,7 @@ import { motion } from 'framer-motion';
 import SkillPassport from '@/components/SkillPassport';
 import DailyMissions from '@/components/DailyMissions';
 import StreakTracker from '@/components/StreakTracker';
+import MissionCountdown from '@/components/MissionCountdown';
 import SocialProof from '@/components/SocialProof';
 import SmartRecommendations from '@/components/SmartRecommendations';
 import AvailableMissions from '@/components/AvailableMissions';
@@ -66,6 +67,7 @@ interface ApplicationWithMission {
   id: string;
   status: string;
   created_at: string;
+  started_at: string | null;
   mission_id: string;
   missionTitle: string;
   missionTitleEs: string | null;
@@ -75,6 +77,7 @@ interface ApplicationWithMission {
   missionSkill: string;
   missionHours: number;
   missionHourlyRate: number;
+  missionDeadlineHours: number;
   projectTitle: string;
   projectResourceLink: string | null;
   projectVideoLink: string | null;
@@ -150,9 +153,14 @@ const ExplorerDashboard = () => {
   const loadData = async () => {
     if (!user || !explorerProfile) return;
     setLoading(true);
+    // Sweep any of MY assignments past 72h before reading state, so the
+    // dashboard always reflects the up-to-the-second deadline reality
+    // (the hourly cron is best-effort but the user expects "now").
+    try { await supabase.rpc('expire_overdue_assignments'); } catch { /* non-fatal */ }
+
     const { data: assignRows } = await (supabase
       .from('mission_assignments' as any)
-      .select('id, status, created_at, mission_id, delivery_url, delivered_at, reviewed_at, review_note')
+      .select('id, status, created_at, started_at, mission_id, delivery_url, delivered_at, reviewed_at, review_note')
       .eq('explorer_id', explorerProfile.id)
       .order('created_at', { ascending: false }) as any);
 
@@ -162,7 +170,7 @@ const ExplorerDashboard = () => {
       const missionIds = [...new Set(assigns.map((a: any) => a.mission_id))];
       const { data: missionRows } = await supabase
         .from('missions')
-        .select('id, title, title_es, description, description_es, reward, skill, project_id, hours, hourly_rate')
+        .select('id, title, title_es, description, description_es, reward, skill, project_id, hours, hourly_rate, deadline_hours')
         .in('id', missionIds as any);
 
       const mRows = missionRows || [];
@@ -186,6 +194,7 @@ const ExplorerDashboard = () => {
           id: a.id,
           status: a.status,
           created_at: a.created_at,
+          started_at: a.started_at,
           mission_id: a.mission_id,
           missionTitle: mission?.title || 'Mission',
           missionTitleEs: mission?.title_es || null,
@@ -195,6 +204,7 @@ const ExplorerDashboard = () => {
           missionSkill: mission?.skill || '',
           missionHours: Number(mission?.hours || 0),
           missionHourlyRate: Number(mission?.hourly_rate || 0),
+          missionDeadlineHours: Number((mission as any)?.deadline_hours || 72),
           projectTitle: project?.title || 'Project',
           projectResourceLink: project?.resource_link || null,
           projectVideoLink: project?.video_link || null,
@@ -491,30 +501,42 @@ const ExplorerDashboard = () => {
                                 )}
                               </div>
                             )}
-                            {filteredMissions.map((app) => (
-                              <div
-                                key={app.id}
-                                className="p-4 md:px-5 flex items-center gap-4 cursor-pointer hover:bg-muted/40 transition-colors group"
-                                onClick={() => setSelectedApp(app)}
-                              >
-                                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                                  <Award className="h-4 w-4 text-muted-foreground" />
+                            {filteredMissions.map((app) => {
+                              const showCountdown = ['assigned', 'in_progress'].includes(app.status);
+                              return (
+                                <div
+                                  key={app.id}
+                                  className="p-4 md:px-5 flex items-center gap-4 cursor-pointer hover:bg-muted/40 transition-colors group"
+                                  onClick={() => setSelectedApp(app)}
+                                >
+                                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                                    <Award className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-heading font-semibold text-sm truncate">
+                                      {isEs && app.missionTitleEs ? app.missionTitleEs : app.missionTitle}
+                                    </p>
+                                    <div className="flex items-center gap-2 flex-wrap mt-1">
+                                      <p className="text-xs text-muted-foreground font-body truncate">{app.projectTitle}</p>
+                                      {showCountdown && (
+                                        <MissionCountdown
+                                          startedAt={app.started_at}
+                                          deadlineHours={app.missionDeadlineHours}
+                                          isEs={isEs}
+                                        />
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-3 shrink-0">
+                                    <span className={`text-[10px] font-heading font-bold px-2 py-1 rounded-full ${statusColor(app.status)}`}>
+                                      {statusLabel(app.status)}
+                                    </span>
+                                    <span className="text-sm font-heading font-bold text-primary hidden sm:block">${app.missionReward.toLocaleString()}</span>
+                                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-heading font-semibold text-sm truncate">
-                                    {isEs && app.missionTitleEs ? app.missionTitleEs : app.missionTitle}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground font-body truncate">{app.projectTitle}</p>
-                                </div>
-                                <div className="flex items-center gap-3 shrink-0">
-                                  <span className={`text-[10px] font-heading font-bold px-2 py-1 rounded-full ${statusColor(app.status)}`}>
-                                    {statusLabel(app.status)}
-                                  </span>
-                                  <span className="text-sm font-heading font-bold text-primary hidden sm:block">${app.missionReward.toLocaleString()}</span>
-                                  <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </TabsContent>
                       </Tabs>
@@ -546,6 +568,13 @@ const ExplorerDashboard = () => {
                   </span>
                   <span className="text-sm font-heading font-semibold text-primary">${selectedApp.missionReward.toLocaleString()}</span>
                   <Badge variant="outline" className="text-xs">{selectedApp.missionSkill}</Badge>
+                  {['assigned', 'in_progress'].includes(selectedApp.status) && (
+                    <MissionCountdown
+                      startedAt={selectedApp.started_at}
+                      deadlineHours={selectedApp.missionDeadlineHours}
+                      isEs={isEs}
+                    />
+                  )}
                 </div>
 
                 {/* Mission Details */}

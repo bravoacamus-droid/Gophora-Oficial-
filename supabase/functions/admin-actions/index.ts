@@ -185,7 +185,7 @@ serve(async (req) => {
               profiles (email, full_name)
             )
           `)
-          .in('status', ['submitted', 'approved'])
+          .in('status', ['submitted', 'presented', 'approved'])
           .order('delivered_at', { ascending: false });
 
         if (error) throw error;

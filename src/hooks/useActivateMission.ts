@@ -59,6 +59,10 @@ export function useActivateMission() {
         mission_id: missionId,
         explorer_id: expProfile.id,
         status: 'assigned',
+        // started_at anchors the 72h countdown — must be set on activation
+        // because the DB default is null and the explorer expects the timer
+        // to begin the moment they take the mission.
+        started_at: new Date().toISOString(),
       }) as any);
       if (assignError) throw assignError;
 

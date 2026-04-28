@@ -90,6 +90,10 @@ const CompanyDashboard = () => {
   const [investorOffers, setInvestorOffers] = useState<any[]>([]);
   const [reviewingOfferId, setReviewingOfferId] = useState<string | null>(null);
   const [kpiDrilldown, setKpiDrilldown] = useState<null | 'completed_projects' | 'all_missions' | 'completed_missions' | 'explorers'>(null);
+  const [presentedDeliveries, setPresentedDeliveries] = useState<any[]>([]);
+  const [pickingId, setPickingId] = useState<string | null>(null);
+  const [rejectingMissionId, setRejectingMissionId] = useState<string | null>(null);
+  const [rejectRoundReason, setRejectRoundReason] = useState('');
 
   const loadData = async () => {
     if (!user) return;
@@ -143,7 +147,7 @@ const CompanyDashboard = () => {
         const missionIds = mRows.map((m) => m.id);
         const { data: assignRows } = await (supabase
           .from('mission_assignments' as any)
-          .select('id, status, delivery_url, delivered_at, mission_id, explorer_id')
+          .select('id, status, delivery_url, delivered_at, started_at, mission_id, explorer_id, review_note')
           .in('mission_id', missionIds) as any);
         const assigns = assignRows || [];
         const explorerIds = [...new Set(assigns.map((a: any) => a.explorer_id))];
@@ -174,15 +178,40 @@ const CompanyDashboard = () => {
           id: a.id, status: a.status, user_id: a.explorer_id, mission_id: a.mission_id,
           explorerName: explorerMap.get(a.explorer_id) || 'Explorer',
         })));
+
+        // Presented deliveries — admin curated and now waiting for company
+        // to pick the winner. We grab the rich row including delivery_url
+        // and timing data so the comparison UI doesn't need an extra hop.
+        const presented = assigns.filter((a: any) => a.status === 'presented');
+        const presentedByMission = new Map<string, any[]>();
+        presented.forEach((a: any) => {
+          const arr = presentedByMission.get(a.mission_id) || [];
+          arr.push({
+            id: a.id,
+            status: a.status,
+            mission_id: a.mission_id,
+            delivery_url: a.delivery_url,
+            delivered_at: a.delivered_at,
+            review_note: a.review_note,
+            explorer_id: a.explorer_id,
+            explorerName: explorerMap.get(a.explorer_id) || 'Explorer',
+            missionTitle: missionMap.get(a.mission_id)?.title || 'Mission',
+            missionReward: Number(missionMap.get(a.mission_id)?.reward || 0),
+            projectTitle: projectMap.get(missionMap.get(a.mission_id)?.project_id || '') || 'Project',
+          });
+        });
+        setPresentedDeliveries(Array.from(presentedByMission.values()).flat());
       } else {
         setDeliveries([]);
         setApplications([]);
+        setPresentedDeliveries([]);
       }
     } else {
       setMissions([]);
       setDeliveries([]);
       setApplications([]);
       setInvestorOffers([]);
+      setPresentedDeliveries([]);
     }
     setLoading(false);
   };
@@ -207,6 +236,43 @@ const CompanyDashboard = () => {
       toast.error(err.message || 'Error');
     } finally {
       setReviewingId(null);
+    }
+  };
+
+  const handlePickWinner = async (assignmentId: string) => {
+    if (!window.confirm(isEs
+      ? '¿Aprobar esta entrega? Las otras presentadas para la misma misión pasan a "no seleccionadas" y los explorers reciben la notificación.'
+      : 'Approve this delivery? The other presented ones for the same mission will be marked "not selected" and those explorers will be notified.'
+    )) return;
+    setPickingId(assignmentId);
+    try {
+      const { error } = await supabase.rpc('company_pick_winner', { _assignment_id: assignmentId });
+      if (error) throw error;
+      toast.success(isEs ? 'Entrega aprobada — GOPHORA va a liberar los fondos' : 'Delivery approved — GOPHORA will release the funds');
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Error');
+    } finally {
+      setPickingId(null);
+    }
+  };
+
+  const handleRejectRound = async (missionId: string) => {
+    if (!rejectRoundReason.trim() || rejectRoundReason.trim().length < 5) {
+      toast.error(isEs ? 'Escribí al menos 5 caracteres explicando por qué no te sirve esta ronda.' : 'Write at least 5 characters explaining why this round does not work.');
+      return;
+    }
+    setRejectingMissionId(missionId);
+    try {
+      const { error } = await supabase.rpc('company_reject_round', { _mission_id: missionId, _reason: rejectRoundReason.trim() });
+      if (error) throw error;
+      toast.success(isEs ? 'Ronda rechazada — GOPHORA va a curar otra' : 'Round rejected — GOPHORA will curate another');
+      setRejectRoundReason('');
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Error');
+    } finally {
+      setRejectingMissionId(null);
     }
   };
 
@@ -454,6 +520,120 @@ const CompanyDashboard = () => {
             </div>
           </motion.div>
         )}
+
+        {/* Deliveries presented for company review (curated by admin) */}
+        {presentedDeliveries.length > 0 && (() => {
+          // Group by mission so the company sees side-by-side comparison
+          const groups = new Map<string, any[]>();
+          presentedDeliveries.forEach((d: any) => {
+            const arr = groups.get(d.mission_id) || [];
+            arr.push(d);
+            groups.set(d.mission_id, arr);
+          });
+          return (
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}
+              className="rounded-xl border border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-transparent p-5">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-blue-500" />
+                  <h2 className="font-heading font-bold text-sm">
+                    {isEs ? 'Entregables para revisar' : 'Deliveries for review'}
+                  </h2>
+                  <span className="text-[10px] font-heading font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-500 text-white">
+                    {presentedDeliveries.length} {isEs ? 'entregables' : 'deliveries'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground font-body italic">
+                  {isEs
+                    ? 'GOPHORA curó estos. Elegí cuál te sirve — los otros explorers reciben "no seleccionada".'
+                    : 'GOPHORA curated these. Pick the one that works — the others get "not selected".'}
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                {Array.from(groups.entries()).map(([missionId, items]) => (
+                  <div key={missionId} className="rounded-lg border border-border/50 bg-card overflow-hidden">
+                    <div className="px-4 py-3 border-b border-border/50 bg-muted/30 flex items-center justify-between flex-wrap gap-2">
+                      <div>
+                        <p className="font-heading font-semibold text-sm">{items[0]?.missionTitle}</p>
+                        <p className="text-[11px] text-muted-foreground font-body">{items[0]?.projectTitle}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground font-heading uppercase tracking-wider">{isEs ? 'Recompensa' : 'Reward'}</p>
+                        <p className="text-base font-heading font-bold text-primary">${Number(items[0]?.missionReward || 0).toLocaleString()}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
+                      {items.map((d: any, i: number) => (
+                        <div key={d.id} className="rounded-lg border border-border/40 bg-muted/20 p-3 flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="h-7 w-7 rounded-full bg-blue-500/15 flex items-center justify-center text-[11px] font-heading font-bold text-blue-500 shrink-0">
+                              {i + 1}
+                            </span>
+                            <p className="font-heading font-semibold text-xs truncate">{d.explorerName}</p>
+                          </div>
+                          {d.delivery_url && (
+                            <a
+                              href={d.delivery_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[11px] text-blue-500 hover:underline font-heading break-all flex items-center gap-1"
+                            >
+                              <ExternalLink className="h-3 w-3 shrink-0" />
+                              {isEs ? 'Ver entregable' : 'Open delivery'}
+                            </a>
+                          )}
+                          {d.delivered_at && (
+                            <p className="text-[10px] text-muted-foreground font-body">
+                              {isEs ? 'Entregado: ' : 'Delivered: '}
+                              {new Date(d.delivered_at).toLocaleString(isEs ? 'es' : 'en', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          )}
+                          <Button
+                            size="sm"
+                            className="mt-auto bg-green-600 hover:bg-green-700 text-white gap-1 text-xs"
+                            disabled={pickingId === d.id}
+                            onClick={() => handlePickWinner(d.id)}
+                          >
+                            <CheckCircle className="h-3 w-3" />
+                            {pickingId === d.id ? (isEs ? 'Aprobando…' : 'Approving…') : (isEs ? 'Aprobar este' : 'Approve this')}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Reject all (force another curation round) */}
+                    <div className="border-t border-border/40 p-3 bg-muted/10 space-y-2">
+                      <p className="text-[10px] font-heading font-bold uppercase tracking-widest text-muted-foreground">
+                        {isEs ? '¿Ninguno te sirve?' : "None of these work?"}
+                      </p>
+                      <div className="flex gap-2 flex-wrap">
+                        <input
+                          type="text"
+                          placeholder={isEs ? 'Decile a GOPHORA por qué (mín. 5 chars)…' : "Tell GOPHORA why (min 5 chars)…"}
+                          value={rejectingMissionId === missionId ? rejectRoundReason : ''}
+                          onChange={(e) => { setRejectingMissionId(missionId); setRejectRoundReason(e.target.value); }}
+                          onFocus={() => setRejectingMissionId(missionId)}
+                          className="flex-1 min-w-[220px] rounded-md border border-border/50 bg-background px-2.5 py-1.5 text-xs"
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive border-destructive/30 hover:bg-destructive/10 gap-1 text-xs"
+                          onClick={() => handleRejectRound(missionId)}
+                        >
+                          <XCircle className="h-3 w-3" />
+                          {isEs ? 'Rechazar ronda' : 'Reject round'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          );
+        })()}
 
         {/* Investor offers received */}
         {investorOffers.length > 0 && (

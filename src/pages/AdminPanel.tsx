@@ -51,6 +51,8 @@ const AdminPanel = () => {
   const [selectedRelease, setSelectedRelease] = useState<any>(null);
   const [rejectFeedback, setRejectFeedback] = useState('');
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [selectedForCuration, setSelectedForCuration] = useState<Record<string, string[]>>({});
+  const [presentingMissionId, setPresentingMissionId] = useState<string | null>(null);
 
   // Courses management state
   const [adminCourses, setAdminCourses] = useState<any[]>([]);
@@ -166,6 +168,11 @@ const AdminPanel = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      // Auto-expire any 72h-overdue assignments before pulling state. The
+      // pg_cron job runs hourly but admin reloads should reflect "now"
+      // accurately, hence the manual sweep on every load.
+      try { await supabase.rpc('expire_overdue_assignments'); } catch { /* non-fatal */ }
+
       const [statsData, usersData, projectsData, missionsData, releasesData, withdrawalsData, paymentsData, coursesData, pathsData, tutorData] = await Promise.all([
         adminCall('get_stats'), adminCall('get_users'), adminCall('get_projects'),
         adminCall('get_missions'), adminCall('get_pending_releases'),
@@ -741,13 +748,15 @@ const AdminPanel = () => {
           {/* ── MISSIONS TAB ── */}
           {activeTab === 'Missions' && (
             <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
-              <div className="flex items-center gap-3 p-4 border-b border-border/50 bg-muted/30">
+              <div className="flex items-center gap-3 p-4 border-b border-border/50 bg-muted/30 flex-wrap">
                 <span className="text-xs font-heading uppercase tracking-wider text-muted-foreground">Filtro:</span>
                 {[
                   { value: 'pending', label: 'Pendientes' },
                   { value: 'active', label: 'Activas' },
+                  { value: 'curate', label: 'Para Curar' },
                   { value: 'completed', label: 'Completadas' },
                   { value: 'rejected', label: 'Rechazadas' },
+                  { value: 'archived', label: 'Archivadas' },
                   { value: 'all', label: 'Todas' },
                 ].map(f => (
                   <Button key={f.value} variant={missionFilter === f.value ? 'default' : 'outline'} size="sm"
@@ -771,9 +780,15 @@ const AdminPanel = () => {
                     {missions
                       .filter(m => {
                         if (missionFilter === 'pending') return m.status === 'pending';
-                        if (missionFilter === 'active') return ['open', 'approved'].includes(m.status);
+                        if (missionFilter === 'active') return ['open', 'approved', 'in_progress'].includes(m.status);
+                        if (missionFilter === 'curate') {
+                          // Missions that have at least one submitted assignment
+                          // waiting to be curated → admin should look at these.
+                          return pendingReleases.some((r: any) => r.status === 'submitted' && r.missionTitle === m.title);
+                        }
                         if (missionFilter === 'completed') return m.status === 'completed';
                         if (missionFilter === 'rejected') return m.status === 'rejected';
+                        if (missionFilter === 'archived') return m.status === 'archived';
                         return true;
                       })
                       .map(m => (
@@ -795,21 +810,45 @@ const AdminPanel = () => {
                             <td className="p-4">{statusBadge(m.projects?.payment_status || 'unpaid')}</td>
                             <td className="p-4">{statusBadge(m.status)}</td>
                             <td className="p-4" onClick={e => e.stopPropagation()}>
-                              {(m.status === 'open' || m.status === 'pending') && (
-                                <div className="flex gap-2">
-                                  <Button variant="ghost" size="sm" className="text-xs font-heading text-green-500 gap-1"
-                                    onClick={() => handleApproveMission(m.id)} disabled={m.projects?.payment_status !== 'paid'}
-                                    title={m.projects?.payment_status !== 'paid' ? 'El proyecto debe estar pagado' : 'Aprobar misión'}>
-                                    <CheckCircle className="h-3 w-3" /> Aprobar
+                              <div className="flex gap-2 flex-wrap">
+                                {(m.status === 'open' || m.status === 'pending') && (
+                                  <>
+                                    <Button variant="ghost" size="sm" className="text-xs font-heading text-green-500 gap-1"
+                                      onClick={() => handleApproveMission(m.id)} disabled={m.projects?.payment_status !== 'paid'}
+                                      title={m.projects?.payment_status !== 'paid' ? 'El proyecto debe estar pagado' : 'Aprobar misión'}>
+                                      <CheckCircle className="h-3 w-3" /> Aprobar
+                                    </Button>
+                                    <Button variant="ghost" size="sm" className="text-xs font-heading text-destructive gap-1" onClick={() => handleRejectMission(m.id)}>
+                                      <XCircle className="h-3 w-3" /> Rechazar
+                                    </Button>
+                                  </>
+                                )}
+                                {m.status === 'approved' && <span className="text-xs text-green-500 font-heading">✓ Aprobada</span>}
+                                {m.status === 'rejected' && <span className="text-xs text-destructive font-heading">✗ Rechazada</span>}
+                                {m.status === 'completed' && <span className="text-xs text-muted-foreground font-heading">✓ Completada</span>}
+                                {m.status === 'archived' && <span className="text-xs text-muted-foreground font-heading">📦 Archivada</span>}
+                                {m.status !== 'archived' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-xs font-heading text-muted-foreground hover:text-destructive gap-1"
+                                    title="Archivar misión (la saca del marketplace, conserva histórico)"
+                                    onClick={async () => {
+                                      if (!window.confirm(`¿Archivar la misión "${m.title}"? Saldrá del marketplace, los assignments activos pasan a expirados, pero los pagos liberados se conservan.`)) return;
+                                      try {
+                                        const { error } = await supabase.rpc('archive_mission', { _mission_id: m.id });
+                                        if (error) throw error;
+                                        toast.success('Misión archivada');
+                                        loadData();
+                                      } catch (err: any) {
+                                        toast.error(err.message);
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="h-3 w-3" /> Archivar
                                   </Button>
-                                  <Button variant="ghost" size="sm" className="text-xs font-heading text-destructive gap-1" onClick={() => handleRejectMission(m.id)}>
-                                    <XCircle className="h-3 w-3" /> Rechazar
-                                  </Button>
-                                </div>
-                              )}
-                              {m.status === 'approved' && <span className="text-xs text-green-500 font-heading">✓ Aprobada</span>}
-                              {m.status === 'rejected' && <span className="text-xs text-destructive font-heading">✗ Rechazada</span>}
-                              {m.status === 'completed' && <span className="text-xs text-muted-foreground font-heading">✓ Completada</span>}
+                                )}
+                              </div>
                             </td>
                           </tr>
                           {expandedMission === m.id && (
@@ -841,6 +880,116 @@ const AdminPanel = () => {
                                       <p className="text-sm font-body mt-1">{m.description}</p>
                                     </div>
                                   )}
+
+                                  {/* Curation panel: list submitted assignments for this mission */}
+                                  {(() => {
+                                    const submitted = pendingReleases.filter((r: any) => r.missionTitle === m.title && r.status === 'submitted');
+                                    const presented = pendingReleases.filter((r: any) => r.missionTitle === m.title && r.status === 'presented');
+                                    if (submitted.length === 0 && presented.length === 0) return null;
+                                    return (
+                                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+                                        <h5 className="font-heading font-bold text-sm flex items-center gap-2">
+                                          <Eye className="h-4 w-4 text-amber-500" />
+                                          Curación de entregables
+                                          <span className="ml-auto text-[10px] font-body text-muted-foreground">
+                                            Ronda {m.present_attempts || 0}/{m.max_present_attempts || 3}
+                                          </span>
+                                        </h5>
+                                        <p className="text-[11px] text-muted-foreground font-body">
+                                          Seleccioná hasta 4 entregas y presentalas a la empresa. La empresa elige una, las otras quedan como "no seleccionadas".
+                                        </p>
+
+                                        {presented.length > 0 && (
+                                          <div className="rounded-md border border-blue-500/30 bg-blue-500/5 p-2.5">
+                                            <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-blue-500 mb-1">
+                                              {presented.length} entregable(s) ya presentado(s) — esperando decisión de la empresa
+                                            </p>
+                                            <div className="text-[11px] space-y-0.5">
+                                              {presented.map((p: any) => (
+                                                <div key={p.id} className="flex items-center justify-between">
+                                                  <span className="font-body truncate">{p.explorerName || p.explorerEmail}</span>
+                                                  <a href={p.delivery_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline ml-2 shrink-0">Ver</a>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {submitted.length > 0 && (
+                                          <div className="space-y-2">
+                                            {submitted.map((r: any) => {
+                                              const checked = (selectedForCuration[m.id] || []).includes(r.id);
+                                              return (
+                                                <label key={r.id} className={`flex items-center gap-3 p-2.5 rounded-md border cursor-pointer transition-colors ${checked ? 'border-amber-500/60 bg-amber-500/10' : 'border-border/40 hover:border-amber-500/30'}`}>
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={(e) => {
+                                                      setSelectedForCuration((prev) => {
+                                                        const cur = prev[m.id] || [];
+                                                        if (e.target.checked) {
+                                                          if (cur.length >= 4) {
+                                                            toast.error('Máximo 4 entregables por ronda');
+                                                            return prev;
+                                                          }
+                                                          return { ...prev, [m.id]: [...cur, r.id] };
+                                                        } else {
+                                                          return { ...prev, [m.id]: cur.filter((x) => x !== r.id) };
+                                                        }
+                                                      });
+                                                    }}
+                                                    className="h-4 w-4 accent-amber-500"
+                                                  />
+                                                  <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-heading font-semibold truncate">{r.explorerName || r.explorerEmail}</p>
+                                                    <p className="text-[10px] text-muted-foreground font-body truncate">{r.explorerEmail}</p>
+                                                  </div>
+                                                  {r.delivery_url && (
+                                                    <a href={r.delivery_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                                                      className="text-[11px] text-primary hover:underline font-heading shrink-0">
+                                                      Ver entrega →
+                                                    </a>
+                                                  )}
+                                                </label>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+
+                                        {submitted.length > 0 && (
+                                          <div className="flex items-center gap-2 pt-1 border-t border-amber-500/20">
+                                            <Button
+                                              size="sm"
+                                              className="bg-amber-500 hover:bg-amber-600 text-white gap-1 text-xs"
+                                              disabled={(selectedForCuration[m.id] || []).length === 0 || presentingMissionId === m.id}
+                                              onClick={async () => {
+                                                const ids = selectedForCuration[m.id] || [];
+                                                if (ids.length === 0) return;
+                                                setPresentingMissionId(m.id);
+                                                try {
+                                                  const { error } = await supabase.rpc('present_assignments_to_company', { _mission_id: m.id, _assignment_ids: ids });
+                                                  if (error) throw error;
+                                                  toast.success(`${ids.length} entregable(s) presentado(s) a la empresa`);
+                                                  setSelectedForCuration((p) => ({ ...p, [m.id]: [] }));
+                                                  loadData();
+                                                } catch (err: any) {
+                                                  toast.error(err.message);
+                                                } finally {
+                                                  setPresentingMissionId(null);
+                                                }
+                                              }}
+                                            >
+                                              <ArrowRight className="h-3 w-3" />
+                                              Presentar {((selectedForCuration[m.id] || []).length) || ''} a empresa
+                                            </Button>
+                                            <span className="text-[10px] text-muted-foreground font-body">
+                                              {(selectedForCuration[m.id] || []).length}/4 seleccionados
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               </td>
                             </tr>
